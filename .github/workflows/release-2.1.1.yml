@@ -52,17 +52,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100"             --jq '.[] | select(.tag_name=="2.1.1" and .draft==true) | .id' | head -n 1)"
+          RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.tag_name=="2.1.1" and .draft==true) | .id' | head -n 1)"
 
           if [ -z "$RELEASE_ID" ]; then
             echo "Draft release 2.1.1 was not found."
             exit 1
           fi
 
-          APK_COUNT="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets"             --jq '[.[] | select(.name=="dr-accesorios-rd.apk")] | length')"
+          APK_COUNT="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '[.[] | select(.name=="dr-accesorios-rd.apk")] | length')"
 
           if [ "$APK_COUNT" -ne 1 ]; then
             echo "Expected exactly one dr-accesorios-rd.apk asset; found $APK_COUNT."
+            exit 1
+          fi
+
+          APK_DIGEST="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '.[] | select(.name=="dr-accesorios-rd.apk") | .digest')"
+          EXPECTED_DIGEST="sha256:a1fec3d0cffaca718fe4e1a3826d3baaf32699ebbf1de5fb51ec0fde82b3d136"
+
+          if [ "$APK_DIGEST" != "$EXPECTED_DIGEST" ]; then
+            echo "APK digest mismatch."
+            echo "Expected: $EXPECTED_DIGEST"
+            echo "Found:    $APK_DIGEST"
             exit 1
           fi
 
@@ -75,7 +85,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${{ steps.release.outputs.id }}"             -F draft=false             -F prerelease=false             -f make_latest=true
+          gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${{ steps.release.outputs.id }}" -F draft=false -F prerelease=false -f make_latest=true
 
       - name: Verify permanent APK URL
         if: steps.gate.outputs.proceed == 'true'
@@ -103,7 +113,7 @@ jobs:
           mkdir -p public
 
           # Preserve the legacy Firebase-hosted APK if it still exists.
-          if ! curl --fail --silent --show-error --location             "https://dr-accesorios-rd.web.app/dr-accesorios-rd.apk"             -o public/dr-accesorios-rd.apk; then
+          if ! curl --fail --silent --show-error --location "https://dr-accesorios-rd.web.app/dr-accesorios-rd.apk" -o public/dr-accesorios-rd.apk; then
             rm -f public/dr-accesorios-rd.apk
           fi
 
@@ -113,13 +123,7 @@ jobs:
             "versionName": "2.1.1",
             "forceUpdate": false,
             "downloadUrl": "https://github.com/ariellourdes52-collab/dr-accesorios-rd-updates/releases/latest/download/dr-accesorios-rd.apk",
-            "changelog": "💬 Comentarios, respuestas y likes
-🔔 Notificaciones sociales integradas
-🏠 Conversaciones activas en el inicio nativo
-🌐 Comentarios sincronizados entre la app y Blogger
-📊 Mejoras de Analytics y origen del tráfico
-🎨 Versión automática en la pantalla de inicio
-⚡ Mejoras generales de estabilidad"
+            "changelog": "💬 Comentarios, respuestas y likes\n🔔 Notificaciones sociales integradas\n🏠 Conversaciones activas en el inicio nativo\n🌐 Comentarios sincronizados entre la app y Blogger\n📊 Mejoras de Analytics y origen del tráfico\n🎨 Versión automática en la pantalla de arranque\n⚡ Mejoras generales de estabilidad"
           }
           JSON
 

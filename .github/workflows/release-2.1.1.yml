@@ -1,0 +1,241 @@
+name: Release DR Accesorios RD 2.1.1
+
+on:
+  schedule:
+    # 2026-11-05 00:00 UTC = 2026-11-04 20:00 America/Santo_Domingo
+    - cron: '0 0 5 11 *'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RELEASE-2.1.1 to run manually'
+        required: true
+        default: 'NO'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dr-accesorios-rd-release-2-1-1
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Release date safety gate
+        id: gate
+        shell: bash
+        run: |
+          proceed=false
+
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y-%m-%d)" = "2026-11-05" ]; then
+            proceed=true
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.confirm }}" = "RELEASE-2.1.1" ]; then
+            proceed=true
+          fi
+
+          echo "proceed=$proceed" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        if: steps.gate.outputs.proceed == 'true'
+        uses: actions/checkout@v4
+
+      - name: Verify draft release and APK
+        if: steps.gate.outputs.proceed == 'true'
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100"             --jq '.[] | select(.tag_name=="2.1.1" and .draft==true) | .id' | head -n 1)"
+
+          if [ -z "$RELEASE_ID" ]; then
+            echo "Draft release 2.1.1 was not found."
+            exit 1
+          fi
+
+          APK_COUNT="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets"             --jq '[.[] | select(.name=="dr-accesorios-rd.apk")] | length')"
+
+          if [ "$APK_COUNT" -ne 1 ]; then
+            echo "Expected exactly one dr-accesorios-rd.apk asset; found $APK_COUNT."
+            exit 1
+          fi
+
+          echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release 2.1.1 as latest
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${{ steps.release.outputs.id }}"             -F draft=false             -F prerelease=false             -f make_latest=true
+
+      - name: Verify permanent APK URL
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/dr-accesorios-rd.apk"
+
+          for attempt in {1..18}; do
+            if curl --fail --silent --location --head "$URL" > /dev/null; then
+              echo "APK URL is live."
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "The permanent APK URL did not become available."
+          exit 1
+
+      - name: Prepare Firebase Hosting payload
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public
+
+          # Preserve the legacy Firebase-hosted APK if it still exists.
+          if ! curl --fail --silent --show-error --location             "https://dr-accesorios-rd.web.app/dr-accesorios-rd.apk"             -o public/dr-accesorios-rd.apk; then
+            rm -f public/dr-accesorios-rd.apk
+          fi
+
+          cat > public/version.json <<'JSON'
+          {
+            "versionCode": 13,
+            "versionName": "2.1.1",
+            "forceUpdate": false,
+            "downloadUrl": "https://github.com/ariellourdes52-collab/dr-accesorios-rd-updates/releases/latest/download/dr-accesorios-rd.apk",
+            "changelog": "💬 Comentarios, respuestas y likes
+🔔 Notificaciones sociales integradas
+🏠 Conversaciones activas en el inicio nativo
+🌐 Comentarios sincronizados entre la app y Blogger
+📊 Mejoras de Analytics y origen del tráfico
+🎨 Versión automática en la pantalla de inicio
+⚡ Mejoras generales de estabilidad"
+          }
+          JSON
+
+          cat > firebase.json <<'JSON'
+          {
+            "hosting": {
+              "public": "public",
+              "ignore": [
+                "firebase.json",
+                "**/.*",
+                "**/node_modules/**"
+              ],
+              "headers": [
+                {
+                  "source": "/version.json",
+                  "headers": [
+                    {
+                      "key": "Cache-Control",
+                      "value": "no-cache, no-store, must-revalidate"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          JSON
+
+      - name: Deploy version 2.1.1 to Firebase Hosting
+        if: steps.gate.outputs.proceed == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+          channelId: live
+          projectId: dr-accesorios-rd
+
+      - name: Verify live version.json
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://dr-accesorios-rd.web.app/version.json?ts=$(date +%s)"
+          LIVE_JSON="$(curl --fail --silent --show-error --location "$URL")"
+          echo "$LIVE_JSON"
+
+          echo "$LIVE_JSON" | grep -q '"versionCode": 13'
+          echo "$LIVE_JSON" | grep -q '"versionName": "2.1.1"'
+
+          echo "DR Accesorios RD 2.1.1 is live."
+
+      - name: Send FCM update notification
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m pip install --disable-pip-version-check --quiet google-auth requests
+
+          python - <<'PY'
+          import json
+          import os
+          import requests
+
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import Request
+
+          project_id = "dr-accesorios-rd"
+          topic = "blog_updates"
+
+          service_account_info = json.loads(
+              os.environ["FIREBASE_SERVICE_ACCOUNT"]
+          )
+
+          credentials = service_account.Credentials.from_service_account_info(
+              service_account_info,
+              scopes=[
+                  "https://www.googleapis.com/auth/firebase.messaging"
+              ]
+          )
+          credentials.refresh(Request())
+
+          endpoint = (
+              f"https://fcm.googleapis.com/v1/projects/"
+              f"{project_id}/messages:send"
+          )
+
+          payload = {
+              "message": {
+                  "topic": topic,
+                  "android": {
+                      "priority": "high",
+                      "ttl": "86400s"
+                  },
+                  "data": {
+                      "type": "app_update",
+                      "versionCode": "13",
+                      "versionName": "2.1.1"
+                  }
+              }
+          }
+
+          response = requests.post(
+              endpoint,
+              headers={
+                  "Authorization": f"Bearer {credentials.token}",
+                  "Content-Type": "application/json; UTF-8"
+              },
+              data=json.dumps(payload),
+              timeout=30
+          )
+
+          print("FCM HTTP:", response.status_code)
+          print(response.text)
+          response.raise_for_status()
+          PY
+
+          echo "FCM app_update sent to blog_updates."

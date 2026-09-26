@@ -46,6 +46,10 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         uses: actions/checkout@v4
 
+      - name: Verify legacy 1.6/1.7 campaigns are scheduled
+        if: steps.gate.outputs.proceed == 'true'
+        run: python scripts/verify_legacy_campaign_gate.py config/legacy-update-campaigns-1.8.json
+
       - name: Prepare update metadata and dependencies
         if: steps.gate.outputs.proceed == 'true'
         shell: bash
@@ -149,15 +153,14 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         run: python scripts/send_update_notifications.py --version-code 9 --version-name 1.8 --legacy-max-version-code 14
 
-      - name: Legacy 1.6/1.7 delivery reminder
+      - name: Confirm legacy 1.6/1.7 campaign protection
         if: steps.gate.outputs.proceed == 'true'
         shell: bash
         run: |
-          echo "::warning::Versions 1.6 and 1.7 are not covered by the Firestore registry. Send the two Firebase Notifications composer campaigns targeted strictly by App version after this release. See docs/legacy-update-delivery.md."
           {
-            echo "### Legacy update delivery still required"
+            echo "### Legacy update delivery protected"
             echo ""
-            echo "Versions **1.6** and **1.7** must receive separate Firebase Notifications composer campaigns targeted strictly by **App version**."
+            echo "Firebase Notifications composer campaigns for **1.6** and **1.7** were required by the pre-release gate."
             echo ""
-            echo "Follow `docs/legacy-update-delivery.md`. Do not use a notification payload on the shared `blog_updates` topic."
+            echo "They are configured as notification-only and targeted strictly by **App version**, scheduled for **2026-09-30 20:30 America/Santo_Domingo**."
           } >> "$GITHUB_STEP_SUMMARY"

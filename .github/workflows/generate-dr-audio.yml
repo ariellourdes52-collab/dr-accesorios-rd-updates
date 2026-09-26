@@ -5,9 +5,9 @@ on:
     # República Dominicana = UTC-4 todo el año.
     # Revisión automática cada 10 minutos, desplazada 3 min del cambio de decena
     # para reducir la posibilidad de retrasos por carga alta en GitHub Actions.
+    # No se hace backfill automático: las 10 solicitudes diarias de Gemini TTS
+    # quedan reservadas prioritariamente para noticias nuevas.
     - cron: '3,13,23,33,43,53 * * * *'
-    # Una ejecución diaria independiente para rellenar 1 audio histórico.
-    - cron: '15 23 * * *'
   workflow_dispatch:
     inputs:
       confirm:
@@ -64,13 +64,9 @@ jobs:
 
           BACKFILL=0
 
-          if [[ "$EVENT_NAME" == "schedule" ]]; then
-            # La revisión de cada 10 minutos solo protege/genera noticias nuevas.
-            # La ejecución diaria de las 19:15 AST rellena 1 artículo histórico.
-            if [[ "$EVENT_SCHEDULE" == "15 23 * * *" ]]; then
-              BACKFILL=1
-            fi
-          else
+          if [[ "$EVENT_NAME" != "schedule" ]]; then
+            # El backfill queda disponible solo de forma manual.
+            # Las ejecuciones programadas reservan toda la cuota para noticias nuevas.
             BACKFILL="${MANUAL_BACKFILL:-0}"
           fi
 
@@ -109,5 +105,5 @@ jobs:
           print("")
           print(f"Oldest entries pruned this run: **{data.get('prunedCount', 0)}**")
           print("")
-          print("Newest five are always protected. Historical backfill is quota-capped.")
+          print("Newest five are always protected. Automatic historical backfill is paused to reserve Gemini TTS daily quota for new articles.")
           PY

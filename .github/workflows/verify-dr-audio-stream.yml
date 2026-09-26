@@ -1,0 +1,54 @@
+name: Verify DR Audio stream
+
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-dr-audio-stream.yml'
+      - 'scripts/generate_shared_dr_audio.py'
+      - 'scripts/deploy_shared_dr_audio.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify public catalog and first audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess, urllib.request
+          index_url="https://dr-accesorios-rd.web.app/dr-audio/index.json"
+          req=urllib.request.Request(index_url, headers={"User-Agent":"DR-Audio-Verify/1.0","Cache-Control":"no-cache"})
+          with urllib.request.urlopen(req, timeout=30) as r:
+              body=r.read()
+              print("INDEX_STATUS", r.status)
+              print("INDEX_CONTENT_TYPE", r.headers.get("Content-Type"))
+              print("INDEX_CONTENT_ENCODING", r.headers.get("Content-Encoding"))
+              print("INDEX_LENGTH", len(body))
+          index=json.loads(body)
+          entries=index.get("entries") or []
+          if not entries:
+              raise SystemExit("No entries in catalog")
+          url=entries[0]["audioUrl"]
+          print("AUDIO_URL", url)
+          req=urllib.request.Request(url, method="HEAD", headers={"User-Agent":"DR-Audio-Verify/1.0"})
+          with urllib.request.urlopen(req, timeout=30) as r:
+              print("AUDIO_HEAD_STATUS", r.status)
+              print("AUDIO_CONTENT_TYPE", r.headers.get("Content-Type"))
+              print("AUDIO_CONTENT_LENGTH", r.headers.get("Content-Length"))
+              print("AUDIO_ACCEPT_RANGES", r.headers.get("Accept-Ranges"))
+              print("AUDIO_CONTENT_ENCODING", r.headers.get("Content-Encoding"))
+          urllib.request.urlretrieve(url, "/tmp/dr-audio.m4a")
+          subprocess.run(["ls","-lh","/tmp/dr-audio.m4a"], check=True)
+          subprocess.run(["file","/tmp/dr-audio.m4a"], check=True)
+          subprocess.run([
+              "ffprobe","-v","error","-show_entries",
+              "format=format_name,duration,size,bit_rate:stream=codec_name,codec_type,sample_rate,channels",
+              "-of","json","/tmp/dr-audio.m4a"
+          ], check=True)
+          PY

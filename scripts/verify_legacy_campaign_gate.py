@@ -99,8 +99,10 @@ def main() -> None:
     require(delay >= MIN_DELAY_SECONDS, "campaign must be at least 15 minutes after release")
     require(delay <= MAX_DELAY_SECONDS, "campaign must be within 2 hours after release")
 
-    campaign_name = str(campaign.get("firebaseCampaignName") or "").strip()
-    require(campaign_name, "record the Firebase campaign name after scheduling it")
+    require(
+        campaign.get("confirmationSource") == "manual_firebase_console",
+        "confirmationSource must be manual_firebase_console after scheduling in Firebase",
+    )
     require(
         campaign.get("confirmedScheduled") is True,
         "confirmedScheduled must be true only after the Firebase campaign is scheduled",

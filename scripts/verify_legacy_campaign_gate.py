@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Fail closed unless the two legacy Firebase Composer campaigns are scheduled.
+"""Fail closed unless the combined Firebase legacy campaign is scheduled.
 
-This gate protects the 1.8 release. Versions 1.6 and 1.7 predate the Firestore
-installation registry, so they must receive notification-only campaigns
-segmented by exact App version in Firebase Notifications composer.
+Release 1.8 is protected by one notification-only Firebase Notifications
+Composer campaign targeted to exactly App versions 1.6 and 1.7.
 """
 
 from __future__ import annotations
@@ -32,7 +31,9 @@ def parse_utc(value: str) -> datetime:
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
     except ValueError as exc:
-        raise SystemExit(f"LEGACY CAMPAIGN GATE BLOCKED: invalid timestamp {value!r}") from exc
+        raise SystemExit(
+            f"LEGACY CAMPAIGN GATE BLOCKED: invalid timestamp {value!r}"
+        ) from exc
 
 
 def main() -> None:
@@ -55,57 +56,60 @@ def main() -> None:
 
     release_at = parse_utc(target.get("scheduledReleaseUtc", ""))
 
-    campaigns = data.get("legacyCampaigns")
-    require(isinstance(campaigns, list) and len(campaigns) == 2, "exactly two legacy campaigns are required")
+    campaign = data.get("legacyCampaign")
+    require(isinstance(campaign, dict), "legacyCampaign object is required")
 
-    seen_sources: set[str] = set()
+    source_versions = campaign.get("sourceVersions")
+    require(
+        isinstance(source_versions, list)
+        and len(source_versions) == 2
+        and set(source_versions) == EXPECTED_SOURCES,
+        "sourceVersions must contain exactly 1.6 and 1.7",
+    )
 
-    for campaign in campaigns:
-        source = campaign.get("sourceVersion")
-        require(source in EXPECTED_SOURCES, f"unexpected source version: {source!r}")
-        require(source not in seen_sources, f"duplicate campaign for version {source}")
-        seen_sources.add(source)
+    segment = campaign.get("segment") or {}
+    require(segment.get("field") == "App version", "segment field must be App version")
+    require(segment.get("operator") == "equals", "segment operator must be equals")
 
-        segment = campaign.get("segment") or {}
-        require(segment.get("field") == "App version", f"{source}: segment field must be App version")
-        require(segment.get("operator") == "equals", f"{source}: segment operator must be equals")
-        require(segment.get("value") == source, f"{source}: segment must target only app version {source}")
+    values = segment.get("values")
+    require(
+        isinstance(values, list)
+        and len(values) == 2
+        and set(values) == EXPECTED_SOURCES,
+        "segment values must contain exactly 1.6 and 1.7",
+    )
 
-        notification = campaign.get("notification") or {}
-        require(notification.get("title") == EXPECTED_TITLE, f"{source}: unexpected notification title")
-        require(notification.get("body") == EXPECTED_BODY, f"{source}: unexpected notification body")
+    notification = campaign.get("notification") or {}
+    require(notification.get("title") == EXPECTED_TITLE, "unexpected notification title")
+    require(notification.get("body") == EXPECTED_BODY, "unexpected notification body")
 
-        custom_data = campaign.get("customData")
-        require(custom_data == {}, f"{source}: custom data must be empty for notification-only legacy delivery")
+    custom_data = campaign.get("customData")
+    require(custom_data == {}, "custom data must be empty for notification-only legacy delivery")
 
-        delivery = campaign.get("delivery") or {}
-        require(delivery.get("ttlHours") == 24, f"{source}: TTL must be 24 hours")
-        require(delivery.get("sound") is True, f"{source}: sound must be enabled")
+    delivery = campaign.get("delivery") or {}
+    require(delivery.get("ttlHours") == 24, "TTL must be 24 hours")
+    require(delivery.get("sound") is True, "sound must be enabled")
+    require(
+        delivery.get("timezone") == "America/Santo_Domingo",
+        "timezone must be America/Santo_Domingo",
+    )
 
-        scheduled_at = parse_utc(delivery.get("scheduledUtc", ""))
-        delay = (scheduled_at - release_at).total_seconds()
-        require(delay >= MIN_DELAY_SECONDS, f"{source}: campaign must be at least 15 minutes after release")
-        require(delay <= MAX_DELAY_SECONDS, f"{source}: campaign must be within 2 hours after release")
+    scheduled_at = parse_utc(delivery.get("scheduledUtc", ""))
+    delay = (scheduled_at - release_at).total_seconds()
+    require(delay >= MIN_DELAY_SECONDS, "campaign must be at least 15 minutes after release")
+    require(delay <= MAX_DELAY_SECONDS, "campaign must be within 2 hours after release")
 
-        require(
-            delivery.get("timezone") == "America/Santo_Domingo",
-            f"{source}: timezone must be America/Santo_Domingo",
-        )
-
-        campaign_name = str(campaign.get("firebaseCampaignName") or "").strip()
-        require(campaign_name, f"{source}: record the Firebase campaign name after scheduling it")
-
-        require(
-            campaign.get("confirmedScheduled") is True,
-            f"{source}: confirmedScheduled must be true only after the Firebase campaign is scheduled",
-        )
-
-    require(seen_sources == EXPECTED_SOURCES, "campaigns must cover exactly versions 1.6 and 1.7")
+    campaign_name = str(campaign.get("firebaseCampaignName") or "").strip()
+    require(campaign_name, "record the Firebase campaign name after scheduling it")
+    require(
+        campaign.get("confirmedScheduled") is True,
+        "confirmedScheduled must be true only after the Firebase campaign is scheduled",
+    )
 
     print("Legacy campaign gate OK.")
     print("Target release: 1.8 (code 9)")
-    print("Protected source versions: 1.6, 1.7")
-    print("Delivery mode: notification-only, exact App version segments")
+    print("Protected source versions: 1.6 and 1.7")
+    print("Delivery mode: one notification-only exact-version campaign")
     print("Scheduled delivery: 2026-09-30 20:30 America/Santo_Domingo")
 
 

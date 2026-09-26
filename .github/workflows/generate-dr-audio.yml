@@ -1,0 +1,64 @@
+name: Generate shared DR Audio
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type GENERATE-DR-AUDIO to generate and publish the newest shared audio'
+        required: true
+        default: 'NO'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-accesorios-rd-production-release
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    if: inputs.confirm == 'GENERATE-DR-AUDIO'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install generator dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet \
+            google-genai google-auth requests beautifulsoup4
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+
+      - name: Generate only missing newest article audio
+        env:
+          GEMINI_API_KEY_DR_AUDIO: '${{ secrets.GEMINI_API_KEY_DR_AUDIO }}'
+        run: python scripts/generate_shared_dr_audio.py --output dr_audio_build
+
+      - name: Deploy DR Audio preserving all other Hosting files
+        env:
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+        run: python scripts/deploy_shared_dr_audio.py dr_audio_build
+
+      - name: Summary
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo '### DR Audio shared generation complete'
+            echo ''
+            echo 'Catalog: https://dr-accesorios-rd.web.app/dr-audio/index.json'
+            echo ''
+            echo 'Only missing/changed newest articles consume Gemini TTS generation.'
+          } >> "$GITHUB_STEP_SUMMARY"

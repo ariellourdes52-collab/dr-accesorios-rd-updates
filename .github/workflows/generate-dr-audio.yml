@@ -5,9 +5,12 @@ on:
     # República Dominicana = UTC-4 todo el año.
     # Revisión automática cada 10 minutos, desplazada 3 min del cambio de decena
     # para reducir la posibilidad de retrasos por carga alta en GitHub Actions.
-    # No se hace backfill automático: las 10 solicitudes diarias de Gemini TTS
-    # quedan reservadas prioritariamente para noticias nuevas.
+    # Las revisiones normales reservan la cuota para noticias nuevas.
     - cron: '3,13,23,33,43,53 * * * *'
+    # Intento oportunista de 1 audio histórico justo antes del reinicio diario
+    # de Gemini (medianoche de Los Ángeles). Se ejecuta a ambas horas posibles
+    # por el cambio DST y el propio workflow decide cuál corresponde ese día.
+    - cron: '50 6,7 * * *'
   workflow_dispatch:
     inputs:
       confirm:
@@ -63,10 +66,25 @@ jobs:
           set -euo pipefail
 
           BACKFILL=0
+          OPPORTUNISTIC=""
 
-          if [[ "$EVENT_NAME" != "schedule" ]]; then
-            # El backfill queda disponible solo de forma manual.
-            # Las ejecuciones programadas reservan toda la cuota para noticias nuevas.
+          if [[ "$EVENT_NAME" == "schedule" && "$EVENT_SCHEDULE" == "50 6,7 * * *" ]]; then
+            # Solo uno de estos dos horarios cae a las 23:50 en Los Ángeles
+            # (según horario de verano/invierno). Ese es el momento correcto
+            # para aprovechar una solicitud sobrante sin competir con noticias nuevas.
+            LA_HOUR="$(python - <<'PY'
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          print(datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%H"))
+          PY
+          )"
+
+            if [[ "$LA_HOUR" == "23" ]]; then
+              BACKFILL=1
+              OPPORTUNISTIC="--opportunistic-backfill"
+            fi
+
+          elif [[ "$EVENT_NAME" != "schedule" ]]; then
             BACKFILL="${MANUAL_BACKFILL:-0}"
           fi
 
@@ -76,11 +94,13 @@ jobs:
           fi
 
           echo "Historical backfill budget for this run: $BACKFILL"
+          echo "Opportunistic backfill mode: ${OPPORTUNISTIC:-off}"
 
           python scripts/generate_shared_dr_audio.py \
             --output dr_audio_build \
             --scan-posts 500 \
-            --backfill-count "$BACKFILL"
+            --backfill-count "$BACKFILL" \
+            $OPPORTUNISTIC
 
       - name: Deploy DR Audio preserving all other Hosting files
         env:
@@ -105,5 +125,5 @@ jobs:
           print("")
           print(f"Oldest entries pruned this run: **{data.get('prunedCount', 0)}**")
           print("")
-          print("Newest five are always protected. Automatic historical backfill is paused to reserve Gemini TTS daily quota for new articles.")
+          print("Newest five are always protected. One historical audio is attempted near the daily quota reset only when no new article needs generation; if Gemini has no spare daily request, it is skipped automatically.")
           PY

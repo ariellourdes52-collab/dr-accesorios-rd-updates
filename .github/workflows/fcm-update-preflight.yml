@@ -6,15 +6,15 @@ on:
       versionCode:
         description: 'Target versionCode to analyze'
         required: true
-        default: '14'
+        default: '15'
       versionName:
         description: 'Target versionName to analyze'
         required: true
-        default: '2.2'
+        default: '2.2.1'
       legacyMaxVersionCode:
-        description: 'Highest legacy versionCode (background fix starts at 14)'
+        description: 'Highest legacy versionCode (background fix starts at 15)'
         required: true
-        default: '13'
+        default: '14'
 
 permissions:
   contents: read

@@ -241,6 +241,7 @@ def main() -> None:
         default=DEFAULT_LEGACY_MAX_VERSION_CODE,
     )
     parser.add_argument("--ttl-seconds", type=int, default=DEFAULT_TTL_SECONDS)
+    parser.add_argument("--preflight", action="store_true")
     args = parser.parse_args()
 
     if args.version_code <= 0:
@@ -281,6 +282,10 @@ def main() -> None:
     print("Skipped current/newer:", skipped_current_or_newer)
     print("Skipped without FCM registration:", skipped_no_registration)
     print("Registered versions:", dict(sorted(versions.items())))
+
+    if args.preflight:
+        print("Preflight OK: Firestore registrations are readable; no FCM messages sent.")
+        return
 
     if not eligible:
         print("No eligible registered installations; nothing to send.")

@@ -74,7 +74,7 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/send_update_notifications.py --version-code 13 --version-name 2.1.1 --legacy-max-version-code 13 --preflight
+        run: python scripts/send_update_notifications.py --version-code 13 --version-name 2.1.1 --legacy-max-version-code 14 --preflight
 
       - name: Verify release and APK (draft or resumed publication)
         if: steps.gate.outputs.proceed == 'true'
@@ -151,4 +151,4 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/send_update_notifications.py --version-code 13 --version-name 2.1.1 --legacy-max-version-code 13
+        run: python scripts/send_update_notifications.py --version-code 13 --version-name 2.1.1 --legacy-max-version-code 14

@@ -3,9 +3,10 @@ name: Generate shared DR Audio
 on:
   schedule:
     # República Dominicana = UTC-4 todo el año.
-    # 09:15, 14:15 y 19:15 AST.
-    - cron: '15 13 * * *'
-    - cron: '15 18 * * *'
+    # Revisión automática cada 10 minutos, desplazada 3 min del cambio de decena
+    # para reducir la posibilidad de retrasos por carga alta en GitHub Actions.
+    - cron: '3,13,23,33,43,53 * * * *'
+    # Una ejecución diaria independiente para rellenar 1 audio histórico.
     - cron: '15 23 * * *'
   workflow_dispatch:
     inputs:
@@ -64,8 +65,8 @@ jobs:
           BACKFILL=0
 
           if [[ "$EVENT_NAME" == "schedule" ]]; then
-            # Only the evening run backfills one old article.
-            # Normal scheduled runs still generate any missing newest article.
+            # La revisión de cada 10 minutos solo protege/genera noticias nuevas.
+            # La ejecución diaria de las 19:15 AST rellena 1 artículo histórico.
             if [[ "$EVENT_SCHEDULE" == "15 23 * * *" ]]; then
               BACKFILL=1
             fi

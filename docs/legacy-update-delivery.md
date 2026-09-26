@@ -36,10 +36,14 @@ Use:
 - Delivery: Send now
 - Expires / TTL: 24 hours
 - Sound: enabled
-- Custom data:
-  - `type` = `app_update`
-  - `versionCode` = target versionCode
-  - `versionName` = target versionName
+- Custom data: **leave empty intentionally**
+
+The 1.6/1.7 campaign is notification-only. Its only job is to make Android
+display the update alert while the old APK is in the background. When the user
+taps it, the launcher opens and the update checker that already exists in those
+versions checks the live `version.json`. Avoiding custom `app_update` data
+also avoids invoking the old background update handler unnecessarily when the
+app happens to be in the foreground.
 
 Do not target "All users", the shared `blog_updates` topic, or an Analytics
 audience that contains newer versions.

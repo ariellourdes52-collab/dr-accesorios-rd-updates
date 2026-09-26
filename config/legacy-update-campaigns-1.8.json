@@ -29,7 +29,8 @@
       "sound": true
     },
     "customData": {},
-    "firebaseCampaignName": "",
-    "confirmedScheduled": false
+    "confirmedScheduled": true,
+    "confirmationSource": "manual_firebase_console",
+    "confirmationNote": "Confirmed by operator after publishing/scheduling the Firebase Notifications Composer campaign."
   }
 }

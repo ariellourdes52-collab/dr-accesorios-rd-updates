@@ -18,14 +18,13 @@ safe legacy path.
 
 ## Release procedure for 1.6 and 1.7
 
-After the normal release workflow has:
-1. published the GitHub release,
-2. verified the permanent APK URL,
-3. deployed and verified `version.json`, and
-4. completed the version-aware per-installation FCM sender,
+For release **1.8**, create and schedule the two Firebase Notification campaigns
+**before** the release date. The GitHub release workflow now fails closed unless
+both campaigns are recorded as scheduled in
+`config/legacy-update-campaigns-1.8.json`.
 
-create two Firebase Notification campaigns, one targeting app version **1.6**
-and one targeting app version **1.7**.
+Create one campaign targeting app version **1.6** and one targeting app version
+**1.7**.
 
 Use:
 
@@ -33,7 +32,7 @@ Use:
 - Body: `La versión <TARGET_VERSION> ya está disponible. Toca para actualizar.`
 - Android app: DR Accesorios RD (`com.draccesoriosrd.app`)
 - User segment: App version equals `1.6` (first campaign) / `1.7` (second)
-- Delivery: Send now
+- Delivery: Schedule for **2026-09-30 20:30 America/Santo_Domingo**
 - Expires / TTL: 24 hours
 - Sound: enabled
 - Custom data: **leave empty intentionally**
@@ -68,3 +67,25 @@ update flow.
   Android notification permission.
 - Force-stopped app / platform restrictions: delivery can still be limited by
   Android/Google Play services behavior.
+
+## Release 1.8 safety gate
+
+After both campaigns exist in Firebase Notifications composer:
+
+1. Copy each Firebase campaign name into the matching
+   `firebaseCampaignName` field in
+   `config/legacy-update-campaigns-1.8.json`.
+2. Change that campaign's `confirmedScheduled` value from `false` to `true`.
+3. Do this only after checking the exact App version segment and scheduled time.
+
+The release workflow runs:
+
+`python scripts/verify_legacy_campaign_gate.py config/legacy-update-campaigns-1.8.json`
+
+before any publication step. If either campaign is missing, targets the wrong
+version, contains custom data, is scheduled too early/late, or has not been
+explicitly confirmed, release 1.8 stops before publishing.
+
+This gate deliberately does not attempt to infer or fabricate Firebase campaign
+state. Firebase Notifications composer does not expose App-version campaign
+creation through the FCM HTTP v1 send API.

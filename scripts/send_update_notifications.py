@@ -38,7 +38,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/firebase.messaging",
     "https://www.googleapis.com/auth/datastore",
 ]
-DEFAULT_LEGACY_MAX_VERSION_CODE = 13  # v2.1.1 and older; fix starts at v2.2/code 14.
+DEFAULT_LEGACY_MAX_VERSION_CODE = 14  # Existing v2.2/code 14 predates the fix; fixed builds start at code 15.
 DEFAULT_TTL_SECONDS = 86400
 MAX_WORKERS = 8
 MAX_TRANSIENT_RETRIES = 4

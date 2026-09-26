@@ -104,5 +104,9 @@ jobs:
           print("")
           print(f"Shared historical articles: **{data.get('historyCount', len(data.get('entries', [])))}**")
           print("")
+          print(f"Library cap: **{data.get('maxLibraryEntries', 'n/a')}** shared audios")
+          print("")
+          print(f"Oldest entries pruned this run: **{data.get('prunedCount', 0)}**")
+          print("")
           print("Newest five are always protected. Historical backfill is quota-capped.")
           PY

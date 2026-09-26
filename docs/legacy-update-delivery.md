@@ -18,20 +18,19 @@ safe legacy path.
 
 ## Release procedure for 1.6 and 1.7
 
-For release **1.8**, create and schedule the two Firebase Notification campaigns
+For release **1.8**, create and schedule one Firebase Notification campaign
 **before** the release date. The GitHub release workflow now fails closed unless
-both campaigns are recorded as scheduled in
+that campaign is recorded as scheduled in
 `config/legacy-update-campaigns-1.8.json`.
 
-Create one campaign targeting app version **1.6** and one targeting app version
-**1.7**.
+Target exactly app versions **1.6** and **1.7** in the same version condition.
 
 Use:
 
 - Title: `Nueva versión de DR Accesorios RD`
 - Body: `La versión <TARGET_VERSION> ya está disponible. Toca para actualizar.`
 - Android app: DR Accesorios RD (`com.draccesoriosrd.app`)
-- User segment: App version equals `1.6` (first campaign) / `1.7` (second)
+- User segment: App version equals exactly `1.6` **or** `1.7` in the same condition
 - Delivery: Schedule for **2026-09-30 20:30 America/Santo_Domingo**
 - Expires / TTL: 24 hours
 - Sound: enabled
@@ -70,21 +69,21 @@ update flow.
 
 ## Release 1.8 safety gate
 
-After both campaigns exist in Firebase Notifications composer:
+After the campaign exists in Firebase Notifications composer:
 
-1. Copy each Firebase campaign name into the matching
-   `firebaseCampaignName` field in
+1. Copy its Firebase campaign name into `firebaseCampaignName` in
    `config/legacy-update-campaigns-1.8.json`.
-2. Change that campaign's `confirmedScheduled` value from `false` to `true`.
-3. Do this only after checking the exact App version segment and scheduled time.
+2. Change `confirmedScheduled` from `false` to `true`.
+3. Do this only after checking that the exact App version values are **1.6** and
+   **1.7** and that the scheduled time is correct.
 
 The release workflow runs:
 
 `python scripts/verify_legacy_campaign_gate.py config/legacy-update-campaigns-1.8.json`
 
-before any publication step. If either campaign is missing, targets the wrong
-version, contains custom data, is scheduled too early/late, or has not been
-explicitly confirmed, release 1.8 stops before publishing.
+before any publication step. If the campaign is missing, targets any version other than exactly 1.6 and 1.7,
+contains custom data, is scheduled too early/late, or has not been explicitly
+confirmed, release 1.8 stops before publishing.
 
 This gate deliberately does not attempt to infer or fabricate Firebase campaign
 state. Firebase Notifications composer does not expose App-version campaign

@@ -148,3 +148,16 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         run: python scripts/send_update_notifications.py --version-code 11 --version-name 2.0 --legacy-max-version-code 14
+
+      - name: Legacy 1.6/1.7 delivery reminder
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          echo "::warning::Versions 1.6 and 1.7 are not covered by the Firestore registry. Send the two Firebase Notifications composer campaigns targeted strictly by App version after this release. See docs/legacy-update-delivery.md."
+          {
+            echo "### Legacy update delivery still required"
+            echo ""
+            echo "Versions **1.6** and **1.7** must receive separate Firebase Notifications composer campaigns targeted strictly by **App version**."
+            echo ""
+            echo "Follow `docs/legacy-update-delivery.md`. Do not use a notification payload on the shared `blog_updates` topic."
+          } >> "$GITHUB_STEP_SUMMARY"

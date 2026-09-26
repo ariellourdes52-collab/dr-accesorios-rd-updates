@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import html as html_module
 import json
@@ -117,43 +118,43 @@ def load_live_index() -> dict[str, Any]:
         return {"entries": []}
 
 
-def audio_bytes_from_response(response: Any) -> bytes:
-    candidates = getattr(response, "candidates", None) or []
-    for candidate in candidates:
-        content = getattr(candidate, "content", None)
-        parts = getattr(content, "parts", None) or []
-        for part in parts:
-            inline = getattr(part, "inline_data", None)
-            if inline is None:
-                inline = getattr(part, "inlineData", None)
-            if inline is None:
-                continue
-            data = getattr(inline, "data", None)
-            if isinstance(data, (bytes, bytearray)) and data:
-                return bytes(data)
-    raise RuntimeError("Gemini did not return audio bytes")
-
-
 def generate_wav(client: genai.Client, transcript: str) -> bytes:
-    response = client.models.generate_content(
+    interaction = client.interactions.create(
         model=MODEL,
-        contents=[
+        input=[
             {
-                "role": "user",
-                "parts": [
+                "type": "user_input",
+                "content": [
                     {
+                        "type": "text",
                         "text": transcript,
-                        "speech_metadata": {"style": STYLE},
+                        "annotations": [
+                            {
+                                "type": "speech_metadata",
+                                "style": STYLE,
+                            }
+                        ],
                     }
                 ],
             }
         ],
-        config={
-            "response_modalities": ["AUDIO"],
-            "speech_config": {"voice_config": {"voice": VOICE}},
+        response_format={"type": "audio"},
+        generation_config={
+            "speech_config": [
+                {"voice": VOICE},
+            ]
         },
     )
-    return audio_bytes_from_response(response)
+
+    output_audio = getattr(interaction, "output_audio", None)
+    data = getattr(output_audio, "data", None)
+    if not data:
+        raise RuntimeError("Gemini did not return output audio")
+
+    if isinstance(data, (bytes, bytearray)):
+        return bytes(data)
+
+    return base64.b64decode(data)
 
 
 def wav_to_m4a(wav_bytes: bytes, destination: Path) -> None:

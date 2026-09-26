@@ -71,8 +71,7 @@ update flow.
 
 After the campaign exists in Firebase Notifications composer:
 
-1. Copy its Firebase campaign name into `firebaseCampaignName` in
-   `config/legacy-update-campaigns-1.8.json`.
+1. Set `confirmationSource` to `manual_firebase_console`.
 2. Change `confirmedScheduled` from `false` to `true`.
 3. Do this only after checking that the exact App version values are **1.6** and
    **1.7** and that the scheduled time is correct.

@@ -250,6 +250,14 @@ def main() -> None:
     parser.add_argument("--output", default="dr_audio_build")
     parser.add_argument("--scan-posts", type=int, default=500)
     parser.add_argument("--backfill-count", type=int, default=0)
+    parser.add_argument(
+        "--opportunistic-backfill",
+        action="store_true",
+        help=(
+            "Backfill only when no newest article needs generation; "
+            "if Gemini daily quota is exhausted, skip the old article without failing."
+        ),
+    )
     args = parser.parse_args()
 
     backfill_count = max(0, min(MAX_BACKFILL_PER_RUN, args.backfill_count))
@@ -295,6 +303,16 @@ def main() -> None:
         if not reusable_entry(old, article):
             generate_urls.append(article["url"])
 
+    # Opportunistic backfill never competes with a newly published article.
+    # If any of the newest five needs audio, all available quota is reserved
+    # for those newest items during this run.
+    if args.opportunistic_backfill and generate_urls:
+        print(
+            "Opportunistic backfill skipped: newest article audio has priority.",
+            flush=True,
+        )
+        backfill_count = 0
+
     # Backfill older history gradually. This is deliberately capped so scheduled
     # runs cannot burn through the project quota.
     if backfill_count:
@@ -319,7 +337,36 @@ def main() -> None:
                 f"Generating DR Audio ({role}): {article['title']}",
                 flush=True,
             )
-            wav = generate_wav(client, article["text"])
+            try:
+                wav = generate_wav(client, article["text"])
+            except Exception as error:
+                error_text = str(error).lower()
+                quota_exhausted = any(
+                    marker in error_text
+                    for marker in (
+                        "429",
+                        "resource_exhausted",
+                        "resource exhausted",
+                        "quota",
+                        "rate limit",
+                        "rate_limit",
+                    )
+                )
+
+                if (
+                    role == "backfill"
+                    and args.opportunistic_backfill
+                    and quota_exhausted
+                ):
+                    print(
+                        "Opportunistic backfill skipped: Gemini TTS daily quota "
+                        "has no spare request.",
+                        flush=True,
+                    )
+                    continue
+
+                raise
+
             m4a_path = audio_dir / f"{article['audioId']}.m4a"
             wav_to_m4a(wav, m4a_path)
             final_by_url[article["url"]] = make_index_entry(article, m4a_path)

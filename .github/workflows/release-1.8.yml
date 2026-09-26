@@ -46,7 +46,7 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         uses: actions/checkout@v4
 
-      - name: Verify legacy 1.6/1.7 campaigns are scheduled
+      - name: Verify combined legacy 1.6/1.7 campaign is scheduled
         if: steps.gate.outputs.proceed == 'true'
         run: python scripts/verify_legacy_campaign_gate.py config/legacy-update-campaigns-1.8.json
 
@@ -160,7 +160,7 @@ jobs:
           {
             echo "### Legacy update delivery protected"
             echo ""
-            echo "Firebase Notifications composer campaigns for **1.6** and **1.7** were required by the pre-release gate."
+            echo "One Firebase Notifications composer campaign targeting exactly **1.6** and **1.7** was required by the pre-release gate."
             echo ""
-            echo "They are configured as notification-only and targeted strictly by **App version**, scheduled for **2026-09-30 20:30 America/Santo_Domingo**."
+            echo "It is configured as notification-only and targeted strictly by **App version = 1.6 or 1.7**, scheduled for **2026-09-30 20:30 America/Santo_Domingo**."
           } >> "$GITHUB_STEP_SUMMARY"

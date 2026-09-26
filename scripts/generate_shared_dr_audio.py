@@ -28,6 +28,7 @@ VOICE = "Achernar"
 LANGUAGE = "es"
 LATEST_REQUIRED = 5
 MAX_BACKFILL_PER_RUN = 5
+MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
 STYLE = (
     "Presentadora profesional de noticias tecnológicas para público latinoamericano. "
@@ -356,12 +357,17 @@ def main() -> None:
         )
 
     # ISO Blogger timestamps sort correctly as strings. Unknown legacy timestamps
-    # stay at the end while remaining preserved.
-    final_entries = sorted(
+    # stay at the end. Keep a bounded shared library so Firebase Hosting usage
+    # cannot grow forever. Because the list is newest-first, the latest five are
+    # always protected and the oldest entries are the first ones pruned.
+    all_final_entries = sorted(
         final_by_url.values(),
         key=lambda entry: str(entry.get("published") or ""),
         reverse=True,
     )
+
+    pruned_count = max(0, len(all_final_entries) - MAX_LIBRARY_ENTRIES)
+    final_entries = all_final_entries[:MAX_LIBRARY_ENTRIES]
 
     index = {
         "schemaVersion": 2,
@@ -370,6 +376,8 @@ def main() -> None:
         "voice": VOICE,
         "latestCount": min(LATEST_REQUIRED, len(feed)),
         "historyCount": len(final_entries),
+        "maxLibraryEntries": MAX_LIBRARY_ENTRIES,
+        "prunedCount": pruned_count,
         "entries": final_entries,
     }
 
@@ -382,7 +390,9 @@ def main() -> None:
         f"DR Audio ready: {len(latest)} newest protected; "
         f"{generated_count} generated this run; "
         f"{backfilled_count} historical backfilled; "
-        f"{len(final_entries)} total shared entries preserved.",
+        f"{len(final_entries)} total shared entries preserved; "
+        f"{pruned_count} oldest entries pruned; "
+        f"library cap={MAX_LIBRARY_ENTRIES}.",
         flush=True,
     )
 

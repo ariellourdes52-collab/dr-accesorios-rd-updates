@@ -70,6 +70,12 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
         run: python scripts/deploy_version_preserving_hosting.py public/version.json --preflight
 
+      - name: Preflight version-aware FCM targeting
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+        run: python scripts/send_update_notifications.py --version-code 9 --version-name 1.8 --legacy-max-version-code 13 --preflight
+
       - name: Verify release and APK (draft or resumed publication)
         if: steps.gate.outputs.proceed == 'true'
         id: release
@@ -137,72 +143,8 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
         run: python scripts/deploy_version_preserving_hosting.py public/version.json
 
-      - name: Send FCM update notification
+      - name: Send version-aware FCM update notification
         if: steps.gate.outputs.proceed == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python -m pip install --disable-pip-version-check --quiet google-auth requests
-
-          python - <<'PY'
-          import json
-          import os
-          import requests
-
-          from google.oauth2 import service_account
-          from google.auth.transport.requests import Request
-
-          project_id = "dr-accesorios-rd"
-          topic = "blog_updates"
-
-          service_account_info = json.loads(
-              os.environ["FIREBASE_SERVICE_ACCOUNT"]
-          )
-
-          credentials = service_account.Credentials.from_service_account_info(
-              service_account_info,
-              scopes=[
-                  "https://www.googleapis.com/auth/firebase.messaging"
-              ]
-          )
-          credentials.refresh(Request())
-
-          endpoint = (
-              f"https://fcm.googleapis.com/v1/projects/"
-              f"{project_id}/messages:send"
-          )
-
-          payload = {
-              "message": {
-                  "topic": topic,
-                  "android": {
-                      "priority": "high",
-                      "ttl": "86400s"
-                  },
-                  "data": {
-                      "type": "app_update",
-                      "versionCode": "9",
-                      "versionName": "1.8"
-                  }
-              }
-          }
-
-          response = requests.post(
-              endpoint,
-              headers={
-                  "Authorization": f"Bearer {credentials.token}",
-                  "Content-Type": "application/json; UTF-8"
-              },
-              data=json.dumps(payload),
-              timeout=30
-          )
-
-          print("FCM HTTP:", response.status_code)
-          print(response.text)
-          response.raise_for_status()
-          PY
-
-          echo "FCM app_update sent to blog_updates."
+        run: python scripts/send_update_notifications.py --version-code 9 --version-name 1.8 --legacy-max-version-code 13

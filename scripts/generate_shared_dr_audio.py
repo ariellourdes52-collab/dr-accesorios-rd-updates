@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate shared DR Audio files for the newest Blogger articles."""
+"""Generate and preserve the shared DR Audio library for Blogger articles."""
 from __future__ import annotations
 
 import argparse
@@ -20,11 +20,15 @@ import requests
 from bs4 import BeautifulSoup
 from google import genai
 
-BLOG_FEED = "https://draccesoriosrd.blogspot.com/feeds/posts/default?alt=json&max-results=10"
+BLOG_FEED_BASE = "https://draccesoriosrd.blogspot.com/feeds/posts/default"
 PUBLIC_INDEX = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
+PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
 MODEL = "gemini-3.8-flash-lite-tts"
 VOICE = "Achernar"
 LANGUAGE = "es"
+LATEST_REQUIRED = 5
+MAX_BACKFILL_PER_RUN = 5
+PAGE_SIZE = 50
 STYLE = (
     "Presentadora profesional de noticias tecnológicas para público latinoamericano. "
     "Voz femenina adulta joven, cálida, clara y natural; español latino neutro; "
@@ -33,7 +37,7 @@ STYLE = (
     "asistente virtual, anuncio comercial o voz institucional; pronuncia marcas, siglas, "
     "números y modelos tecnológicos con claridad."
 )
-USER_AGENT = "DRAccesoriosRD-AudioGenerator/1.0"
+USER_AGENT = "DRAccesoriosRD-AudioGenerator/2.0"
 
 
 def canonical_text(raw_html: str) -> str:
@@ -48,55 +52,90 @@ def canonical_text(raw_html: str) -> str:
     return text
 
 
-def parse_feed() -> list[dict[str, Any]]:
-    response = requests.get(
-        BLOG_FEED,
-        headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"},
-        timeout=30,
+def canonical_url(raw_url: str) -> str:
+    url = (raw_url or "").strip()
+    url = re.sub(r"^http://", "https://", url, flags=re.I)
+    url = url.split("?", 1)[0].split("#", 1)[0].rstrip("/")
+    return url
+
+
+def parse_entry(entry: dict[str, Any]) -> dict[str, Any] | None:
+    title = str(((entry.get("title") or {}).get("$t") or "")).strip()
+    body_html = str(
+        ((entry.get("content") or {}).get("$t"))
+        or ((entry.get("summary") or {}).get("$t"))
+        or ""
     )
-    response.raise_for_status()
-    root = response.json()
-    entries = ((root.get("feed") or {}).get("entry") or [])
+
+    url = ""
+    for link in entry.get("link") or []:
+        if link.get("rel") == "alternate":
+            url = canonical_url(str(link.get("href") or ""))
+            break
+
+    if not title or not url or not body_html:
+        return None
+
+    body_text = canonical_text(body_html)
+    if not body_text:
+        return None
+
+    published = str(((entry.get("published") or {}).get("$t") or "")).strip()
+    transcript = f"{title}. {body_text}".strip()
+    content_hash = hashlib.sha256(
+        (MODEL + "\n" + VOICE + "\n" + LANGUAGE + "\n" + transcript).encode("utf-8")
+    ).hexdigest()
+
+    return {
+        "title": title,
+        "url": url,
+        "published": published,
+        "text": transcript,
+        "contentHash": content_hash,
+        "audioId": content_hash[:28],
+    }
+
+
+def parse_feed(scan_posts: int) -> list[dict[str, Any]]:
+    scan_posts = max(LATEST_REQUIRED, scan_posts)
     result: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+    start_index = 1
 
-    for entry in entries:
-        title = str(((entry.get("title") or {}).get("$t") or "")).strip()
-        body_html = str(
-            ((entry.get("content") or {}).get("$t"))
-            or ((entry.get("summary") or {}).get("$t"))
-            or ""
+    while len(result) < scan_posts:
+        requested = min(PAGE_SIZE, scan_posts - len(result))
+        response = requests.get(
+            BLOG_FEED_BASE,
+            params={
+                "alt": "json",
+                "max-results": requested,
+                "start-index": start_index,
+            },
+            headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"},
+            timeout=30,
         )
-        url = ""
-        for link in entry.get("link") or []:
-            if link.get("rel") == "alternate":
-                url = str(link.get("href") or "").strip()
+        response.raise_for_status()
+        entries = (((response.json().get("feed") or {}).get("entry")) or [])
+        if not entries:
+            break
+
+        for raw_entry in entries:
+            article = parse_entry(raw_entry)
+            if not article:
+                continue
+            if article["url"] in seen_urls:
+                continue
+            seen_urls.add(article["url"])
+            result.append(article)
+            if len(result) >= scan_posts:
                 break
-        if not title or not url or not body_html:
-            continue
 
-        body_text = canonical_text(body_html)
-        if not body_text:
-            continue
+        if len(entries) < requested:
+            break
 
-        published = str(((entry.get("published") or {}).get("$t") or "")).strip()
-        transcript = f"{title}. {body_text}".strip()
-        content_hash = hashlib.sha256(
-            (MODEL + "\n" + VOICE + "\n" + LANGUAGE + "\n" + transcript).encode("utf-8")
-        ).hexdigest()
-        audio_id = content_hash[:28]
+        start_index += len(entries)
 
-        result.append(
-            {
-                "title": title,
-                "url": url,
-                "published": published,
-                "text": transcript,
-                "contentHash": content_hash,
-                "audioId": audio_id,
-            }
-        )
-
-    return result[:10]
+    return result
 
 
 def load_live_index() -> dict[str, Any]:
@@ -114,7 +153,7 @@ def load_live_index() -> dict[str, Any]:
         if not isinstance(payload, dict):
             return {"entries": []}
         return payload
-    except requests.RequestException:
+    except (requests.RequestException, ValueError):
         return {"entries": []}
 
 
@@ -162,6 +201,7 @@ def wav_to_m4a(wav_bytes: bytes, destination: Path) -> None:
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp:
         temp.write(wav_bytes)
         wav_path = Path(temp.name)
+
     try:
         subprocess.run(
             [
@@ -179,10 +219,39 @@ def wav_to_m4a(wav_bytes: bytes, destination: Path) -> None:
             pass
 
 
+def make_index_entry(article: dict[str, Any], m4a_path: Path) -> dict[str, Any]:
+    audio_path = f"/dr-audio/{article['audioId']}.m4a"
+    return {
+        "title": article["title"],
+        "url": article["url"],
+        "published": article["published"],
+        "audioUrl": PUBLIC_BASE + audio_path,
+        "audioPath": audio_path,
+        "contentHash": article["contentHash"],
+        "model": MODEL,
+        "voice": VOICE,
+        "format": "audio/mp4",
+        "bytes": m4a_path.stat().st_size,
+    }
+
+
+def reusable_entry(old: dict[str, Any] | None, article: dict[str, Any]) -> bool:
+    return bool(
+        old
+        and old.get("contentHash") == article["contentHash"]
+        and old.get("audioUrl")
+        and old.get("audioPath")
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="dr_audio_build")
+    parser.add_argument("--scan-posts", type=int, default=500)
+    parser.add_argument("--backfill-count", type=int, default=0)
     args = parser.parse_args()
+
+    backfill_count = max(0, min(MAX_BACKFILL_PER_RUN, args.backfill_count))
 
     api_key = os.environ.get("GEMINI_API_KEY_DR_AUDIO", "").strip()
     if not api_key:
@@ -194,51 +263,72 @@ def main() -> None:
     audio_dir = output / "dr-audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
 
-    feed = parse_feed()
+    feed = parse_feed(args.scan_posts)
     if not feed:
         raise RuntimeError("Blogger feed returned no usable posts")
 
     live_index = load_live_index()
-    old_entries = {
-        str(entry.get("url") or ""): entry
+    old_entries_list = [
+        entry
         for entry in (live_index.get("entries") or [])
-        if isinstance(entry, dict) and entry.get("url")
+        if isinstance(entry, dict) and entry.get("url") and entry.get("audioUrl")
+    ]
+
+    # Preserve every historical audio entry already published, even if it is older
+    # than the current Blogger scan window.
+    final_by_url: dict[str, dict[str, Any]] = {
+        canonical_url(str(entry.get("url") or "")): dict(entry)
+        for entry in old_entries_list
+        if canonical_url(str(entry.get("url") or ""))
     }
 
+    old_by_url = dict(final_by_url)
     client = genai.Client(api_key=api_key)
-    final_entries: list[dict[str, Any]] = []
 
-    for position, article in enumerate(feed):
-        old = old_entries.get(article["url"])
-        expected_audio_path = f"/dr-audio/{article['audioId']}.m4a"
-        public_audio_url = f"https://dr-accesorios-rd.web.app{expected_audio_path}"
+    latest = feed[:LATEST_REQUIRED]
+    generate_urls: list[str] = []
 
-        reusable = bool(
-            old
-            and old.get("contentHash") == article["contentHash"]
-            and old.get("audioUrl")
-        )
+    # The newest five must always be available. Only missing or changed items generate.
+    for article in latest:
+        old = old_by_url.get(article["url"])
+        if not reusable_entry(old, article):
+            generate_urls.append(article["url"])
 
-        if position < 5 and not reusable:
-            print(f"Generating DR Audio {position + 1}/5: {article['title']}", flush=True)
+    # Backfill older history gradually. This is deliberately capped so scheduled
+    # runs cannot burn through the project quota.
+    if backfill_count:
+        for article in feed[LATEST_REQUIRED:]:
+            if len(generate_urls) >= (len([u for u in generate_urls if u in {a["url"] for a in latest}]) + backfill_count):
+                break
+            old = old_by_url.get(article["url"])
+            if not reusable_entry(old, article):
+                generate_urls.append(article["url"])
+
+    generate_set = set(generate_urls)
+    generated_count = 0
+    backfilled_count = 0
+    latest_urls = {article["url"] for article in latest}
+
+    for article in feed:
+        old = old_by_url.get(article["url"])
+
+        if article["url"] in generate_set:
+            role = "latest" if article["url"] in latest_urls else "backfill"
+            print(
+                f"Generating DR Audio ({role}): {article['title']}",
+                flush=True,
+            )
             wav = generate_wav(client, article["text"])
             m4a_path = audio_dir / f"{article['audioId']}.m4a"
             wav_to_m4a(wav, m4a_path)
-            final_entries.append(
-                {
-                    "title": article["title"],
-                    "url": article["url"],
-                    "published": article["published"],
-                    "audioUrl": public_audio_url,
-                    "audioPath": expected_audio_path,
-                    "contentHash": article["contentHash"],
-                    "model": MODEL,
-                    "voice": VOICE,
-                    "format": "audio/mp4",
-                    "bytes": m4a_path.stat().st_size,
-                }
-            )
-        elif reusable:
+            final_by_url[article["url"]] = make_index_entry(article, m4a_path)
+            generated_count += 1
+            if role == "backfill":
+                backfilled_count += 1
+            # Gentle spacing helps keep preview/free-tier requests inside RPM limits.
+            time.sleep(1.0)
+
+        elif reusable_entry(old, article):
             entry = dict(old)
             entry.update(
                 {
@@ -248,31 +338,51 @@ def main() -> None:
                     "contentHash": article["contentHash"],
                 }
             )
-            final_entries.append(entry)
-            print(f"Reusing shared audio: {article['title']}", flush=True)
-        elif position < 5:
-            raise RuntimeError("Unexpected generation state for a required article")
+            final_by_url[article["url"]] = entry
 
-    required_urls = {entry["url"] for entry in final_entries[:5]}
-    if len(required_urls) < min(5, len(feed)):
-        raise RuntimeError("Not all newest articles have shared audio")
+        elif old:
+            # Article text changed but this run did not have budget to regenerate it.
+            # Do not serve stale narration for the edited article.
+            final_by_url.pop(article["url"], None)
+
+    missing_latest = [
+        article["title"]
+        for article in latest
+        if article["url"] not in final_by_url
+    ]
+    if missing_latest:
+        raise RuntimeError(
+            "Newest DR Audio coverage is incomplete: " + " | ".join(missing_latest)
+        )
+
+    # ISO Blogger timestamps sort correctly as strings. Unknown legacy timestamps
+    # stay at the end while remaining preserved.
+    final_entries = sorted(
+        final_by_url.values(),
+        key=lambda entry: str(entry.get("published") or ""),
+        reverse=True,
+    )
 
     index = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "model": MODEL,
         "voice": VOICE,
-        "latestCount": min(5, len(feed)),
-        "entries": final_entries[:10],
+        "latestCount": min(LATEST_REQUIRED, len(feed)),
+        "historyCount": len(final_entries),
+        "entries": final_entries,
     }
 
     (audio_dir / "index.json").write_text(
         json.dumps(index, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
     print(
-        f"Prepared {len(final_entries[:5])} newest shared audio entries; "
-        f"catalog contains {len(final_entries[:10])} entries.",
+        f"DR Audio ready: {len(latest)} newest protected; "
+        f"{generated_count} generated this run; "
+        f"{backfilled_count} historical backfilled; "
+        f"{len(final_entries)} total shared entries preserved.",
         flush=True,
     )
 

@@ -1,12 +1,22 @@
 name: Generate shared DR Audio
 
 on:
+  schedule:
+    # República Dominicana = UTC-4 todo el año.
+    # 09:15, 14:15 y 19:15 AST.
+    - cron: '15 13 * * *'
+    - cron: '15 18 * * *'
+    - cron: '15 23 * * *'
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type GENERATE-DR-AUDIO to generate and publish the newest shared audio'
+        description: 'Type GENERATE-DR-AUDIO to generate and publish shared audio'
         required: true
         default: 'NO'
+      backfill_count:
+        description: 'Older missing articles to generate in this manual run (0-5)'
+        required: true
+        default: '0'
 
 permissions:
   contents: read
@@ -17,9 +27,9 @@ concurrency:
 
 jobs:
   generate:
-    if: inputs.confirm == 'GENERATE-DR-AUDIO'
+    if: github.event_name == 'schedule' || inputs.confirm == 'GENERATE-DR-AUDIO'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -41,10 +51,39 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
 
-      - name: Generate only missing newest article audio
+      - name: Generate missing shared audio and preserve history
         env:
           GEMINI_API_KEY_DR_AUDIO: '${{ secrets.GEMINI_API_KEY_DR_AUDIO }}'
-        run: python scripts/generate_shared_dr_audio.py --output dr_audio_build
+          EVENT_NAME: '${{ github.event_name }}'
+          EVENT_SCHEDULE: '${{ github.event.schedule }}'
+          MANUAL_BACKFILL: '${{ inputs.backfill_count }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BACKFILL=0
+
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            # Only the evening run backfills one old article.
+            # Normal scheduled runs still generate any missing newest article.
+            if [[ "$EVENT_SCHEDULE" == "15 23 * * *" ]]; then
+              BACKFILL=1
+            fi
+          else
+            BACKFILL="${MANUAL_BACKFILL:-0}"
+          fi
+
+          if ! [[ "$BACKFILL" =~ ^[0-5]$ ]]; then
+            echo "backfill_count must be an integer from 0 to 5"
+            exit 2
+          fi
+
+          echo "Historical backfill budget for this run: $BACKFILL"
+
+          python scripts/generate_shared_dr_audio.py \
+            --output dr_audio_build \
+            --scan-posts 500 \
+            --backfill-count "$BACKFILL"
 
       - name: Deploy DR Audio preserving all other Hosting files
         env:
@@ -55,10 +94,15 @@ jobs:
         if: success()
         shell: bash
         run: |
-          {
-            echo '### DR Audio shared generation complete'
-            echo ''
-            echo 'Catalog: https://dr-accesorios-rd.web.app/dr-audio/index.json'
-            echo ''
-            echo 'Only missing/changed newest articles consume Gemini TTS generation.'
-          } >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          data=json.loads(Path("dr_audio_build/dr-audio/index.json").read_text(encoding="utf-8"))
+          print("### DR Audio shared library updated")
+          print("")
+          print("Catalog: https://dr-accesorios-rd.web.app/dr-audio/index.json")
+          print("")
+          print(f"Shared historical articles: **{data.get('historyCount', len(data.get('entries', [])))}**")
+          print("")
+          print("Newest five are always protected. Historical backfill is quota-capped.")
+          PY

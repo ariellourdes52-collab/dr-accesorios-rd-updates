@@ -1,0 +1,53 @@
+{
+  "targetRelease": {
+    "versionCode": 9,
+    "versionName": "1.8",
+    "scheduledReleaseUtc": "2026-10-01T00:00:00Z"
+  },
+  "legacyCampaigns": [
+    {
+      "sourceVersion": "1.6",
+      "segment": {
+        "field": "App version",
+        "operator": "equals",
+        "value": "1.6"
+      },
+      "notification": {
+        "title": "Nueva versión de DR Accesorios RD",
+        "body": "La versión 1.8 ya está disponible. Toca para actualizar."
+      },
+      "delivery": {
+        "scheduledUtc": "2026-10-01T00:30:00Z",
+        "timezone": "America/Santo_Domingo",
+        "scheduledLocal": "2026-09-30 20:30",
+        "ttlHours": 24,
+        "sound": true
+      },
+      "customData": {},
+      "firebaseCampaignName": "",
+      "confirmedScheduled": false
+    },
+    {
+      "sourceVersion": "1.7",
+      "segment": {
+        "field": "App version",
+        "operator": "equals",
+        "value": "1.7"
+      },
+      "notification": {
+        "title": "Nueva versión de DR Accesorios RD",
+        "body": "La versión 1.8 ya está disponible. Toca para actualizar."
+      },
+      "delivery": {
+        "scheduledUtc": "2026-10-01T00:30:00Z",
+        "timezone": "America/Santo_Domingo",
+        "scheduledLocal": "2026-09-30 20:30",
+        "ttlHours": 24,
+        "sound": true
+      },
+      "customData": {},
+      "firebaseCampaignName": "",
+      "confirmedScheduled": false
+    }
+  ]
+}

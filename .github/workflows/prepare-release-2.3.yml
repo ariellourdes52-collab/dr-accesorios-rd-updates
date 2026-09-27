@@ -1,0 +1,41 @@
+name: Prepare DR Accesorios RD 2.3 draft
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/prepare-release-2.3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create draft release 2.3 if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if gh api "/repos/${GITHUB_REPOSITORY}/releases/tags/2.3" >/dev/null 2>&1; then
+            echo "Release 2.3 already exists."
+            exit 0
+          fi
+
+          gh release create "2.3" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "DR Accesorios RD v2.3 — Noticias en Audio" \
+            --notes "🎧 DR Audio: escucha las últimas noticias
+▶️ Reproducción continua de hasta 5 noticias
+🔊 Voz natural en español latino
+⏯️ Controles desde pantalla de bloqueo y Bluetooth
+📥 Audio compartido y caché optimizada
+🔄 Actualización automática de noticias en audio
+⚡ Mejoras de rendimiento y estabilidad" \
+            --draft
+
+          echo "Draft release 2.3 created."

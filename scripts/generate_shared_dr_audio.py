@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate and preserve the shared DR Audio library for Blogger articles."""
+"""Generate and preserve the shared DR Audio library with female + male voices."""
 from __future__ import annotations
 
 import argparse
@@ -24,21 +24,39 @@ BLOG_FEED_BASE = "https://draccesoriosrd.blogspot.com/feeds/posts/default"
 PUBLIC_INDEX = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
 PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
 MODEL = "gemini-3.8-flash-lite-tts"
-VOICE = "Achernar"
 LANGUAGE = "es"
 LATEST_REQUIRED = 5
 MAX_BACKFILL_PER_RUN = 5
 MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
-STYLE = (
-    "Presentadora profesional de noticias tecnológicas para público latinoamericano. "
-    "Voz femenina adulta joven, cálida, clara y natural; español latino neutro; "
-    "ritmo conversacional ligeramente ágil, sin correr; entonación periodística moderna, "
-    "serena y cercana; pausas breves y naturales; evita por completo el tono de GPS, "
-    "asistente virtual, anuncio comercial o voz institucional; pronuncia marcas, siglas, "
-    "números y modelos tecnológicos con claridad."
-)
-USER_AGENT = "DRAccesoriosRD-AudioGenerator/2.0"
+USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0"
+
+VOICE_CONFIGS: dict[str, dict[str, str]] = {
+    "female": {
+        "name": "Achernar",
+        "label": "Femenina",
+        "style": (
+            "Presentadora profesional de noticias tecnológicas para público latinoamericano. "
+            "Voz femenina adulta joven, cálida, clara y natural; español latino neutro; "
+            "ritmo conversacional ligeramente ágil, sin correr; entonación periodística moderna, "
+            "serena y cercana; pausas breves y naturales; evita por completo el tono de GPS, "
+            "asistente virtual, anuncio comercial o voz institucional; pronuncia marcas, siglas, "
+            "números y modelos tecnológicos con claridad."
+        ),
+    },
+    "male": {
+        "name": "Charon",
+        "label": "Masculina",
+        "style": (
+            "Presentador profesional de noticias tecnológicas para público latinoamericano. "
+            "Voz masculina adulta, informativa, clara y natural; español latino neutro; "
+            "ritmo conversacional ligeramente ágil, sin correr; entonación periodística moderna, "
+            "segura, serena y cercana; pausas breves y naturales; evita por completo el tono de GPS, "
+            "locutor publicitario, anuncio comercial o voz institucional; pronuncia marcas, siglas, "
+            "números y modelos tecnológicos con claridad."
+        ),
+    },
+}
 
 
 def canonical_text(raw_html: str) -> str:
@@ -58,6 +76,13 @@ def canonical_url(raw_url: str) -> str:
     url = re.sub(r"^http://", "https://", url, flags=re.I)
     url = url.split("?", 1)[0].split("#", 1)[0].rstrip("/")
     return url
+
+
+def voice_hash(transcript: str, voice_key: str) -> str:
+    voice_name = VOICE_CONFIGS[voice_key]["name"]
+    return hashlib.sha256(
+        (MODEL + "\n" + voice_name + "\n" + LANGUAGE + "\n" + transcript).encode("utf-8")
+    ).hexdigest()
 
 
 def parse_entry(entry: dict[str, Any]) -> dict[str, Any] | None:
@@ -83,17 +108,25 @@ def parse_entry(entry: dict[str, Any]) -> dict[str, Any] | None:
 
     published = str(((entry.get("published") or {}).get("$t") or "")).strip()
     transcript = f"{title}. {body_text}".strip()
-    content_hash = hashlib.sha256(
-        (MODEL + "\n" + VOICE + "\n" + LANGUAGE + "\n" + transcript).encode("utf-8")
-    ).hexdigest()
+    hashes = {
+        voice_key: voice_hash(transcript, voice_key)
+        for voice_key in VOICE_CONFIGS
+    }
+    audio_ids = {
+        voice_key: value[:28]
+        for voice_key, value in hashes.items()
+    }
 
+    # contentHash/audioId remain the legacy female values so v2.3 data stays reusable.
     return {
         "title": title,
         "url": url,
         "published": published,
         "text": transcript,
-        "contentHash": content_hash,
-        "audioId": content_hash[:28],
+        "contentHash": hashes["female"],
+        "audioId": audio_ids["female"],
+        "voiceHashes": hashes,
+        "audioIds": audio_ids,
     }
 
 
@@ -158,7 +191,12 @@ def load_live_index() -> dict[str, Any]:
         return {"entries": []}
 
 
-def generate_wav(client: genai.Client, transcript: str) -> bytes:
+def generate_wav(
+    client: genai.Client,
+    transcript: str,
+    voice_key: str,
+) -> bytes:
+    voice = VOICE_CONFIGS[voice_key]
     interaction = client.interactions.create(
         model=MODEL,
         input=[
@@ -171,7 +209,7 @@ def generate_wav(client: genai.Client, transcript: str) -> bytes:
                         "annotations": [
                             {
                                 "type": "speech_metadata",
-                                "style": STYLE,
+                                "style": voice["style"],
                             }
                         ],
                     }
@@ -181,7 +219,7 @@ def generate_wav(client: genai.Client, transcript: str) -> bytes:
         response_format={"type": "audio"},
         generation_config={
             "speech_config": [
-                {"voice": VOICE},
+                {"voice": voice["name"]},
             ]
         },
     )
@@ -220,28 +258,172 @@ def wav_to_m4a(wav_bytes: bytes, destination: Path) -> None:
             pass
 
 
-def make_index_entry(article: dict[str, Any], m4a_path: Path) -> dict[str, Any]:
-    audio_path = f"/dr-audio/{article['audioId']}.m4a"
+def voice_fields(voice_key: str) -> dict[str, str]:
+    if voice_key == "female":
+        return {
+            "url": "audioFemaleUrl",
+            "path": "audioFemalePath",
+            "hash": "femaleContentHash",
+            "voice": "femaleVoice",
+            "bytes": "femaleBytes",
+        }
     return {
-        "title": article["title"],
-        "url": article["url"],
-        "published": article["published"],
-        "audioUrl": PUBLIC_BASE + audio_path,
-        "audioPath": audio_path,
-        "contentHash": article["contentHash"],
-        "model": MODEL,
-        "voice": VOICE,
-        "format": "audio/mp4",
-        "bytes": m4a_path.stat().st_size,
+        "url": "audioMaleUrl",
+        "path": "audioMalePath",
+        "hash": "maleContentHash",
+        "voice": "maleVoice",
+        "bytes": "maleBytes",
     }
 
 
-def reusable_entry(old: dict[str, Any] | None, article: dict[str, Any]) -> bool:
+def current_voice_url(old: dict[str, Any] | None, voice_key: str) -> str:
+    if not old:
+        return ""
+    fields = voice_fields(voice_key)
+    if voice_key == "female":
+        return str(old.get(fields["url"]) or old.get("audioUrl") or "").strip()
+    return str(old.get(fields["url"]) or "").strip()
+
+
+def current_voice_path(old: dict[str, Any] | None, voice_key: str) -> str:
+    if not old:
+        return ""
+    fields = voice_fields(voice_key)
+    if voice_key == "female":
+        return str(old.get(fields["path"]) or old.get("audioPath") or "").strip()
+    return str(old.get(fields["path"]) or "").strip()
+
+
+def current_voice_hash(old: dict[str, Any] | None, voice_key: str) -> str:
+    if not old:
+        return ""
+    fields = voice_fields(voice_key)
+    if voice_key == "female":
+        return str(old.get(fields["hash"]) or old.get("contentHash") or "").strip()
+    return str(old.get(fields["hash"]) or "").strip()
+
+
+def reusable_voice(
+    old: dict[str, Any] | None,
+    article: dict[str, Any],
+    voice_key: str,
+) -> bool:
     return bool(
         old
-        and old.get("contentHash") == article["contentHash"]
-        and old.get("audioUrl")
-        and old.get("audioPath")
+        and current_voice_hash(old, voice_key) == article["voiceHashes"][voice_key]
+        and current_voice_url(old, voice_key)
+        and current_voice_path(old, voice_key)
+    )
+
+
+def remove_voice_fields(entry: dict[str, Any], voice_key: str) -> None:
+    fields = voice_fields(voice_key)
+    for key in fields.values():
+        entry.pop(key, None)
+
+    if voice_key == "female":
+        for key in ("audioUrl", "audioPath", "contentHash", "voice", "bytes"):
+            entry.pop(key, None)
+
+
+def normalize_reusable_voice(
+    entry: dict[str, Any],
+    old: dict[str, Any],
+    article: dict[str, Any],
+    voice_key: str,
+) -> None:
+    fields = voice_fields(voice_key)
+    voice = VOICE_CONFIGS[voice_key]
+    url = current_voice_url(old, voice_key)
+    path = current_voice_path(old, voice_key)
+    hash_value = article["voiceHashes"][voice_key]
+
+    entry[fields["url"]] = url
+    entry[fields["path"]] = path
+    entry[fields["hash"]] = hash_value
+    entry[fields["voice"]] = voice["name"]
+
+    old_bytes = old.get(fields["bytes"])
+    if old_bytes is None and voice_key == "female":
+        old_bytes = old.get("bytes")
+    if old_bytes is not None:
+        entry[fields["bytes"]] = old_bytes
+
+    if voice_key == "female":
+        # Legacy aliases are intentionally preserved for every installed v2.3 client.
+        entry["audioUrl"] = url
+        entry["audioPath"] = path
+        entry["contentHash"] = hash_value
+        entry["voice"] = voice["name"]
+        if old_bytes is not None:
+            entry["bytes"] = old_bytes
+
+
+def apply_generated_voice(
+    entry: dict[str, Any],
+    article: dict[str, Any],
+    voice_key: str,
+    m4a_path: Path,
+) -> None:
+    fields = voice_fields(voice_key)
+    voice = VOICE_CONFIGS[voice_key]
+    audio_id = article["audioIds"][voice_key]
+    audio_path = f"/dr-audio/{audio_id}.m4a"
+    audio_url = PUBLIC_BASE + audio_path
+    hash_value = article["voiceHashes"][voice_key]
+    size = m4a_path.stat().st_size
+
+    entry[fields["url"]] = audio_url
+    entry[fields["path"]] = audio_path
+    entry[fields["hash"]] = hash_value
+    entry[fields["voice"]] = voice["name"]
+    entry[fields["bytes"]] = size
+
+    if voice_key == "female":
+        # Backward compatibility with v2.3 and earlier shared-audio readers.
+        entry["audioUrl"] = audio_url
+        entry["audioPath"] = audio_path
+        entry["contentHash"] = hash_value
+        entry["voice"] = voice["name"]
+        entry["bytes"] = size
+
+
+def refresh_article_entry(
+    old: dict[str, Any] | None,
+    article: dict[str, Any],
+) -> dict[str, Any]:
+    entry = dict(old or {})
+    entry.update(
+        {
+            "title": article["title"],
+            "url": article["url"],
+            "published": article["published"],
+            "model": MODEL,
+            "format": "audio/mp4",
+        }
+    )
+
+    for voice_key in VOICE_CONFIGS:
+        if reusable_voice(old, article, voice_key):
+            normalize_reusable_voice(entry, old or {}, article, voice_key)
+        else:
+            remove_voice_fields(entry, voice_key)
+
+    return entry
+
+
+def quota_exhausted_error(error: Exception) -> bool:
+    error_text = str(error).lower()
+    return any(
+        marker in error_text
+        for marker in (
+            "429",
+            "resource_exhausted",
+            "resource exhausted",
+            "quota",
+            "rate limit",
+            "rate_limit",
+        )
     )
 
 
@@ -254,8 +436,8 @@ def main() -> None:
         "--opportunistic-backfill",
         action="store_true",
         help=(
-            "Backfill only when no newest article needs generation; "
-            "if Gemini daily quota is exhausted, skip the old article without failing."
+            "Backfill only when no newest voice needs generation; "
+            "if Gemini daily quota is exhausted, stop backfill without failing."
         ),
     )
     args = parser.parse_args()
@@ -280,133 +462,149 @@ def main() -> None:
     old_entries_list = [
         entry
         for entry in (live_index.get("entries") or [])
-        if isinstance(entry, dict) and entry.get("url") and entry.get("audioUrl")
+        if isinstance(entry, dict) and entry.get("url")
     ]
 
-    # Preserve every historical audio entry already published, even if it is older
-    # than the current Blogger scan window.
+    # Keep every historical entry already published, including legacy female-only entries.
     final_by_url: dict[str, dict[str, Any]] = {
         canonical_url(str(entry.get("url") or "")): dict(entry)
         for entry in old_entries_list
         if canonical_url(str(entry.get("url") or ""))
     }
-
     old_by_url = dict(final_by_url)
-    client = genai.Client(api_key=api_key)
 
     latest = feed[:LATEST_REQUIRED]
-    generate_urls: list[str] = []
 
-    # The newest five must always be available. Only missing or changed items generate.
-    for article in latest:
+    # Refresh metadata and discard stale voice links before planning generation.
+    for article in feed:
         old = old_by_url.get(article["url"])
-        if not reusable_entry(old, article):
-            generate_urls.append(article["url"])
+        refreshed = refresh_article_entry(old, article)
+        if current_voice_url(refreshed, "female") or current_voice_url(refreshed, "male"):
+            final_by_url[article["url"]] = refreshed
+        else:
+            final_by_url.pop(article["url"], None)
 
-    # Opportunistic backfill never competes with a newly published article.
-    # If any of the newest five needs audio, all available quota is reserved
-    # for those newest items during this run.
-    if args.opportunistic_backfill and generate_urls:
+    # Priority is deliberate: all female gaps first (v2.3 compatibility), then male gaps.
+    latest_tasks: list[tuple[dict[str, Any], str]] = []
+    for voice_key in ("female", "male"):
+        for article in latest:
+            current = final_by_url.get(article["url"])
+            if not reusable_voice(current, article, voice_key):
+                latest_tasks.append((article, voice_key))
+
+    if args.opportunistic_backfill and latest_tasks:
         print(
-            "Opportunistic backfill skipped: newest article audio has priority.",
+            "Opportunistic backfill skipped: newest DR Audio voices have priority.",
             flush=True,
         )
         backfill_count = 0
 
-    # Backfill older history gradually. This is deliberately capped so scheduled
-    # runs cannot burn through the project quota.
+    backfill_tasks: list[tuple[dict[str, Any], str]] = []
     if backfill_count:
         for article in feed[LATEST_REQUIRED:]:
-            if len(generate_urls) >= (len([u for u in generate_urls if u in {a["url"] for a in latest}]) + backfill_count):
+            if len(backfill_tasks) >= backfill_count:
                 break
-            old = old_by_url.get(article["url"])
-            if not reusable_entry(old, article):
-                generate_urls.append(article["url"])
+            current = final_by_url.get(article["url"])
+            for voice_key in ("female", "male"):
+                if len(backfill_tasks) >= backfill_count:
+                    break
+                if not reusable_voice(current, article, voice_key):
+                    backfill_tasks.append((article, voice_key))
 
-    generate_set = set(generate_urls)
+    client = genai.Client(api_key=api_key)
     generated_count = 0
+    female_generated = 0
+    male_generated = 0
     backfilled_count = 0
-    latest_urls = {article["url"] for article in latest}
+    quota_exhausted = False
 
-    for article in feed:
-        old = old_by_url.get(article["url"])
-
-        if article["url"] in generate_set:
-            role = "latest" if article["url"] in latest_urls else "backfill"
-            print(
-                f"Generating DR Audio ({role}): {article['title']}",
-                flush=True,
-            )
-            try:
-                wav = generate_wav(client, article["text"])
-            except Exception as error:
-                error_text = str(error).lower()
-                quota_exhausted = any(
-                    marker in error_text
-                    for marker in (
-                        "429",
-                        "resource_exhausted",
-                        "resource exhausted",
-                        "quota",
-                        "rate limit",
-                        "rate_limit",
-                    )
-                )
-
-                if (
-                    role == "backfill"
-                    and args.opportunistic_backfill
-                    and quota_exhausted
-                ):
-                    print(
-                        "Opportunistic backfill skipped: Gemini TTS daily quota "
-                        "has no spare request.",
-                        flush=True,
-                    )
-                    continue
-
-                raise
-
-            m4a_path = audio_dir / f"{article['audioId']}.m4a"
-            wav_to_m4a(wav, m4a_path)
-            final_by_url[article["url"]] = make_index_entry(article, m4a_path)
-            generated_count += 1
-            if role == "backfill":
-                backfilled_count += 1
-            # Gentle spacing helps keep preview/free-tier requests inside RPM limits.
-            time.sleep(1.0)
-
-        elif reusable_entry(old, article):
-            entry = dict(old)
-            entry.update(
-                {
-                    "title": article["title"],
-                    "url": article["url"],
-                    "published": article["published"],
-                    "contentHash": article["contentHash"],
-                }
-            )
-            final_by_url[article["url"]] = entry
-
-        elif old:
-            # Article text changed but this run did not have budget to regenerate it.
-            # Do not serve stale narration for the edited article.
-            final_by_url.pop(article["url"], None)
-
-    missing_latest = [
-        article["title"]
-        for article in latest
-        if article["url"] not in final_by_url
+    tasks = [
+        (article, voice_key, "latest")
+        for article, voice_key in latest_tasks
+    ] + [
+        (article, voice_key, "backfill")
+        for article, voice_key in backfill_tasks
     ]
-    if missing_latest:
-        raise RuntimeError(
-            "Newest DR Audio coverage is incomplete: " + " | ".join(missing_latest)
+
+    for article, voice_key, role in tasks:
+        if quota_exhausted:
+            break
+
+        voice = VOICE_CONFIGS[voice_key]
+        print(
+            f"Generating DR Audio ({role}, {voice['label']} / {voice['name']}): "
+            f"{article['title']}",
+            flush=True,
         )
 
-    # ISO Blogger timestamps sort correctly as strings. Unknown legacy timestamps
-    # stay at the end. Keep a bounded shared library so Firebase Hosting usage
-    # cannot grow forever. Because the list is newest-first, the latest five are
-    # always protected and the oldest entries are the first ones pruned.
+        try:
+            wav = generate_wav(client, article["text"], voice_key)
+        except Exception as error:
+            if quota_exhausted_error(error):
+                quota_exhausted = True
+
+                current = final_by_url.get(article["url"])
+                female_ready = reusable_voice(current, article, "female")
+
+                # Female coverage of the newest five is the compatibility floor.
+                # A missing male voice can safely retry on the next 10-minute run.
+                if role == "latest" and voice_key == "female" and not female_ready:
+                    raise
+
+                print(
+                    f"Gemini TTS quota exhausted; pending {voice['label'].lower()} voice "
+                    "will retry on a future run.",
+                    flush=True,
+                )
+                break
+
+            raise
+
+        audio_id = article["audioIds"][voice_key]
+        m4a_path = audio_dir / f"{audio_id}.m4a"
+        wav_to_m4a(wav, m4a_path)
+
+        current = final_by_url.get(article["url"], {})
+        current.update(
+            {
+                "title": article["title"],
+                "url": article["url"],
+                "published": article["published"],
+                "model": MODEL,
+                "format": "audio/mp4",
+            }
+        )
+        apply_generated_voice(current, article, voice_key, m4a_path)
+        final_by_url[article["url"]] = current
+
+        generated_count += 1
+        if voice_key == "female":
+            female_generated += 1
+        else:
+            male_generated += 1
+        if role == "backfill":
+            backfilled_count += 1
+
+        # Gentle spacing keeps consecutive TTS requests inside RPM limits.
+        time.sleep(1.0)
+
+    missing_latest_female = [
+        article["title"]
+        for article in latest
+        if not reusable_voice(final_by_url.get(article["url"]), article, "female")
+    ]
+    if missing_latest_female:
+        raise RuntimeError(
+            "Newest DR Audio female coverage is incomplete: "
+            + " | ".join(missing_latest_female)
+        )
+
+    latest_male_ready = sum(
+        1
+        for article in latest
+        if reusable_voice(final_by_url.get(article["url"]), article, "male")
+    )
+
     all_final_entries = sorted(
         final_by_url.values(),
         key=lambda entry: str(entry.get("published") or ""),
@@ -417,11 +615,20 @@ def main() -> None:
     final_entries = all_final_entries[:MAX_LIBRARY_ENTRIES]
 
     index = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "model": MODEL,
-        "voice": VOICE,
+        # Legacy metadata retained for older tooling.
+        "voice": VOICE_CONFIGS["female"]["name"],
+        "voices": {
+            key: {
+                "name": config["name"],
+                "label": config["label"],
+            }
+            for key, config in VOICE_CONFIGS.items()
+        },
         "latestCount": min(LATEST_REQUIRED, len(feed)),
+        "latestMaleReady": latest_male_ready,
         "historyCount": len(final_entries),
         "maxLibraryEntries": MAX_LIBRARY_ENTRIES,
         "prunedCount": pruned_count,
@@ -434,10 +641,12 @@ def main() -> None:
     )
 
     print(
-        f"DR Audio ready: {len(latest)} newest protected; "
-        f"{generated_count} generated this run; "
-        f"{backfilled_count} historical backfilled; "
-        f"{len(final_entries)} total shared entries preserved; "
+        f"DR Audio dual-voice ready: {len(latest)} newest female voices protected; "
+        f"{latest_male_ready}/{len(latest)} newest male voices ready; "
+        f"{generated_count} voice files generated this run "
+        f"({female_generated} female, {male_generated} male); "
+        f"{backfilled_count} historical voice files backfilled; "
+        f"{len(final_entries)} total article entries preserved; "
         f"{pruned_count} oldest entries pruned; "
         f"library cap={MAX_LIBRARY_ENTRIES}.",
         flush=True,

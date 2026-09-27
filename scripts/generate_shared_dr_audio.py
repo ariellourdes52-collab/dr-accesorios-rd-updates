@@ -29,7 +29,7 @@ LATEST_REQUIRED = 5
 MAX_BACKFILL_PER_RUN = 5
 MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
-USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0"
+USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.1"
 
 VOICE_CONFIGS: dict[str, dict[str, str]] = {
     "female": {

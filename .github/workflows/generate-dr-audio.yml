@@ -1,6 +1,11 @@
 name: Generate shared DR Audio
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/generate_shared_dr_audio.py'
   schedule:
     # República Dominicana = UTC-4 todo el año.
     # Revisión automática cada 10 minutos, desplazada 3 min del cambio de decena
@@ -31,7 +36,7 @@ concurrency:
 
 jobs:
   generate:
-    if: github.event_name == 'schedule' || inputs.confirm == 'GENERATE-DR-AUDIO'
+    if: github.event_name == 'schedule' || github.event_name == 'push' || inputs.confirm == 'GENERATE-DR-AUDIO'
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -121,9 +126,11 @@ jobs:
           print("")
           print(f"Shared historical articles: **{data.get('historyCount', len(data.get('entries', [])))}**")
           print("")
-          print(f"Library cap: **{data.get('maxLibraryEntries', 'n/a')}** shared audios")
+          print(f"Library cap: **{data.get('maxLibraryEntries', 'n/a')}** article entries")
+          print("")
+          print(f"Newest male voices ready: **{data.get('latestMaleReady', 0)}/{data.get('latestCount', 0)}**")
           print("")
           print(f"Oldest entries pruned this run: **{data.get('prunedCount', 0)}**")
           print("")
-          print("Newest five are always protected. One historical audio is attempted near the daily quota reset only when no new article needs generation; if Gemini has no spare daily request, it is skipped automatically.")
+          print("The newest five keep female compatibility first; male audio is generated next. Historical voice backfill only uses spare quota and never displaces a new article.")
           PY

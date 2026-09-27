@@ -17,13 +17,32 @@ from google.oauth2 import service_account
 
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
-PUBLIC_INDEX = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
+PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
+PUBLIC_INDEX = PUBLIC_BASE + "/dr-audio/index.json"
 SCOPES = ["https://www.googleapis.com/auth/firebase.hosting"]
 
 
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise RuntimeError(message)
+
+
+def valid_audio_path(value: object) -> str:
+    path = str(value or "").strip()
+    if path.startswith("/dr-audio/") and path.endswith(".m4a"):
+        return path
+    return ""
+
+
+def remove_male_fields(entry: dict) -> None:
+    for key in (
+        "audioMaleUrl",
+        "audioMalePath",
+        "maleContentHash",
+        "maleVoice",
+        "maleBytes",
+    ):
+        entry.pop(key, None)
 
 
 def main() -> None:
@@ -76,23 +95,87 @@ def main() -> None:
     old_files = files(old_version)
     require(bool(old_files), "Live Hosting file inventory is empty")
 
-    local_files: dict[str, bytes] = {"/dr-audio/index.json": index_path.read_bytes()}
+    # Collect every voice asset referenced by the catalog.
+    # Legacy audioPath is the female alias used by v2.3, while schema v3 adds
+    # audioFemalePath and audioMalePath. Male files must be uploaded/preserved too.
+    local_audio_files: dict[str, bytes] = {}
+    stripped_missing_male = 0
 
     for entry in entries:
-        audio_path = str(entry.get("audioPath") or "")
-        if not audio_path.startswith("/dr-audio/") or not audio_path.endswith(".m4a"):
-            continue
-        candidate = audio_dir / Path(audio_path).name
-        if candidate.exists():
-            local_files[audio_path] = candidate.read_bytes()
-        else:
-            require(audio_path in old_files, f"Reused Hosting audio missing: {audio_path}")
+        female_paths: list[str] = []
+        for key in ("audioFemalePath", "audioPath"):
+            path = valid_audio_path(entry.get(key))
+            if path and path not in female_paths:
+                female_paths.append(path)
 
-    referenced_audio_paths = {
-        str(entry.get("audioPath") or "")
-        for entry in entries
-        if str(entry.get("audioPath") or "").startswith("/dr-audio/")
+        for path in female_paths:
+            candidate = audio_dir / Path(path).name
+            if candidate.exists():
+                local_audio_files[path] = candidate.read_bytes()
+            else:
+                require(
+                    path in old_files,
+                    f"Reused female Hosting audio missing: {path}",
+                )
+
+        male_path = valid_audio_path(entry.get("audioMalePath"))
+        if male_path:
+            candidate = audio_dir / Path(male_path).name
+            if candidate.exists():
+                local_audio_files[male_path] = candidate.read_bytes()
+            elif male_path not in old_files:
+                # Never publish a catalog entry that points to a 404.
+                # Once removed, the next generator run sees that male voice as
+                # missing and regenerates it according to the normal priority/quota.
+                print(
+                    f"Removing dangling male audio reference before deploy: {male_path}",
+                    flush=True,
+                )
+                remove_male_fields(entry)
+                stripped_missing_male += 1
+
+    latest_count = min(int(index.get("latestCount") or 0), len(entries))
+    index["latestMaleReady"] = sum(
+        1
+        for entry in entries[:latest_count]
+        if valid_audio_path(entry.get("audioMalePath"))
+    )
+
+    if stripped_missing_male:
+        print(
+            f"Removed {stripped_missing_male} dangling male audio reference(s) from catalog.",
+            flush=True,
+        )
+
+    # The index may have been sanitized above, so persist the exact catalog that
+    # will be deployed before calculating its Hosting hash.
+    index_path.write_text(
+        json.dumps(index, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    local_files: dict[str, bytes] = {
+        "/dr-audio/index.json": index_path.read_bytes(),
+        **local_audio_files,
     }
+
+    referenced_audio_paths: set[str] = set()
+    for entry in entries:
+        for key in ("audioPath", "audioFemalePath", "audioMalePath"):
+            path = valid_audio_path(entry.get(key))
+            if path:
+                referenced_audio_paths.add(path)
+
+    missing_referenced = [
+        path
+        for path in sorted(referenced_audio_paths)
+        if path not in local_files and path not in old_files
+    ]
+    require(
+        not missing_referenced,
+        "Catalog still references missing Hosting audio: "
+        + " | ".join(missing_referenced[:10]),
+    )
 
     expected = {
         path: digest
@@ -120,8 +203,16 @@ def main() -> None:
             headers.append(item)
         item.setdefault("headers", {})[name] = value
 
-    upsert_header("/dr-audio/index.json", "Cache-Control", "no-cache, no-store, must-revalidate")
-    upsert_header("/dr-audio/**", "Cache-Control", "public, max-age=604800, immutable")
+    upsert_header(
+        "/dr-audio/index.json",
+        "Cache-Control",
+        "no-cache, no-store, must-revalidate",
+    )
+    upsert_header(
+        "/dr-audio/**",
+        "Cache-Control",
+        "public, max-age=604800, immutable",
+    )
 
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
@@ -140,7 +231,10 @@ def main() -> None:
 
     require(upload_url, "Hosting did not return an upload URL")
     unknown = required_hashes - set(compressed_by_hash)
-    require(not unknown, "Hosting requested an unavailable preserved hash; aborting")
+    require(
+        not unknown,
+        "Hosting requested an unavailable preserved hash; aborting",
+    )
 
     for digest in sorted(required_hashes):
         upload = session.post(
@@ -151,8 +245,16 @@ def main() -> None:
         )
         upload.raise_for_status()
 
-    api("PATCH", new_version, params={"updateMask": "status"}, json={"status": "FINALIZED"})
-    require(active() == (old_release, old_version), "Another Hosting deployment occurred; aborting")
+    api(
+        "PATCH",
+        new_version,
+        params={"updateMask": "status"},
+        json={"status": "FINALIZED"},
+    )
+    require(
+        active() == (old_release, old_version),
+        "Another Hosting deployment occurred; aborting",
+    )
 
     release = api(
         "POST",
@@ -162,6 +264,7 @@ def main() -> None:
     )
     print("Hosting release:", release["name"], flush=True)
 
+    catalog_verified = False
     for attempt in range(18):
         response = requests.get(
             PUBLIC_INDEX,
@@ -173,12 +276,46 @@ def main() -> None:
             try:
                 if response.json() == index:
                     print("VERIFIED: shared DR Audio catalog is live", flush=True)
-                    return
+                    catalog_verified = True
+                    break
             except ValueError:
                 pass
         time.sleep(5)
 
-    raise RuntimeError("Shared DR Audio catalog did not verify after deployment")
+    require(catalog_verified, "Shared DR Audio catalog did not verify after deployment")
+
+    # Verify every audio file generated in this run, including male files.
+    # This catches the exact failure mode where index.json points to an asset
+    # that was never uploaded.
+    new_audio_paths = sorted(
+        path
+        for path in local_audio_files
+        if path.endswith(".m4a")
+    )
+    for path in new_audio_paths:
+        url = PUBLIC_BASE + path
+        verified = False
+        for attempt in range(12):
+            try:
+                response = requests.head(
+                    url,
+                    headers={"Cache-Control": "no-cache"},
+                    timeout=30,
+                    allow_redirects=True,
+                )
+                if response.ok:
+                    verified = True
+                    break
+            except requests.RequestException:
+                pass
+            time.sleep(5)
+        require(verified, f"Published DR Audio asset is not reachable: {path}")
+
+    if new_audio_paths:
+        print(
+            f"VERIFIED: {len(new_audio_paths)} generated audio asset(s) are reachable",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

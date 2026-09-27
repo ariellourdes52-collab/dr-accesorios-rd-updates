@@ -12,7 +12,7 @@ on:
     # para reducir la posibilidad de retrasos por carga alta en GitHub Actions.
     # Las revisiones normales reservan la cuota para noticias nuevas.
     - cron: '3,13,23,33,43,53 * * * *'
-    # Intento oportunista de 1 audio histórico justo antes del reinicio diario
+    # Intento oportunista de 1 artículo histórico completo justo antes del reinicio diario
     # de Gemini (medianoche de Los Ángeles). Se ejecuta a ambas horas posibles
     # por el cambio DST y el propio workflow decide cuál corresponde ese día.
     - cron: '50 6,7 * * *'
@@ -76,7 +76,7 @@ jobs:
           if [[ "$EVENT_NAME" == "schedule" && "$EVENT_SCHEDULE" == "50 6,7 * * *" ]]; then
             # Solo uno de estos dos horarios cae a las 23:50 en Los Ángeles
             # (según horario de verano/invierno). Ese es el momento correcto
-            # para aprovechar una solicitud sobrante sin competir con noticias nuevas.
+            # para completar un artículo antiguo con las voces que le falten sin competir con noticias nuevas.
             LA_HOUR="$(python - <<'PY'
           from datetime import datetime
           from zoneinfo import ZoneInfo

@@ -23,9 +23,9 @@ jobs:
 
           RELEASE_ID="397756772"
           IS_DRAFT="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')"
-          TAG="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.tag_name')"
+          AUTHOR="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.author.login')"
 
-          if [ "$IS_DRAFT" != "true" ] || [ "$TAG" != "2.3" ]; then
+          if [ "$IS_DRAFT" != "true" ] || [ "$AUTHOR" != "ariellourdes52-collab" ]; then
             echo "Safety check failed."
             exit 1
           fi

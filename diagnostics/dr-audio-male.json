@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 3,
+  "generatedAt": "2026-09-27T18:15:27.248463+00:00",
+  "voices": {
+    "female": {
+      "name": "Achernar",
+      "label": "Femenina"
+    },
+    "male": {
+      "name": "Charon",
+      "label": "Masculina"
+    }
+  },
+  "latestCount": 5,
+  "latestMaleReady": 5,
+  "historyCount": 10,
+  "latest": [
+    {
+      "title": "Apple recibe un golpe de US$5,700 millones: el Taptic Engine del iPhone queda en el centro de una batalla de patentes",
+      "url": "https://draccesoriosrd.blogspot.com/2026/09/apple-veredicto-5700-millones-taptic-engine.html",
+      "femaleReady": true,
+      "femaleVoice": "Achernar",
+      "maleReady": true,
+      "maleVoice": "Charon",
+      "maleContentHash": "e28c0458cb12d0c23ce519b1b707994d06d5e00b7b61872998645b508dd6b485",
+      "maleBytes": 3046931,
+      "maleUrl": "https://dr-accesorios-rd.web.app/dr-audio/e28c0458cb12d0c23ce519b1b707.m4a",
+      "maleHttpStatus": null,
+      "maleContentLength": null,
+      "maleContentType": null,
+      "maleHttpError": "<HTTPError 404: 'Not Found'>"
+    },
+    {
+      "title": "Alerta con la actualización de septiembre: algunos Google Pixel están quedando bloqueados",
+      "url": "https://draccesoriosrd.blogspot.com/2026/09/google-pixel-bloqueados-actualizacion-septiembre.html",
+      "femaleReady": true,
+      "femaleVoice": "Achernar",
+      "maleReady": true,
+      "maleVoice": "Charon",
+      "maleContentHash": "412a594a1ba5d6964843149cad030d992426bd78be6b2fab323fc4318eaafb21",
+      "maleBytes": 2749475,
+      "maleUrl": "https://dr-accesorios-rd.web.app/dr-audio/412a594a1ba5d6964843149cad03.m4a",
+      "maleHttpStatus": null,
+      "maleContentLength": null,
+      "maleContentType": null,
+      "maleHttpError": "<HTTPError 404: 'Not Found'>"
+    },
+    {
+      "title": "¿Tu iPhone 18 Pro se reinicia después de usar Face ID? Apple ya prepara la solución",
+      "url": "https://draccesoriosrd.blogspot.com/2026/09/iphone-18-pro-face-id-reinicios-solucion.html",
+      "femaleReady": true,
+      "femaleVoice": "Achernar",
+      "maleReady": true,
+      "maleVoice": "Charon",
+      "maleContentHash": "3810a0daa7c72586a2043d89e0c055c51901ea7f8afb24ce2b43d4151baec5f9",
+      "maleBytes": 2464312,
+      "maleUrl": "https://dr-accesorios-rd.web.app/dr-audio/3810a0daa7c72586a2043d89e0c0.m4a",
+      "maleHttpStatus": null,
+      "maleContentLength": null,
+      "maleContentType": null,
+      "maleHttpError": "<HTTPError 404: 'Not Found'>"
+    },
+    {
+      "title": "¿YouTube se congela en tu Samsung Galaxy? No eres el único: usuarios reportan un fallo extraño",
+      "url": "https://draccesoriosrd.blogspot.com/2026/09/youtube-se-congela-samsung-galaxy.html",
+      "femaleReady": true,
+      "femaleVoice": "Achernar",
+      "maleReady": true,
+      "maleVoice": "Charon",
+      "maleContentHash": "4093d351de59508f84ef9e84d2bca06e34656c6daa88da6057569328e67789ab",
+      "maleBytes": 2281586,
+      "maleUrl": "https://dr-accesorios-rd.web.app/dr-audio/4093d351de59508f84ef9e84d2bc.m4a",
+      "maleHttpStatus": null,
+      "maleContentLength": null,
+      "maleContentType": null,
+      "maleHttpError": "<HTTPError 404: 'Not Found'>"
+    },
+    {
+      "title": "La tecnología quiere reemplazar el teléfono con gafas de IA… pero hay un problema que nadie puede ignorar",
+      "url": "https://draccesoriosrd.blogspot.com/2026/09/opinion-gafas-ia-privacidad-futuro-smartphone.html",
+      "femaleReady": true,
+      "femaleVoice": "Achernar",
+      "maleReady": true,
+      "maleVoice": "Charon",
+      "maleContentHash": "607565a10fa767e6f2cc0877669dbd4405b856034e05f228aae5541dc1dbc660",
+      "maleBytes": 2731329,
+      "maleUrl": "https://dr-accesorios-rd.web.app/dr-audio/607565a10fa767e6f2cc0877669d.m4a",
+      "maleHttpStatus": null,
+      "maleContentLength": null,
+      "maleContentType": null,
+      "maleHttpError": "<HTTPError 404: 'Not Found'>"
+    }
+  ],
+  "latestMaleUrlsReadyComputed": 5
+}

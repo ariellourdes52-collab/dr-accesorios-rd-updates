@@ -1,0 +1,69 @@
+name: Update 2.3 draft SHA
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/update-release-2.3-sha.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update draft release body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_ID="397756772"
+          IS_DRAFT="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')"
+          TAG="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.tag_name')"
+
+          if [ "$IS_DRAFT" != "true" ] || [ "$TAG" != "2.3" ]; then
+            echo "Safety check failed."
+            exit 1
+          fi
+
+          cat > /tmp/release-body.md <<'EOF'
+          DR Accesorios RD v2.3 — Ahora también puedes escuchar las noticias 🎧
+          
+          La versión 2.3 da un paso importante en la evolución de DR Accesorios RD con la llegada de DR Audio, una nueva experiencia diseñada para que puedas mantenerte informado incluso cuando no puedes detenerte a leer.
+          
+          • 🎙️ Nuevo DR Audio: escucha tus noticias con una voz femenina natural en español latino.
+          • ▶️ Reproducción continua: disfruta automáticamente de las últimas 5 noticias disponibles.
+          • 📰 Audio dentro de los artículos: abre una noticia y empieza a escucharla directamente desde el lector.
+          • ⏩ Control completo de reproducción: pausa, continúa, adelanta o retrocede usando la barra de progreso.
+          • 📱 Reproducción en segundo plano: sigue escuchando aunque salgas de la app o bloquees el teléfono.
+          • 🔒 Controles en pantalla de bloqueo y notificaciones: pausa, continúa y cambia de noticia sin volver a abrir la app.
+          • ⚡ Audios compartidos más rápidos: las nuevas publicaciones se revisan automáticamente aproximadamente cada 10 minutos para preparar su versión en audio.
+          • 💾 Caché inteligente: los audios descargados se reutilizan para reducir consumo de datos y mejorar la velocidad.
+          • 🔄 Cola inteligente: intentar escuchar una noticia cuyo audio aún no está disponible ya no afecta tus otras noticias.
+          • 💬 Acceso a comentarios mejorado: el botón flotante dentro de los artículos ahora es más grande, visible y mejor integrado junto al reproductor.
+          • ✨ Interfaz del reproductor renovada: títulos animados, tiempos de reproducción, progreso y controles más cómodos.
+          • 🚀 Mejor rendimiento: optimizamos las actualizaciones del reproductor para consumir menos recursos mientras escuchas.
+          • 🛡️ Mayor estabilidad en la versión firmada: mejoras internas en App Check, caché y reproducción para garantizar un funcionamiento más sólido.
+          
+          Todo lo que ya te gustaba sigue ahí
+          
+          DR Accesorios RD v2.3 mantiene comentarios, respuestas y likes, notificaciones, Radar, historial de lectura, “Continuar leyendo”, artículos offline, redes sociales, lector nativo, actualizaciones automáticas y todas las funciones incorporadas en versiones anteriores.
+          
+          DR Accesorios RD v2.3 convierte la app en algo más que un lugar para leer tecnología: ahora también puedes escucharla. 🎧📱
+          
+          ---
+          
+          ### 🔐 Verificación del APK
+          
+          **Archivo:** `dr-accesorios-rd.apk`  
+          **SHA-256:** `7f2905990bb47be3e715986cb0e68d3cd30744b85b3fbbb4acd622e3152732c1`
+          EOF
+
+          gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -f body="$(cat /tmp/release-body.md)"
+
+          echo "Draft 2.3 description updated."

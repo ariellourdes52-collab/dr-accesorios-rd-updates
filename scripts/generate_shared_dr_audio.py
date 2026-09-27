@@ -431,7 +431,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="dr_audio_build")
     parser.add_argument("--scan-posts", type=int, default=500)
-    parser.add_argument("--backfill-count", type=int, default=0)
+    parser.add_argument(
+        "--backfill-count",
+        type=int,
+        default=0,
+        help="Number of older articles to complete with every missing voice (0-5).",
+    )
     parser.add_argument(
         "--opportunistic-backfill",
         action="store_true",
@@ -499,17 +504,28 @@ def main() -> None:
         )
         backfill_count = 0
 
+    # backfill_count is measured in ARTICLES, not individual voice files.
+    # One historical article is selected only if it is incomplete, and every
+    # missing voice for that article is queued so BACKFILL=1 completes one article.
     backfill_tasks: list[tuple[dict[str, Any], str]] = []
+    backfill_articles_selected = 0
     if backfill_count:
         for article in feed[LATEST_REQUIRED:]:
-            if len(backfill_tasks) >= backfill_count:
-                break
             current = final_by_url.get(article["url"])
-            for voice_key in ("female", "male"):
-                if len(backfill_tasks) >= backfill_count:
-                    break
-                if not reusable_voice(current, article, voice_key):
-                    backfill_tasks.append((article, voice_key))
+            missing_voices = [
+                voice_key
+                for voice_key in ("female", "male")
+                if not reusable_voice(current, article, voice_key)
+            ]
+            if not missing_voices:
+                continue
+
+            for voice_key in missing_voices:
+                backfill_tasks.append((article, voice_key))
+
+            backfill_articles_selected += 1
+            if backfill_articles_selected >= backfill_count:
+                break
 
     client = genai.Client(api_key=api_key)
     generated_count = 0
@@ -645,7 +661,8 @@ def main() -> None:
         f"{latest_male_ready}/{len(latest)} newest male voices ready; "
         f"{generated_count} voice files generated this run "
         f"({female_generated} female, {male_generated} male); "
-        f"{backfilled_count} historical voice files backfilled; "
+        f"{backfilled_count} historical voice files backfilled across "
+        f"{backfill_articles_selected} selected historical article(s); "
         f"{len(final_entries)} total article entries preserved; "
         f"{pruned_count} oldest entries pruned; "
         f"library cap={MAX_LIBRARY_ENTRIES}.",

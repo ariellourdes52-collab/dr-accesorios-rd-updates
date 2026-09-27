@@ -1,0 +1,59 @@
+name: Diagnose DR Audio male voice
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/diagnose-dr-audio-male.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect live DR Audio catalog and male assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, urllib.request, urllib.error
+
+          index_url = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
+          req = urllib.request.Request(index_url, headers={"User-Agent":"DR-Audio-Diagnostics/1.0"})
+          with urllib.request.urlopen(req, timeout=30) as r:
+              data = json.load(r)
+
+          entries = data.get("entries") or []
+          latest = entries[:5]
+
+          print("schemaVersion:", data.get("schemaVersion"))
+          print("generatedAt:", data.get("generatedAt"))
+          print("voices:", json.dumps(data.get("voices"), ensure_ascii=False))
+          print("latestCount:", data.get("latestCount"))
+          print("latestMaleReady:", data.get("latestMaleReady"))
+          print("historyCount:", data.get("historyCount"))
+          print("--- latest 5 ---")
+
+          male_ready = 0
+          for i, e in enumerate(latest, 1):
+              male = (e.get("audioMaleUrl") or "").strip()
+              female = (e.get("audioFemaleUrl") or e.get("audioUrl") or "").strip()
+              print(f"{i}. {e.get('title')}")
+              print("   female:", bool(female), e.get("femaleVoice") or e.get("voice"))
+              print("   male:", bool(male), e.get("maleVoice"))
+              print("   maleHash:", e.get("maleContentHash"))
+              print("   maleBytes:", e.get("maleBytes"))
+              if male:
+                  male_ready += 1
+                  try:
+                      head = urllib.request.Request(male, method="HEAD", headers={"User-Agent":"DR-Audio-Diagnostics/1.0"})
+                      with urllib.request.urlopen(head, timeout=30) as hr:
+                          print("   male HTTP:", hr.status, "length:", hr.headers.get("Content-Length"), "type:", hr.headers.get("Content-Type"))
+                  except Exception as ex:
+                      print("   male HTTP ERROR:", repr(ex))
+
+          print("LATEST_MALE_URLS_READY:", male_ready, "/", len(latest))
+          PY

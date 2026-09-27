@@ -112,12 +112,7 @@ jobs:
           fi
 
           APK_DIGEST="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '.[] | select(.name=="dr-accesorios-rd.apk") | .digest')"
-          EXPECTED_DIGEST="SET-BEFORE-RELEASE-2.3"
-
-          if [ "$EXPECTED_DIGEST" = "SET-BEFORE-RELEASE-2.3" ]; then
-            echo "Release 2.3 APK digest has not been locked yet. Upload the signed APK and update EXPECTED_DIGEST before release day."
-            exit 1
-          fi
+          EXPECTED_DIGEST="sha256:7f2905990bb47be3e715986cb0e68d3cd30744b85b3fbbb4acd622e3152732c1"
 
           if [ "$APK_DIGEST" != "$EXPECTED_DIGEST" ]; then
             echo "APK digest mismatch."

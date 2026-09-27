@@ -26,16 +26,20 @@ jobs:
             exit 0
           fi
 
+          cat > /tmp/release-notes.txt <<'EOF'
+          🎧 DR Audio: escucha las últimas noticias
+          ▶️ Reproducción continua de hasta 5 noticias
+          🔊 Voz natural en español latino
+          ⏯️ Controles desde pantalla de bloqueo y Bluetooth
+          📥 Audio compartido y caché optimizada
+          🔄 Actualización automática de noticias en audio
+          ⚡ Mejoras de rendimiento y estabilidad
+          EOF
+
           gh release create "2.3" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "DR Accesorios RD v2.3 — Noticias en Audio" \
-            --notes "🎧 DR Audio: escucha las últimas noticias
-▶️ Reproducción continua de hasta 5 noticias
-🔊 Voz natural en español latino
-⏯️ Controles desde pantalla de bloqueo y Bluetooth
-📥 Audio compartido y caché optimizada
-🔄 Actualización automática de noticias en audio
-⚡ Mejoras de rendimiento y estabilidad" \
+            --notes-file /tmp/release-notes.txt \
             --draft
 
           echo "Draft release 2.3 created."

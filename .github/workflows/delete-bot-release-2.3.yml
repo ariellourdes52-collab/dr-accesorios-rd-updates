@@ -1,0 +1,34 @@
+name: Delete bot-created 2.3 draft
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/delete-bot-release-2.3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete only the bot-created draft release 2.3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE_ID="397754492"
+          IS_DRAFT="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')"
+          TAG="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.tag_name')"
+          AUTHOR="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.author.login')"
+
+          if [ "$IS_DRAFT" != "true" ] || [ "$TAG" != "2.3" ] || [ "$AUTHOR" != "github-actions[bot]" ]; then
+            echo "Safety check failed; refusing to delete."
+            exit 1
+          fi
+
+          gh api --method DELETE "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}"
+          echo "Bot-created draft release 2.3 deleted."

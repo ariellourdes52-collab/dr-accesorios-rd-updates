@@ -64,6 +64,8 @@ jobs:
           EOF
 
           gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -f tag_name="2.3" \
+            -f target_commitish="main" \
             -f body="$(cat /tmp/release-body.md)"
 
           echo "Draft 2.3 description updated."

@@ -191,6 +191,51 @@ def load_live_index() -> dict[str, Any]:
         return {"entries": []}
 
 
+_PUBLIC_AUDIO_EXISTS_CACHE: dict[str, bool] = {}
+
+
+def public_audio_exists(url: str) -> bool:
+    """Return False only for a confirmed missing public asset.
+
+    Network/transient errors are treated as unknown/available so a temporary
+    connectivity problem never burns Gemini quota by forcing regeneration.
+    """
+    url = str(url or "").strip()
+    if not url:
+        return False
+    if url in _PUBLIC_AUDIO_EXISTS_CACHE:
+        return _PUBLIC_AUDIO_EXISTS_CACHE[url]
+
+    try:
+        response = requests.head(
+            url,
+            headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"},
+            timeout=15,
+            allow_redirects=True,
+        )
+        if response.status_code in (404, 410):
+            result = False
+        elif response.ok:
+            result = True
+        else:
+            print(
+                f"Could not confirm DR Audio asset HTTP {response.status_code}; "
+                f"keeping metadata for now: {url}",
+                flush=True,
+            )
+            result = True
+    except requests.RequestException as error:
+        print(
+            f"Could not verify DR Audio asset due to transient error; "
+            f"keeping metadata for now: {url} ({error})",
+            flush=True,
+        )
+        result = True
+
+    _PUBLIC_AUDIO_EXISTS_CACHE[url] = result
+    return result
+
+
 def generate_wav(
     client: genai.Client,
     transcript: str,
@@ -479,6 +524,27 @@ def main() -> None:
     old_by_url = dict(final_by_url)
 
     latest = feed[:LATEST_REQUIRED]
+
+    # The catalog can only be reused when the newest public assets really exist.
+    # This specifically prevents index.json from claiming a male voice is ready
+    # while its M4A is missing from Firebase Hosting.
+    for article in latest:
+        old = old_by_url.get(article["url"])
+        if not old:
+            continue
+        for voice_key in ("female", "male"):
+            if not reusable_voice(old, article, voice_key):
+                continue
+            audio_url = current_voice_url(old, voice_key)
+            if public_audio_exists(audio_url):
+                continue
+            print(
+                f"Live DR Audio asset is missing; regenerating "
+                f"{VOICE_CONFIGS[voice_key]['label'].lower()} voice: "
+                f"{article['title']}",
+                flush=True,
+            )
+            remove_voice_fields(old, voice_key)
 
     # Refresh metadata and discard stale voice links before planning generation.
     for article in feed:

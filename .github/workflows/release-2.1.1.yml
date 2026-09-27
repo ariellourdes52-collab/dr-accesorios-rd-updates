@@ -1,6 +1,12 @@
 name: Release DR Accesorios RD 2.1.1
 
 on:
+  # Self-check only: editing this workflow runs the safety gate, but never publishes.
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/release-2.1.1.yml'
   schedule:
     # 2026-11-05 00:00 UTC = 2026-11-04 20:00 America/Santo_Domingo
     - cron: '0 0 5 11 *'
@@ -41,6 +47,13 @@ jobs:
           fi
 
           echo "proceed=$proceed" >> "$GITHUB_OUTPUT"
+
+      - name: Workflow self-check
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          echo "release-2.1.1.yml parsed correctly."
+          echo "Safety gate kept the release disabled for this push."
 
       - name: Checkout repository
         if: steps.gate.outputs.proceed == 'true'

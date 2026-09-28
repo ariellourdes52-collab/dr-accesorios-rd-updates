@@ -3,8 +3,8 @@
  * Backend gratuito para Google Apps Script.
  *
  * Flujo:
- * USGS (feed actualizado cada minuto) -> filtro RD/Caribe ->
- * Firebase Hosting radar.json -> FCM topic radar_seismic_v231
+ * USGS (feed actualizado cada minuto) -> filtro SOLO República Dominicana ->
+ * Firebase Hosting radar-seismic-v231.json -> FCM topic radar_seismic_v231
  *
  * No usa ubicación del usuario.
  * No es un sistema de alerta temprana.
@@ -15,6 +15,9 @@ const CONFIG = Object.freeze({
   SITE_ID: 'dr-accesorios-rd',
 
   RADAR_URL: 'https://dr-accesorios-rd.web.app/radar.json',
+  SEISMIC_RADAR_PATH: '/radar-seismic-v231.json',
+  SEISMIC_RADAR_URL:
+    'https://dr-accesorios-rd.web.app/radar-seismic-v231.json',
   USGS_URL:
     'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson',
 
@@ -23,6 +26,24 @@ const CONFIG = Object.freeze({
   DR_CENTER_LAT: 18.7357,
   DR_CENTER_LON: -70.1627,
 
+  /*
+   * MODO GEOGRÁFICO ESTRICTO:
+   * solo aceptamos eventos cuyo lugar reportado por la fuente
+   * identifique explícitamente a República Dominicana.
+   *
+   * USGS normalmente usa texto en inglés ("Dominican Republic").
+   * Se acepta también la forma en español por robustez.
+   */
+  DR_PLACE_TOKENS: [
+    'dominican republic',
+    'república dominicana',
+    'republica dominicana',
+  ],
+
+  // Escalonado para reducir avisos irrelevantes dentro del país:
+  // <= 250 km  => M4.0+
+  // <= 500 km  => M4.5+
+  // <= 900 km  => M5.5+
   FILTERS: [
     { maxKm: 250, minMag: 4.0 },
     { maxKm: 500, minMag: 4.5 },
@@ -46,6 +67,16 @@ const CONFIG = Object.freeze({
 });
 
 
+/**
+ * Ejecutar UNA VEZ manualmente desde Apps Script.
+ *
+ * - Autoriza las APIs.
+ * - Verifica USGS.
+ * - Verifica Firebase Hosting.
+ * - Toma como baseline los sismos relevantes ya existentes
+ *   para no mandar avisos retroactivos.
+ * - Instala un solo trigger cada 1 minuto.
+ */
 function setupSeismicRadar() {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -54,14 +85,48 @@ function setupSeismicRadar() {
     const feed = fetchUsgs_();
     const relevant = getRelevantEvents_(feed);
 
+    // Verifica que el usuario tenga acceso al Hosting del proyecto.
     const active = getActiveHosting_();
     if (!active.versionName) {
       throw new Error('No se pudo resolver la versión activa de Firebase Hosting.');
     }
 
-    const radar = fetchRadar_();
-    if (!radar || !Array.isArray(radar.alerts)) {
-      throw new Error('radar.json no contiene un array alerts válido.');
+    /*
+     * Verifica el radar tecnológico compartido y elimina únicamente
+     * posibles terremotos heredados de la implementación anterior.
+     * Así las versiones antiguas dejan de poder descargar sismos.
+     */
+    const mainRadar = fetchMainRadar_();
+    const cleanedMain = removeEarthquakesFromMainRadar_(mainRadar);
+
+    if (cleanedMain.changed) {
+      deployHostingJson_(
+        '/radar.json',
+        cleanedMain.radar,
+        'radar.json'
+      );
+    }
+
+    /*
+     * Crea/actualiza el feed sísmico aislado SOLO con eventos que USGS
+     * identifica como República Dominicana. setup NO envía FCM.
+     */
+    const existingSeismic =
+      fetchSeismicRadar_(true);
+
+    const currentSeismic =
+      existingSeismic || emptySeismicRadar_();
+
+    const seismicMerge =
+      mergeSeismicRadar_(currentSeismic, relevant);
+
+    if (
+      seismicMerge.changed ||
+      existingSeismic === null
+    ) {
+      deploySeismicRadarJson_(
+        seismicMerge.radar
+      );
     }
 
     const state = {};
@@ -95,9 +160,13 @@ function setupSeismicRadar() {
 }
 
 
+/**
+ * Función llamada automáticamente cada minuto.
+ */
 function seismicMinuteTick() {
   const lock = LockService.getScriptLock();
 
+  // Si la ejecución anterior todavía está activa, saltamos este ciclo.
   if (!lock.tryLock(5000)) {
     console.log('Se omite ciclo: otro proceso sísmico sigue ejecutándose.');
     return;
@@ -148,17 +217,29 @@ function seismicMinuteTick() {
       return;
     }
 
-    const currentRadar = fetchRadar_();
-    const merge = mergeRadar_(currentRadar, relevant);
+    const currentRadar =
+      fetchSeismicRadar_(true) || emptySeismicRadar_();
+
+    const merge =
+      mergeSeismicRadar_(currentRadar, relevant);
 
     if (merge.changed) {
-      deployRadarJson_(merge.radar);
+      deploySeismicRadarJson_(merge.radar);
     }
 
+    /*
+     * Solo un EVENTO NUEVO dispara FCM.
+     * Revisiones de magnitud/profundidad actualizan Radar sin volver
+     * a alarmar al usuario.
+     */
     if (newEvents.length > 0) {
       sendSeismicRefresh_(newEvents);
     }
 
+    /*
+     * Guardamos el estado después de publicar/enviar correctamente.
+     * Si algo falla antes, el siguiente minuto reintentará.
+     */
     const newState = buildState_(relevant, oldState, nowMs);
     saveState_(newState);
 
@@ -181,6 +262,20 @@ function seismicMinuteTick() {
 }
 
 
+/**
+ * PRUEBA CONTROLADA.
+ *
+ * Antes de usarla:
+ * 1) En "Configuración del proyecto > Propiedades de la secuencia de comandos"
+ *    crea:
+ *      DR_RADAR_ALLOW_CONTROLLED_TEST_V1 = YES
+ *
+ * 2) Ejecuta controlledSeismicTest().
+ *
+ * La función borra automáticamente el permiso YES después de usarlo una vez.
+ *
+ * La alerta se identifica claramente como PRUEBA y NO como un sismo real.
+ */
 function controlledSeismicTest() {
   const properties = PropertiesService.getScriptProperties();
   const allowed = properties.getProperty(CONFIG.TEST_ENABLE_KEY);
@@ -193,6 +288,7 @@ function controlledSeismicTest() {
     );
   }
 
+  // One-shot: se desarma incluso si después ocurre un fallo.
   properties.deleteProperty(CONFIG.TEST_ENABLE_KEY);
 
   const lock = LockService.getScriptLock();
@@ -203,7 +299,8 @@ function controlledSeismicTest() {
     const expires = new Date(now.getTime() + 30 * 60 * 1000);
     const testId = 'earthquake-test-' + now.getTime();
 
-    const radar = fetchRadar_();
+    const radar =
+      fetchSeismicRadar_(true) || emptySeismicRadar_();
 
     const testAlert = {
       id: testId,
@@ -245,7 +342,7 @@ function controlledSeismicTest() {
 
     next.updatedAt = isoUtc_(now);
 
-    deployRadarJson_(next);
+    deploySeismicRadarJson_(next);
 
     sendFcmData_({
       type: 'earthquake_alert',
@@ -264,12 +361,17 @@ function controlledSeismicTest() {
 }
 
 
+/**
+ * Elimina del feed sísmico cualquier tarjeta creada por controlledSeismicTest().
+ * No envía otro FCM.
+ */
 function removeControlledSeismicTest() {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
 
   try {
-    const radar = fetchRadar_();
+    const radar =
+      fetchSeismicRadar_(true) || emptySeismicRadar_();
     const before = Array.isArray(radar.alerts) ? radar.alerts : [];
 
     const after = before.filter(function(alert) {
@@ -286,7 +388,7 @@ function removeControlledSeismicTest() {
     next.alerts = after;
     next.updatedAt = isoUtc_(new Date());
 
-    deployRadarJson_(next);
+    deploySeismicRadarJson_(next);
 
     console.log(
       'Pruebas eliminadas:',
@@ -298,6 +400,9 @@ function removeControlledSeismicTest() {
 }
 
 
+/**
+ * Estado rápido para diagnóstico.
+ */
 function seismicHealth() {
   const props = PropertiesService.getScriptProperties();
   const health = props.getProperty(CONFIG.LAST_HEALTH_KEY);
@@ -320,6 +425,9 @@ function seismicHealth() {
 }
 
 
+/**
+ * Elimina únicamente el trigger sísmico.
+ */
 function disableSeismicMinuteTrigger() {
   ScriptApp.getProjectTriggers()
     .filter(function(trigger) {
@@ -332,6 +440,10 @@ function disableSeismicMinuteTrigger() {
   console.log('Trigger sísmico desactivado.');
 }
 
+
+/* =========================================================
+ * USGS
+ * ========================================================= */
 
 function fetchUsgs_() {
   const url = CONFIG.USGS_URL + '?dr_radar=' + Date.now();
@@ -403,6 +515,21 @@ function evaluateFeature_(feature) {
     };
   }
 
+  const place = String(properties.place || '').trim();
+
+  /*
+   * Filtro geográfico estricto:
+   * nada de Puerto Rico, Haití, Islas Vírgenes ni Caribe general.
+   * El evento debe estar identificado por la fuente como
+   * República Dominicana.
+   */
+  if (!isDominicanRepublicPlace_(place)) {
+    return {
+      accepted: false,
+      distanceKm: Infinity,
+    };
+  }
+
   const lon = Number(coordinates[0]);
   const lat = Number(coordinates[1]);
 
@@ -444,6 +571,21 @@ function evaluateFeature_(feature) {
 }
 
 
+function isDominicanRepublicPlace_(rawPlace) {
+  const place = String(rawPlace || '')
+    .trim()
+    .toLowerCase();
+
+  if (!place) {
+    return false;
+  }
+
+  return CONFIG.DR_PLACE_TOKENS.some(function(token) {
+    return place.indexOf(token) !== -1;
+  });
+}
+
+
 function haversineKm_(lat1, lon1, lat2, lon2) {
   const radius = 6371.0088;
 
@@ -482,7 +624,11 @@ function signatureForFeature_(feature) {
 }
 
 
-function fetchRadar_() {
+/* =========================================================
+ * RADAR JSON
+ * ========================================================= */
+
+function fetchMainRadar_() {
   const response = UrlFetchApp.fetch(
     CONFIG.RADAR_URL + '?dr_radar=' + Date.now(),
     {
@@ -506,77 +652,206 @@ function fetchRadar_() {
 }
 
 
-function mergeRadar_(current, relevant) {
+function fetchSeismicRadar_(allowNotFound) {
+  const response = UrlFetchApp.fetch(
+    CONFIG.SEISMIC_RADAR_URL + '?dr_seismic=' + Date.now(),
+    {
+      method: 'get',
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+      muteHttpExceptions: true,
+    }
+  );
+
+  const status = response.getResponseCode();
+
+  if (allowNotFound === true && status === 404) {
+    return null;
+  }
+
+  requireHttpOk_(
+    response,
+    'radar-seismic-v231.json'
+  );
+
+  const radar = JSON.parse(response.getContentText());
+
+  if (!radar || !Array.isArray(radar.alerts)) {
+    throw new Error(
+      'radar-seismic-v231.json no tiene estructura válida.'
+    );
+  }
+
+  return radar;
+}
+
+
+function emptySeismicRadar_() {
+  return {
+    schemaVersion: 1,
+    enabled: true,
+    updatedAt: '',
+    alerts: [],
+  };
+}
+
+
+/*
+ * Limpia del radar compartido únicamente alertas earthquake heredadas.
+ * No modifica ninguna alerta tecnológica.
+ */
+function removeEarthquakesFromMainRadar_(current) {
+  const sourceAlerts =
+    Array.isArray(current.alerts) ? current.alerts : [];
+
+  const filtered = sourceAlerts.filter(function(alert) {
+    return String(
+      alert && alert.type ? alert.type : ''
+    ).toLowerCase() !== 'earthquake';
+  });
+
+  if (filtered.length === sourceAlerts.length) {
+    return {
+      radar: current,
+      changed: false,
+    };
+  }
+
+  const target = deepClone_(current);
+  target.alerts = filtered;
+  target.updatedAt = isoUtc_(new Date());
+
+  return {
+    radar: target,
+    changed: true,
+  };
+}
+
+
+function mergeSeismicRadar_(current, relevant) {
   const now = new Date();
   const retentionCutoff =
-    now.getTime() - CONFIG.RADAR_RETENTION_HOURS * 60 * 60 * 1000;
+    now.getTime() -
+    CONFIG.RADAR_RETENTION_HOURS * 60 * 60 * 1000;
 
-  const technological = [];
   const earthquakesBySourceId = {};
 
   (Array.isArray(current.alerts) ? current.alerts : [])
     .forEach(function(alert) {
       if (!alert || typeof alert !== 'object') return;
 
-      if (String(alert.type || '').toLowerCase() !== 'earthquake') {
-        technological.push(alert);
+      if (
+        String(alert.type || '').toLowerCase() !==
+        'earthquake'
+      ) {
         return;
       }
 
-      if (String(alert.id || '').startsWith('earthquake-test-')) {
+      // Las pruebas se conservan hasta limpieza manual/retención.
+      if (
+        String(alert.id || '').startsWith(
+          'earthquake-test-'
+        )
+      ) {
         const time = earthquakeTimeMs_(alert);
+
         if (!time || time >= retentionCutoff) {
-          earthquakesBySourceId[String(alert.id)] = alert;
+          earthquakesBySourceId[
+            String(alert.id)
+          ] = alert;
         }
+
         return;
       }
 
-      const sourceId = earthquakeSourceId_(alert);
+      /*
+       * El feed real es exclusivo de República Dominicana. Si quedó
+       * almacenado un evento anterior de otra zona del Caribe, se elimina
+       * automáticamente en el siguiente merge.
+       */
+      const storedPlace = String(
+        alert.earthquake && alert.earthquake.place
+          ? alert.earthquake.place
+          : ''
+      ).trim();
+
+      if (!isDominicanRepublicPlace_(storedPlace)) {
+        return;
+      }
+
+      const sourceId =
+        earthquakeSourceId_(alert);
+
       if (!sourceId) return;
 
-      const eventTime = earthquakeTimeMs_(alert);
+      const eventTime =
+        earthquakeTimeMs_(alert);
 
-      if (eventTime && eventTime < retentionCutoff) {
+      if (
+        eventTime &&
+        eventTime < retentionCutoff
+      ) {
         return;
       }
 
-      earthquakesBySourceId[sourceId] = alert;
+      earthquakesBySourceId[sourceId] =
+        alert;
     });
 
   relevant.forEach(function(item) {
     const feature = item.feature;
-    const id = String(feature.id || '').trim();
+    const id =
+      String(feature.id || '').trim();
 
     if (!id) return;
 
     earthquakesBySourceId[id] =
-      buildEarthquakeAlert_(feature, item.distanceKm);
+      buildEarthquakeAlert_(
+        feature,
+        item.distanceKm
+      );
   });
 
-  const earthquakes = Object.keys(earthquakesBySourceId)
-    .map(function(key) {
-      return earthquakesBySourceId[key];
-    })
-    .sort(function(a, b) {
-      return earthquakeTimeMs_(a) - earthquakeTimeMs_(b);
-    });
+  const earthquakes =
+    Object.keys(earthquakesBySourceId)
+      .map(function(key) {
+        return earthquakesBySourceId[key];
+      })
+      .sort(function(a, b) {
+        return (
+          earthquakeTimeMs_(a) -
+          earthquakeTimeMs_(b)
+        );
+      });
 
-  const target = deepClone_(current);
-  target.schemaVersion = Number(current.schemaVersion || 1);
-  target.enabled = current.enabled !== false;
-  target.alerts = technological.concat(earthquakes);
+  const target = {
+    schemaVersion:
+      Number(current.schemaVersion || 1),
+    enabled:
+      current.enabled !== false,
+    updatedAt:
+      String(current.updatedAt || ''),
+    alerts:
+      earthquakes,
+  };
 
-  const currentComparable = deepClone_(current);
-  const targetComparable = deepClone_(target);
+  const currentComparable =
+    deepClone_(current);
+
+  const targetComparable =
+    deepClone_(target);
 
   delete currentComparable.updatedAt;
   delete targetComparable.updatedAt;
 
   const changed =
-    stableStringify_(currentComparable) !== stableStringify_(targetComparable);
+    stableStringify_(currentComparable) !==
+    stableStringify_(targetComparable);
 
   if (changed) {
-    target.updatedAt = isoUtc_(now);
+    target.updatedAt =
+      isoUtc_(now);
   }
 
   return {
@@ -691,522 +966,93 @@ function earthquakeTimeMs_(alert) {
 }
 
 
-function deployRadarJson_(targetRadar) {
-  const activeBefore = getActiveHosting_();
-  const oldVersionName = activeBefore.versionName;
+/* =========================================================
+ * FIREBASE HOSTING
+ * ========================================================= */
 
-  const oldVersion = firebaseApi_(
-    'get',
-    CONFIG.HOSTING_API + oldVersionName
+function deploySeismicRadarJson_(targetRadar) {
+  deployHostingJson_(
+    CONFIG.SEISMIC_RADAR_PATH,
+    targetRadar,
+    'radar-seismic-v231.json'
   );
+}
 
-  const oldFiles = listHostingFiles_(oldVersionName);
 
-  if (Object.keys(oldFiles).length === 0) {
-    throw new Error('Firebase Hosting no devolvió archivos activos.');
+function deployHostingJson_(hostingPath, targetRadar, label) {
+  const activeBefore =
+    getActiveHosting_();
+
+  const oldVersionName =
+    activeBefore.versionName;
+
+  const oldVersion =
+    firebaseApi_(
+      'get',
+      CONFIG.HOSTING_API +
+        oldVersionName
+    );
+
+  const oldFiles =
+    listHostingFiles_(
+      oldVersionName
+    );
+
+  if (
+    Object.keys(oldFiles).length === 0
+  ) {
+    throw new Error(
+      'Firebase Hosting no devolvió archivos activos.'
+    );
   }
 
-  const config = deepClone_(oldVersion.config || {});
-  config.headers = Array.isArray(config.headers)
-    ? config.headers
-    : [];
+  const config =
+    deepClone_(
+      oldVersion.config || {}
+    );
 
-  let radarHeader = null;
+  config.headers =
+    Array.isArray(config.headers)
+      ? config.headers
+      : [];
 
-  for (let i = config.headers.length - 1; i >= 0; i--) {
-    if (config.headers[i] && config.headers[i].glob === '/radar.json') {
-      radarHeader = config.headers[i];
+  let targetHeader = null;
+
+  for (
+    let i = config.headers.length - 1;
+    i >= 0;
+    i--
+  ) {
+    if (
+      config.headers[i] &&
+      config.headers[i].glob === hostingPath
+    ) {
+      targetHeader =
+        config.headers[i];
       break;
     }
   }
 
-  if (!radarHeader) {
-    radarHeader = {
-      glob: '/radar.json',
+  if (!targetHeader) {
+    targetHeader = {
+      glob: hostingPath,
       headers: {},
     };
-    config.headers.push(radarHeader);
+
+    config.headers.push(
+      targetHeader
+    );
   }
 
-  radarHeader.headers = radarHeader.headers || {};
-  radarHeader.headers['Cache-Control'] =
+  targetHeader.headers =
+    targetHeader.headers || {};
+
+  targetHeader.headers['Cache-Control'] =
     'no-cache, no-store, must-revalidate';
 
   const raw =
-    JSON.stringify(targetRadar, null, 2) + '\n';
-
-  const gzipBlob = Utilities.gzip(
-    Utilities.newBlob(raw, 'application/json', 'radar.json')
-  );
-
-  const gzipBytes = gzipBlob.getBytes();
-  const digest = sha256Hex_(gzipBytes);
-
-  const expected = deepClone_(oldFiles);
-  expected['/radar.json'] = digest;
-
-  const created = firebaseApi_(
-    'post',
-    CONFIG.HOSTING_API +
-      'sites/' +
-      encodeURIComponent(CONFIG.SITE_ID) +
-      '/versions',
-    {
-      config: config,
-    }
-  );
-
-  const newVersionName = String(created.name || '');
-
-  if (!newVersionName) {
-    throw new Error('Firebase Hosting no creó una versión nueva.');
-  }
-
-  const paths = Object.keys(expected);
-
-  for (let start = 0; start < paths.length; start += 1000) {
-    const slice = paths.slice(start, start + 1000);
-    const files = {};
-
-    slice.forEach(function(path) {
-      files[path] = expected[path];
-    });
-
-    const populated = firebaseApi_(
-      'post',
-      CONFIG.HOSTING_API +
-        newVersionName +
-        ':populateFiles',
-      {
-        files: files,
-      }
-    );
-
-    const required = Array.isArray(populated.uploadRequiredHashes)
-      ? populated.uploadRequiredHashes
-      : [];
-
-    const unexpected = required.filter(function(hash) {
-      return hash !== digest;
-    });
-
-    if (unexpected.length > 0) {
-      throw new Error(
-        'Firebase pidió archivos preservados que el script no debe reemplazar: ' +
-        unexpected.join(', ')
-      );
-    }
-
-    if (required.indexOf(digest) >= 0) {
-      uploadHostingBlob_(
-        String(populated.uploadUrl || '') + '/' + digest,
-        gzipBytes
-      );
-    }
-  }
-
-  const beforeFinalize = listHostingFiles_(newVersionName);
-
-  if (stableStringify_(beforeFinalize) !== stableStringify_(expected)) {
-    throw new Error(
-      'El inventario de Hosting no coincide antes de finalizar.'
-    );
-  }
-
-  firebaseApi_(
-    'patch',
-    CONFIG.HOSTING_API +
-      newVersionName +
-      '?updateMask=status',
-    {
-      status: 'FINALIZED',
-    }
-  );
-
-  const activeStill = getActiveHosting_();
-
-  if (
-    activeStill.releaseName !== activeBefore.releaseName ||
-    activeStill.versionName !== activeBefore.versionName
-  ) {
-    throw new Error(
-      'Otro despliegue de Firebase Hosting ocurrió en paralelo. ' +
-      'Se abortó antes de publicar radar.json.'
-    );
-  }
-
-  firebaseApi_(
-    'post',
-    CONFIG.HOSTING_API +
-      'sites/' +
-      encodeURIComponent(CONFIG.SITE_ID) +
-      '/releases?versionName=' +
-      encodeURIComponent(newVersionName),
-    {
-      message:
-        'DR Radar seismic update; preserve all other Hosting files',
-    }
-  );
-
-  const activeAfter = getActiveHosting_();
-
-  if (activeAfter.versionName !== newVersionName) {
-    throw new Error(
-      'La versión sísmica no quedó activa en Firebase Hosting.'
-    );
-  }
-
-  const live = fetchRadar_();
-
-  if (stableStringify_(live) !== stableStringify_(targetRadar)) {
-    throw new Error(
-      'radar.json publicado no coincide con el contenido esperado.'
-    );
-  }
-
-  console.log('radar.json publicado:', newVersionName);
-}
-
-
-function getActiveHosting_() {
-  const channel = firebaseApi_(
-    'get',
-    CONFIG.HOSTING_API +
-      'sites/' +
-      encodeURIComponent(CONFIG.SITE_ID) +
-      '/channels/live'
-  );
-
-  const release = channel.release || {};
-  const version = release.version || {};
-
-  return {
-    releaseName: String(release.name || ''),
-    versionName: String(version.name || ''),
-  };
-}
-
-
-function listHostingFiles_(versionName) {
-  const result = {};
-  let pageToken = '';
-
-  do {
-    let url =
-      CONFIG.HOSTING_API +
-      versionName +
-      '/files?pageSize=1000&status=ACTIVE';
-
-    if (pageToken) {
-      url += '&pageToken=' + encodeURIComponent(pageToken);
-    }
-
-    const page = firebaseApi_('get', url);
-
-    (Array.isArray(page.files) ? page.files : [])
-      .forEach(function(item) {
-        const path = String(item.path || '');
-        const hash = String(item.hash || '');
-
-        if (!path || !hash) return;
-
-        if (Object.prototype.hasOwnProperty.call(result, path)) {
-          throw new Error('Ruta Hosting duplicada: ' + path);
-        }
-
-        result[path] = hash;
-      });
-
-    pageToken = String(page.nextPageToken || '');
-  } while (pageToken);
-
-  return result;
-}
-
-
-function uploadHostingBlob_(url, bytes) {
-  if (!url) {
-    throw new Error('Firebase Hosting no devolvió uploadUrl.');
-  }
-
-  const response = UrlFetchApp.fetch(url, {
-    method: 'post',
-    headers: {
-      Authorization: 'Bearer ' + ScriptApp.getOAuthToken(),
-    },
-    contentType: 'application/octet-stream',
-    payload: bytes,
-    muteHttpExceptions: true,
-  });
-
-  requireHttpOk_(response, 'upload Firebase Hosting');
-}
-
-
-function sendSeismicRefresh_(newEvents) {
-  const ids = newEvents
-    .map(function(item) {
-      return String(item.feature.id || '');
-    })
-    .filter(Boolean);
-
-  sendFcmData_({
-    type: 'earthquake_alert',
-    source: 'USGS',
-    eventCount: String(ids.length),
-    newestEventId: ids.length ? ids[ids.length - 1] : '',
-  });
-
-  console.log(
-    'FCM sísmico enviado al topic',
-    CONFIG.SEISMIC_TOPIC,
-    'eventos:',
-    ids
-  );
-}
-
-
-function sendFcmData_(data) {
-  const stringData = {};
-
-  Object.keys(data).forEach(function(key) {
-    stringData[key] = String(data[key]);
-  });
-
-  const payload = {
-    message: {
-      topic: CONFIG.SEISMIC_TOPIC,
-      android: {
-        priority: 'high',
-        ttl: CONFIG.FCM_TTL_SECONDS + 's',
-        collapse_key: 'dr_radar_earthquake',
-        restricted_package_name: 'com.draccesoriosrd.app',
-      },
-      data: stringData,
-      fcm_options: {
-        analytics_label: 'radar_earthquake',
-      },
-    },
-  };
-
-  firebaseApi_(
-    'post',
-    CONFIG.FCM_API,
-    payload
-  );
-}
-
-
-function firebaseApi_(method, url, payload) {
-  const options = {
-    method: method,
-    headers: {
-      Authorization: 'Bearer ' + ScriptApp.getOAuthToken(),
-      Accept: 'application/json',
-    },
-    muteHttpExceptions: true,
-  };
-
-  if (payload !== undefined) {
-    options.contentType = 'application/json; charset=UTF-8';
-    options.payload = JSON.stringify(payload);
-  }
-
-  const response = UrlFetchApp.fetch(url, options);
-
-  requireHttpOk_(response, url);
-
-  const text = response.getContentText();
-
-  return text ? JSON.parse(text) : {};
-}
-
-
-function requireHttpOk_(response, label) {
-  const code = response.getResponseCode();
-
-  if (code >= 200 && code < 300) {
-    return;
-  }
-
-  throw new Error(
-    label +
-    ' respondió HTTP ' +
-    code +
-    ': ' +
-    response.getContentText().substring(0, 1000)
-  );
-}
-
-
-function installMinuteTrigger_() {
-  ScriptApp.getProjectTriggers()
-    .filter(function(trigger) {
-      return trigger.getHandlerFunction() === 'seismicMinuteTick';
-    })
-    .forEach(function(trigger) {
-      ScriptApp.deleteTrigger(trigger);
-    });
-
-  ScriptApp.newTrigger('seismicMinuteTick')
-    .timeBased()
-    .everyMinutes(1)
-    .create();
-}
-
-
-function initializeBaselineWithoutAlerting_() {
-  const feed = fetchUsgs_();
-  const relevant = getRelevantEvents_(feed);
-
-  const state = {};
-
-  relevant.forEach(function(item) {
-    state[item.feature.id] = {
-      signature: signatureForFeature_(item.feature),
-      eventTime: Number(item.feature.properties.time || Date.now()),
-    };
-  });
-
-  saveState_(state);
-
-  PropertiesService.getScriptProperties()
-    .setProperty(CONFIG.BASELINE_KEY, 'true');
-
-  recordHealth_('baseline_initialized_automatically', {
-    relevantBaselineEvents: relevant.length,
-  });
-
-  console.log(
-    'Baseline inicializado sin enviar alertas:',
-    relevant.length
-  );
-}
-
-
-function isBaselineReady_() {
-  return PropertiesService.getScriptProperties()
-    .getProperty(CONFIG.BASELINE_KEY) === 'true';
-}
-
-
-function loadState_() {
-  const raw = PropertiesService.getScriptProperties()
-    .getProperty(CONFIG.STATE_KEY);
-
-  if (!raw) return {};
-
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object'
-      ? parsed
-      : {};
-  } catch (error) {
-    return {};
-  }
-}
-
-
-function saveState_(state) {
-  PropertiesService.getScriptProperties()
-    .setProperty(CONFIG.STATE_KEY, JSON.stringify(state));
-}
-
-
-function buildState_(relevant, oldState, nowMs) {
-  const cutoff =
-    nowMs - CONFIG.STATE_RETENTION_HOURS * 60 * 60 * 1000;
-
-  const result = {};
-
-  Object.keys(oldState || {}).forEach(function(id) {
-    const item = oldState[id];
-
-    if (
-      item &&
-      Number(item.eventTime || 0) >= cutoff
-    ) {
-      result[id] = item;
-    }
-  });
-
-  relevant.forEach(function(item) {
-    const feature = item.feature;
-    const id = String(feature.id || '').trim();
-
-    if (!id) return;
-
-    result[id] = {
-      signature: signatureForFeature_(feature),
-      eventTime: Number(feature.properties.time || nowMs),
-    };
-  });
-
-  return result;
-}
-
-
-function recordHealth_(status, details) {
-  const payload = {
-    status: status,
-    at: new Date().toISOString(),
-    details: details || {},
-  };
-
-  PropertiesService.getScriptProperties()
-    .setProperty(
-      CONFIG.LAST_HEALTH_KEY,
-      JSON.stringify(payload)
-    );
-}
-
-
-function sha256Hex_(bytes) {
-  const digest = Utilities.computeDigest(
-    Utilities.DigestAlgorithm.SHA_256,
-    bytes
-  );
-
-  return digest
-    .map(function(value) {
-      const unsigned = value < 0 ? value + 256 : value;
-      return ('0' + unsigned.toString(16)).slice(-2);
-    })
-    .join('');
-}
-
-
-function isoUtc_(date) {
-  return date.toISOString();
-}
-
-
-function deepClone_(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-
-function stableStringify_(value) {
-  return JSON.stringify(sortObject_(value));
-}
-
-
-function sortObject_(value) {
-  if (Array.isArray(value)) {
-    return value.map(sortObject_);
-  }
-
-  if (value && typeof value === 'object') {
-    const result = {};
-
-    Object.keys(value)
-      .sort()
-      .forEach(function(key) {
-        result[key] = sortObject_(value[key]);
-      });
-
-    return result;
-  }
-
-  return value;
-}
+    JSON.stringify(
+      targetRadar,
+      null,
+      2
+    ) + '\n';

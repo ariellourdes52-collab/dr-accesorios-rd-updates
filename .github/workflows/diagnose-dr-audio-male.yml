@@ -51,6 +51,11 @@ jobs:
                   "url": e.get("url"),
                   "femaleReady": bool(female),
                   "femaleVoice": e.get("femaleVoice") or e.get("voice"),
+                  "femaleUrl": female or None,
+                  "femaleHttpStatus": None,
+                  "femaleContentLength": None,
+                  "femaleContentType": None,
+                  "femaleHttpError": None,
                   "maleReady": bool(male),
                   "maleVoice": e.get("maleVoice"),
                   "maleContentHash": e.get("maleContentHash"),
@@ -61,6 +66,15 @@ jobs:
                   "maleContentType": None,
                   "maleHttpError": None,
               }
+              if female:
+                  try:
+                      head = urllib.request.Request(female, method="HEAD", headers={"User-Agent":"DR-Audio-Diagnostics/1.0"})
+                      with urllib.request.urlopen(head, timeout=30) as hr:
+                          item["femaleHttpStatus"] = hr.status
+                          item["femaleContentLength"] = hr.headers.get("Content-Length")
+                          item["femaleContentType"] = hr.headers.get("Content-Type")
+                  except Exception as ex:
+                      item["femaleHttpError"] = repr(ex)
               if male:
                   try:
                       head = urllib.request.Request(male, method="HEAD", headers={"User-Agent":"DR-Audio-Diagnostics/1.0"})

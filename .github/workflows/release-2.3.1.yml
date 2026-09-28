@@ -112,7 +112,7 @@ jobs:
           fi
 
           APK_DIGEST="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '.[] | select(.name=="dr-accesorios-rd.apk") | .digest')"
-          EXPECTED_DIGEST="sha256:a1d805f7b58ec87f7e2f40ff22e8c89fd049cacffd99c94898036d1f598802a4"
+          EXPECTED_DIGEST="sha256:878fc542b7e8bc0cdb370f80617738f8e22f3aeb16f98af4038e7f6d5810bfae"
 
           if [ "$APK_DIGEST" != "$EXPECTED_DIGEST" ]; then
             echo "APK digest mismatch."

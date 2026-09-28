@@ -62,7 +62,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.tag_name=="2.3.1") | .id' | head -n 1)"
+          RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.id==397786001 or .tag_name=="2.3.1") | .id' | head -n 1)"
 
           if [ -z "$RELEASE_ID" ]; then
             echo "Draft release 2.3.1 was not found."
@@ -124,6 +124,7 @@ jobs:
           BODY
 
           gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            --raw-field tag_name="2.3.1" \
             --raw-field body="$(cat /tmp/v231-body.md)"
 
           echo "Draft 2.3.1 metadata synchronized."

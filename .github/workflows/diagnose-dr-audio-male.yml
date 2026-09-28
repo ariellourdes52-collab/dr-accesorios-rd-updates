@@ -8,7 +8,7 @@ on:
       - '.github/workflows/diagnose-dr-audio-male.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   diagnose:
@@ -80,18 +80,10 @@ jobs:
           print(json.dumps(report, ensure_ascii=False, indent=2))
           PY
 
-      - name: Save diagnostic report
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add diagnostics/dr-audio-male.json
-          if git diff --cached --quiet; then
-            echo "Diagnostic report unchanged."
-            exit 0
-          fi
-          git commit -m "Save DR Audio male voice diagnostic"
-          git push
+      - name: Upload diagnostic report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-audio-male-diagnostic
+          path: diagnostics/dr-audio-male.json
+          if-no-files-found: error
+          retention-days: 7

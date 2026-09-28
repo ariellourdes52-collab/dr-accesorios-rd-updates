@@ -1,44 +1,44 @@
 # DR Radar · Actividad sísmica (Apps Script)
 
-Backend gratuito para DR Accesorios RD v2.3.1.
+Backend gratuito de actividad sísmica para DR Accesorios RD v2.3.1.
 
-- Consulta USGS cada 1 minuto.
-- Filtra eventos relevantes para República Dominicana / Caribe cercano.
-- Conserva las alertas tecnológicas existentes de `radar.json`.
-- Publica los sismos en el mismo `radar.json`.
+- Consulta el feed público de USGS mediante un activador de Apps Script cada 1 minuto.
+- Solo acepta eventos que USGS identifica como República Dominicana.
+- Mantiene filtros de magnitud para evitar avisos por microsismos irrelevantes.
+- Publica los eventos en el feed aislado `radar-seismic-v231.json`.
+- No mezcla terremotos con el `radar.json` tecnológico usado por versiones anteriores.
 - Envía FCM al topic exclusivo `radar_seismic_v231`.
-- No usa ubicación del usuario.
-- No es un sistema de alerta temprana.
-
-## Filtros
-
-- hasta 250 km: M4.0+
-- hasta 500 km: M4.5+
-- hasta 900 km: M5.5+
+- No solicita ni utiliza la ubicación del usuario.
+- No es un sistema de alerta temprana: informa eventos después de que la fuente los detecta y publica.
 
 ## Instalación
 
-1. Crea un proyecto en Google Apps Script.
-2. Activa la visualización de `appsscript.json` en Configuración del proyecto.
-3. Copia `Code.gs` y `appsscript.json`.
-4. Ejecuta manualmente `setupSeismicRadar`.
-5. Autoriza con la cuenta que administra el proyecto Firebase `dr-accesorios-rd`.
-6. Comprueba que exista un único activador de `seismicMinuteTick` cada minuto.
-7. Ejecuta `seismicHealth` para verificar estado.
+1. Crea o abre el proyecto de Google Apps Script.
+2. En Configuración del proyecto, enlázalo con el proyecto Google Cloud/Firebase `dr-accesorios-rd`.
+3. Activa la visualización de `appsscript.json`.
+4. Copia `Code.gs` y `appsscript.json`.
+5. Ejecuta manualmente `setupSeismicRadar`.
+6. Autoriza los permisos solicitados.
+7. Comprueba que exista un único activador de `seismicMinuteTick`.
+8. Ejecuta `seismicHealth` y verifica baseline listo y un solo trigger.
 
-El script usa `ScriptApp.getOAuthToken()`; no necesita guardar una clave privada de cuenta de servicio.
+El script usa `ScriptApp.getOAuthToken()`; no guarda una clave privada de cuenta de servicio.
 
 ## Prueba controlada
 
-Antes de ejecutar `controlledSeismicTest`, crea temporalmente la Script Property:
+Antes de ejecutar `controlledSeismicTest`, crea temporalmente:
 
 `DR_RADAR_ALLOW_CONTROLLED_TEST_V1 = YES`
 
-La prueba se desarma automáticamente después de un uso y el aviso indica claramente:
+La propiedad es de un solo uso. El aviso se identifica claramente como:
 
 `PRUEBA DR Radar · NO ES UN SISMO REAL`
 
 Después ejecuta `removeControlledSeismicTest`.
+
+## Compatibilidad
+
+Las versiones anteriores continúan consumiendo únicamente `radar.json`. El feed sísmico y el topic FCM están separados para evitar que una versión antigua interprete un sismo como una alerta tecnológica genérica.
 
 ## Desactivar
 

@@ -54,6 +54,80 @@ jobs:
           echo "release-2.3.1.yml parsed correctly."
           echo "Safety gate kept the release disabled for this push."
 
+      - name: Sync v2.3.1 draft metadata
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.tag_name=="2.3.1") | .id' | head -n 1)"
+
+          if [ -z "$RELEASE_ID" ]; then
+            echo "Draft release 2.3.1 was not found."
+            exit 1
+          fi
+
+          IS_DRAFT="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')"
+
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Release 2.3.1 is no longer a draft; metadata sync skipped."
+            exit 0
+          fi
+
+          cat > /tmp/v231-body.md <<'BODY'
+          DR Accesorios RD v2.3.1 — DR Audio, ahora más sólido, inteligente y completo 🎧✨
+
+          La versión 2.3.1 perfecciona DR Audio y amplía DR Radar con nuevas alertas sísmicas para República Dominicana.
+
+          • 🎙️ Nueva selección de voz: elige entre voz femenina y masculina en español latino neutro, y la app recuerda tu preferencia.
+
+          • 🌎 DR Radar — Alertas sísmicas: incorpora avisos de actividad sísmica identificada para República Dominicana, integrados directamente dentro de DR Radar.
+
+          • 🔔 Avisos sísmicos críticos: cuando corresponde, la app puede emitir una notificación de alta prioridad con sonido y vibración. Al tocarla, abre DR Radar para consultar el evento.
+
+          • 📡 Fuente sísmica independiente: la información se obtiene desde un feed dedicado y separado del Radar tecnológico para mantener compatibilidad con versiones anteriores.
+
+          • 🛡️ Privacidad: las alertas sísmicas no requieren ni solicitan la ubicación del usuario.
+
+          • 🔄 Recuperación inteligente de reproducción: si cierras la app o Android la detiene, DR Audio recuerda la noticia, la voz y el punto donde estabas escuchando.
+
+          • 🎧 Mejor integración con Bluetooth y auriculares: DR Audio responde correctamente ante llamadas, otras aplicaciones de audio y desconexiones de audífonos.
+
+          • ⏳ Noticias recién publicadas más inteligentes: si el audio todavía se está preparando, la app lo indica claramente y vuelve a comprobarlo automáticamente sin afectar la cola.
+
+          • 📡 Mejor manejo de conexión: DR Audio distingue entre problemas de Internet y audios todavía en preparación, incorporando reintentos automáticos.
+
+          • 💾 Caché optimizada: los audios descargados se reutilizan mejor, se evitan descargas duplicadas y se protegen los archivos que estás escuchando o tienes en cola.
+
+          • ▶️ Reproducción más estable: mejoras en pausas, reanudaciones, cambios de noticia, controles externos y tiempos de carga.
+
+          • 🔄 Sincronización mejorada: Home, lector de artículos, notificación y reproducción en segundo plano mantienen el mismo estado de noticia, voz, progreso y reproducción.
+
+          • 📊 Analytics específicos para DR Audio: nuevas métricas internas permiten conocer mejor cómo se utiliza la función y continuar mejorándola.
+
+          • ⚡ Menor consumo de recursos y mayor estabilidad general.
+
+          ### Todo lo que ya te gustaba sigue ahí
+
+          DR Accesorios RD v2.3.1 mantiene comentarios, respuestas y likes, notificaciones, Radar, historial de lectura, Continuar leyendo, artículos offline, redes sociales, lector nativo, actualizaciones automáticas y todas las funciones incorporadas anteriormente.
+
+          > Las alertas sísmicas informan eventos detectados y publicados por la fuente; no constituyen un sistema de predicción ni alerta temprana.
+
+          ---
+
+          ### 🔐 Verificación del APK
+
+          **Archivo:** `dr-accesorios-rd.apk`  
+          **SHA-256:** `878fc542b7e8bc0cdb370f80617738f8e22f3aeb16f98af4038e7f6d5810bfae`
+          BODY
+
+          gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            --raw-field body="$(cat /tmp/v231-body.md)"
+
+          echo "Draft 2.3.1 metadata synchronized."
+
       - name: Checkout repository
         if: steps.gate.outputs.proceed == 'true'
         uses: actions/checkout@v4

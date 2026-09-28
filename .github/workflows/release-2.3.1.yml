@@ -79,15 +79,25 @@ jobs:
           cat > /tmp/v231-body.md <<'BODY'
           DR Accesorios RD v2.3.1 — DR Audio, ahora más sólido, inteligente y completo 🎧✨
 
-          La versión 2.3.1 perfecciona DR Audio y amplía DR Radar con nuevas alertas sísmicas para República Dominicana.
+          La versión 2.3.1 perfecciona DR Audio y lleva DR Radar a una nueva etapa de rapidez, estabilidad y protección para República Dominicana.
 
           • 🎙️ Nueva selección de voz: elige entre voz femenina y masculina en español latino neutro, y la app recuerda tu preferencia.
 
           • 🌎 DR Radar — Alertas sísmicas: incorpora avisos de actividad sísmica identificada para República Dominicana, integrados directamente dentro de DR Radar.
 
+          • ⚡ Ruta sísmica rápida 24/7: DR Radar mantiene un servicio permanente en la nube que escucha estaciones sísmicas de República Dominicana y Puerto Rico para detectar candidatos mucho antes del ciclo tradicional de consulta.
+
+          • 🧭 Validación multiestación: un candidato necesita coincidencia de varias estaciones y participación de una estación ancla cercana a República Dominicana antes de avanzar.
+
+          • ✅ Doble corroboración: los candidatos deben coincidir con información publicada por EMSC y USGS antes de convertirse en una alerta pública.
+
+          • 🛟 Respaldo automático: la ruta tradicional basada en USGS continúa funcionando como sistema de respaldo y comparte deduplicación para evitar avisos dobles del mismo evento.
+
           • 🔔 Avisos sísmicos críticos: cuando corresponde, la app puede emitir una notificación de alta prioridad con sonido y vibración. Al tocarla, abre DR Radar para consultar el evento.
 
-          • 📡 Fuente sísmica independiente: la información se obtiene desde un feed dedicado y separado del Radar tecnológico para mantener compatibilidad con versiones anteriores.
+          • 🚀 Procesamiento Android más rápido: las actualizaciones urgentes de DR Radar pueden usar trabajo acelerado y una comprobación adicional breve cuando el evento acaba de publicarse.
+
+          • 📡 Fuente sísmica dedicada: la información sísmica se mantiene separada del Radar tecnológico, conservando compatibilidad con las versiones anteriores compatibles.
 
           • 🛡️ Privacidad: las alertas sísmicas no requieren ni solicitan la ubicación del usuario.
 
@@ -113,14 +123,14 @@ jobs:
 
           DR Accesorios RD v2.3.1 mantiene comentarios, respuestas y likes, notificaciones, Radar, historial de lectura, Continuar leyendo, artículos offline, redes sociales, lector nativo, actualizaciones automáticas y todas las funciones incorporadas anteriormente.
 
-          > Las alertas sísmicas informan eventos detectados y publicados por la fuente; no constituyen un sistema de predicción ni alerta temprana.
+          > Las alertas sísmicas informan eventos ya detectados y corroborados por fuentes sísmicas; no constituyen un sistema de predicción ni garantizan aviso previo antes de sentir un sismo.
 
           ---
 
           ### 🔐 Verificación del APK
 
           **Archivo:** `dr-accesorios-rd.apk`  
-          **SHA-256:** `878fc542b7e8bc0cdb370f80617738f8e22f3aeb16f98af4038e7f6d5810bfae`
+          **SHA-256:** `ae56bcc3339ee852f3d0f2bcf15af515ff6b877722027d6c47d60ad9f07b4301`
           BODY
 
           gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
@@ -146,7 +156,7 @@ jobs:
             "versionName": "2.3.1",
             "forceUpdate": false,
             "downloadUrl": "https://github.com/ariellourdes52-collab/dr-accesorios-rd-updates/releases/latest/download/dr-accesorios-rd.apk",
-            "changelog": "🎙️ Elige voz femenina o masculina en DR Audio\n🌎 DR Radar incorpora alertas sísmicas para República Dominicana\n🔔 Avisos sísmicos críticos con sonido y vibración\n🔄 Recuperación inteligente de noticia, voz y posición\n🎧 Mejor integración con Bluetooth, auriculares y llamadas\n⏳ Reintentos automáticos para audios recién publicados\n📡 Mejor manejo de conexión y modo offline\n💾 Caché y descargas optimizadas\n⚡ Mejor sincronización, rendimiento y estabilidad"
+            "changelog": "🎙️ Elige voz femenina o masculina en DR Audio\n🌎 DR Radar incorpora alertas sísmicas para República Dominicana\n⚡ Nueva ruta sísmica rápida 24/7 en la nube\n✅ Validación multiestación y corroboración EMSC + USGS\n🛟 USGS continúa como respaldo automático\n🔔 Avisos sísmicos críticos con sonido y vibración\n🚀 Procesamiento urgente de Radar optimizado\n🔄 Recuperación inteligente de noticia, voz y posición\n🎧 Mejor integración con Bluetooth, auriculares y llamadas\n💾 Caché, sincronización y estabilidad mejoradas"
           }
           JSON
 
@@ -187,7 +197,7 @@ jobs:
           fi
 
           APK_DIGEST="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '.[] | select(.name=="dr-accesorios-rd.apk") | .digest')"
-          EXPECTED_DIGEST="sha256:878fc542b7e8bc0cdb370f80617738f8e22f3aeb16f98af4038e7f6d5810bfae"
+          EXPECTED_DIGEST="sha256:ae56bcc3339ee852f3d0f2bcf15af515ff6b877722027d6c47d60ad9f07b4301"
 
           if [ "$APK_DIGEST" != "$EXPECTED_DIGEST" ]; then
             echo "APK digest mismatch."

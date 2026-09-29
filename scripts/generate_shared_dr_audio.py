@@ -12,7 +12,8 @@ import re
 import subprocess
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ LATEST_REQUIRED = 5
 MAX_BACKFILL_PER_RUN = 5
 MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
-USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.1"
+USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.2"
 
 VOICE_CONFIGS: dict[str, dict[str, str]] = {
     "female": {
@@ -472,6 +473,55 @@ def quota_exhausted_error(error: Exception) -> bool:
     )
 
 
+def daily_quota_exhausted_error(error: Exception) -> bool:
+    error_text = str(error).lower()
+    return quota_exhausted_error(error) and any(
+        marker in error_text
+        for marker in (
+            "requests per day",
+            "request per day",
+            "per day",
+            "daily quota",
+        )
+    )
+
+
+def next_gemini_daily_reset_iso() -> str:
+    # Gemini Free Tier daily quotas reset on the provider's Pacific-time day.
+    # Add a 5-minute safety margin so the first post-reset run does not race the reset.
+    pacific = ZoneInfo("America/Los_Angeles")
+    now_pacific = datetime.now(pacific)
+    next_date = (now_pacific + timedelta(days=1)).date()
+    reset_pacific = datetime(
+        next_date.year,
+        next_date.month,
+        next_date.day,
+        0,
+        5,
+        tzinfo=pacific,
+    )
+    return reset_pacific.astimezone(timezone.utc).isoformat()
+
+
+def active_daily_quota_block_until(live_index: dict[str, Any]) -> datetime | None:
+    raw = str(live_index.get("quotaBlockedUntil") or "").strip()
+    if not raw:
+        return None
+
+    try:
+        blocked_until = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+    if blocked_until.tzinfo is None:
+        blocked_until = blocked_until.replace(tzinfo=timezone.utc)
+
+    if blocked_until > datetime.now(timezone.utc):
+        return blocked_until.astimezone(timezone.utc)
+
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="dr_audio_build")
@@ -509,6 +559,24 @@ def main() -> None:
         raise RuntimeError("Blogger feed returned no usable posts")
 
     live_index = load_live_index()
+
+    blocked_until = active_daily_quota_block_until(live_index)
+    if blocked_until is not None:
+        # Preserve the live catalog byte-for-byte in meaning while the daily TTS
+        # quota is known to be unavailable. This makes scheduled checks green,
+        # avoids hammering Gemini every 10 minutes, and resumes automatically
+        # after the Pacific-time daily reset.
+        (audio_dir / "index.json").write_text(
+            json.dumps(live_index, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(
+            "Gemini TTS daily quota cooldown active until "
+            f"{blocked_until.isoformat()}; skipping generation cleanly.",
+            flush=True,
+        )
+        return
+
     old_entries_list = [
         entry
         for entry in (live_index.get("entries") or [])
@@ -599,6 +667,7 @@ def main() -> None:
     male_generated = 0
     backfilled_count = 0
     quota_exhausted = False
+    quota_blocked_until = ""
 
     tasks = [
         (article, voice_key, "latest")
@@ -625,19 +694,20 @@ def main() -> None:
             if quota_exhausted_error(error):
                 quota_exhausted = True
 
-                current = final_by_url.get(article["url"])
-                female_ready = reusable_voice(current, article, "female")
-
-                # Female coverage of the newest five is the compatibility floor.
-                # A missing male voice can safely retry on the next 10-minute run.
-                if role == "latest" and voice_key == "female" and not female_ready:
-                    raise
-
-                print(
-                    f"Gemini TTS quota exhausted; pending {voice['label'].lower()} voice "
-                    "will retry on a future run.",
-                    flush=True,
-                )
+                if daily_quota_exhausted_error(error):
+                    quota_blocked_until = next_gemini_daily_reset_iso()
+                    print(
+                        "Gemini TTS daily Free Tier quota exhausted; "
+                        f"pausing TTS attempts until {quota_blocked_until}. "
+                        f"Pending {voice['label'].lower()} voice will resume automatically.",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        f"Gemini TTS temporary rate limit reached; pending "
+                        f"{voice['label'].lower()} voice will retry on the next scheduled run.",
+                        flush=True,
+                    )
                 break
 
             raise
@@ -676,9 +746,18 @@ def main() -> None:
         if not reusable_voice(final_by_url.get(article["url"]), article, "female")
     ]
     if missing_latest_female:
-        raise RuntimeError(
-            "Newest DR Audio female coverage is incomplete: "
-            + " | ".join(missing_latest_female)
+        if not quota_exhausted:
+            raise RuntimeError(
+                "Newest DR Audio female coverage is incomplete: "
+                + " | ".join(missing_latest_female)
+            )
+
+        print(
+            "Newest DR Audio female coverage is temporarily incomplete only because "
+            "Gemini TTS quota is unavailable; keeping the workflow healthy and "
+            "preserving all already-published audio. Pending: "
+            + " | ".join(missing_latest_female),
+            flush=True,
         )
 
     latest_male_ready = sum(
@@ -716,6 +795,10 @@ def main() -> None:
         "prunedCount": pruned_count,
         "entries": final_entries,
     }
+
+    if quota_blocked_until:
+        index["quotaBlockedUntil"] = quota_blocked_until
+        index["quotaBlockedReason"] = "gemini_free_tier_daily_tts_limit"
 
     (audio_dir / "index.json").write_text(
         json.dumps(index, ensure_ascii=False, indent=2) + "\n",

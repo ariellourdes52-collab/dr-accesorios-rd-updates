@@ -266,7 +266,19 @@ def main() -> None:
         )
         return
 
-    created = api("POST", SITE + "/versions", json={"config": config})
+    try:
+        created = api("POST", SITE + "/versions", json={"config": config})
+    except requests.HTTPError as error:
+        response = getattr(error, "response", None)
+        if response is not None and response.status_code == 429:
+            print(
+                "Firebase Hosting create-version rate limit is still active; "
+                "deferring this publish to a future run without marking DR Audio failed.",
+                flush=True,
+            )
+            return
+        raise
+
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
 
     required_hashes: set[str] = set()

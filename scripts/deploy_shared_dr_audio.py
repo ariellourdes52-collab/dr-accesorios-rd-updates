@@ -84,8 +84,7 @@ def main() -> None:
                     wait = delays[attempt]
                     print(
                         f"Firebase API {response.status_code}. "
-                        f"Retry {attempt + 1}/{max_attempts} "
-                        f"in {wait}s...",
+                        f"Retry {attempt + 1}/{max_attempts} in {wait}s...",
                         flush=True,
                     )
                     time.sleep(wait)
@@ -95,8 +94,7 @@ def main() -> None:
             return response.json()
 
         raise RuntimeError(
-            f"Firebase API failed after {max_attempts} attempts: "
-            f"{method} {path}"
+            f"Firebase API failed after {max_attempts} attempts: {method} {path}"
         )
 
     def active():
@@ -251,6 +249,22 @@ def main() -> None:
         "Access-Control-Allow-Origin",
         "*",
     )
+
+    # Avoid creating Firebase Hosting versions when DR Audio has no changes.
+    # This protects Firebase Hosting quotas because this workflow runs frequently.
+    deploy_changed = False
+
+    for path, digest in expected.items():
+        if old_files.get(path) != digest:
+            deploy_changed = True
+            break
+
+    if not deploy_changed:
+        print(
+            "No DR Audio Hosting changes detected. Skipping Firebase deploy.",
+            flush=True,
+        )
+        return
 
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]

@@ -209,9 +209,19 @@ def main() -> None:
         "no-cache, no-store, must-revalidate",
     )
     upsert_header(
+        "/dr-audio/index.json",
+        "Access-Control-Allow-Origin",
+        "*",
+    )
+    upsert_header(
         "/dr-audio/**",
         "Cache-Control",
         "public, max-age=604800, immutable",
+    )
+    upsert_header(
+        "/dr-audio/**",
+        "Access-Control-Allow-Origin",
+        "*",
     )
 
     created = api("POST", SITE + "/versions", json={"config": config})

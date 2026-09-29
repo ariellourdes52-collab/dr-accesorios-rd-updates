@@ -67,9 +67,37 @@ def main() -> None:
     session = AuthorizedSession(credentials)
 
     def api(method: str, path: str, **kwargs):
-        response = session.request(method, BASE + path, timeout=90, **kwargs)
-        response.raise_for_status()
-        return response.json()
+        max_attempts = 5
+        retry_codes = {429, 500, 502, 503, 504}
+        delays = [10, 20, 40, 60, 90]
+
+        for attempt in range(max_attempts):
+            response = session.request(
+                method,
+                BASE + path,
+                timeout=90,
+                **kwargs,
+            )
+
+            if response.status_code in retry_codes:
+                if attempt < max_attempts - 1:
+                    wait = delays[attempt]
+                    print(
+                        f"Firebase API {response.status_code}. "
+                        f"Retry {attempt + 1}/{max_attempts} "
+                        f"in {wait}s...",
+                        flush=True,
+                    )
+                    time.sleep(wait)
+                    continue
+
+            response.raise_for_status()
+            return response.json()
+
+        raise RuntimeError(
+            f"Firebase API failed after {max_attempts} attempts: "
+            f"{method} {path}"
+        )
 
     def active():
         release = api("GET", SITE + "/channels/live")["release"]

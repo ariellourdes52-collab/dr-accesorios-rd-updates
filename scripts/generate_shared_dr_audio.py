@@ -30,7 +30,7 @@ LATEST_REQUIRED = 5
 MAX_BACKFILL_PER_RUN = 5
 MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
-USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.2"
+USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.3"
 
 VOICE_CONFIGS: dict[str, dict[str, str]] = {
     "female": {
@@ -503,8 +503,8 @@ def next_gemini_daily_reset_iso() -> str:
     return reset_pacific.astimezone(timezone.utc).isoformat()
 
 
-def active_daily_quota_block_until(live_index: dict[str, Any]) -> datetime | None:
-    raw = str(live_index.get("quotaBlockedUntil") or "").strip()
+def parse_blocked_until(raw: str) -> datetime | None:
+    raw = str(raw or "").strip()
     if not raw:
         return None
 
@@ -520,6 +520,39 @@ def active_daily_quota_block_until(live_index: dict[str, Any]) -> datetime | Non
         return blocked_until.astimezone(timezone.utc)
 
     return None
+
+
+def active_daily_quota_block_until(live_index: dict[str, Any]) -> datetime | None:
+    return parse_blocked_until(str(live_index.get("quotaBlockedUntil") or ""))
+
+
+def local_daily_quota_block_until(state_path: Path) -> datetime | None:
+    if not state_path.exists():
+        return None
+
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+
+    return parse_blocked_until(str(state.get("blockedUntil") or ""))
+
+
+def write_daily_quota_state(state_path: Path, blocked_until: str) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "blockedUntil": blocked_until,
+                "reason": "gemini_free_tier_daily_tts_limit",
+                "model": MODEL,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> None:
@@ -544,6 +577,9 @@ def main() -> None:
 
     backfill_count = max(0, min(MAX_BACKFILL_PER_RUN, args.backfill_count))
 
+    state_dir = Path(os.environ.get("DR_AUDIO_STATE_DIR", ".dr-audio-state"))
+    quota_state_path = state_dir / "gemini-daily-quota.json"
+
     api_key = os.environ.get("GEMINI_API_KEY_DR_AUDIO", "").strip()
     if not api_key:
         raise SystemExit(
@@ -560,12 +596,19 @@ def main() -> None:
 
     live_index = load_live_index()
 
-    blocked_until = active_daily_quota_block_until(live_index)
+    live_blocked_until = active_daily_quota_block_until(live_index)
+    local_blocked_until = local_daily_quota_block_until(quota_state_path)
+    blocked_candidates = [
+        value
+        for value in (live_blocked_until, local_blocked_until)
+        if value is not None
+    ]
+    blocked_until = max(blocked_candidates) if blocked_candidates else None
+
     if blocked_until is not None:
-        # Preserve the live catalog byte-for-byte in meaning while the daily TTS
-        # quota is known to be unavailable. This makes scheduled checks green,
-        # avoids hammering Gemini every 10 minutes, and resumes automatically
-        # after the Pacific-time daily reset.
+        # Preserve the currently published catalog while the daily TTS quota is
+        # known to be unavailable. The local marker is cached by GitHub Actions,
+        # so this still works even if Firebase Hosting itself is rate-limited.
         (audio_dir / "index.json").write_text(
             json.dumps(live_index, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
@@ -576,6 +619,11 @@ def main() -> None:
             flush=True,
         )
         return
+
+    try:
+        quota_state_path.unlink()
+    except FileNotFoundError:
+        pass
 
     old_entries_list = [
         entry
@@ -696,6 +744,7 @@ def main() -> None:
 
                 if daily_quota_exhausted_error(error):
                     quota_blocked_until = next_gemini_daily_reset_iso()
+                    write_daily_quota_state(quota_state_path, quota_blocked_until)
                     print(
                         "Gemini TTS daily Free Tier quota exhausted; "
                         f"pausing TTS attempts until {quota_blocked_until}. "

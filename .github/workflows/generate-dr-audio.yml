@@ -64,7 +64,7 @@ jobs:
         id: quota-key
         shell: bash
         run: |
-          echo "key=dr-audio-gemini-quota-$(TZ=America/Los_Angeles date +%F)" >> "$GITHUB_OUTPUT"
+          echo "key=dr-audio-gemini-quota-$(TZ=America/Los_Angeles date -d '5 minutes ago' +%F)" >> "$GITHUB_OUTPUT"
 
       - name: Restore Gemini daily quota cooldown
         id: quota-cache

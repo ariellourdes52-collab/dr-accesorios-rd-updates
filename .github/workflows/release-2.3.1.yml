@@ -130,7 +130,7 @@ jobs:
           ### 🔐 Verificación del APK
 
           **Archivo:** `dr-accesorios-rd.apk`  
-          **SHA-256:** `ae56bcc3339ee852f3d0f2bcf15af515ff6b877722027d6c47d60ad9f07b4301`
+          **SHA-256:** `e84302cc9dd150b1aafa8dfea1a5b608f75acf7662a855e48e0666c71a1c778e`
           BODY
 
           gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
@@ -197,7 +197,7 @@ jobs:
           fi
 
           APK_DIGEST="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '.[] | select(.name=="dr-accesorios-rd.apk") | .digest')"
-          EXPECTED_DIGEST="sha256:ae56bcc3339ee852f3d0f2bcf15af515ff6b877722027d6c47d60ad9f07b4301"
+          EXPECTED_DIGEST="sha256:e84302cc9dd150b1aafa8dfea1a5b608f75acf7662a855e48e0666c71a1c778e"
 
           if [ "$APK_DIGEST" != "$EXPECTED_DIGEST" ]; then
             echo "APK digest mismatch."

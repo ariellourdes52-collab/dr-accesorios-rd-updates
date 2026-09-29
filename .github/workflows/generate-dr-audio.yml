@@ -60,6 +60,19 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
 
+      - name: Compute Gemini daily quota cache key
+        id: quota-key
+        shell: bash
+        run: |
+          echo "key=dr-audio-gemini-quota-$(TZ=America/Los_Angeles date +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Gemini daily quota cooldown
+        id: quota-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .dr-audio-state
+          key: ${{ steps.quota-key.outputs.key }}
+
       - name: Generate missing shared audio and preserve history
         env:
           GEMINI_API_KEY_DR_AUDIO: '${{ secrets.GEMINI_API_KEY_DR_AUDIO }}'
@@ -111,6 +124,24 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         run: python scripts/deploy_shared_dr_audio.py dr_audio_build
+
+      - name: Detect Gemini daily quota cooldown
+        id: quota-state
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f .dr-audio-state/gemini-daily-quota.json ]]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save Gemini daily quota cooldown
+        if: always() && steps.quota-state.outputs.blocked == 'true' && steps.quota-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .dr-audio-state
+          key: ${{ steps.quota-key.outputs.key }}
 
       - name: Summary
         if: success()

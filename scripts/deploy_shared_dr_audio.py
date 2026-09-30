@@ -45,6 +45,13 @@ def remove_male_fields(entry: dict) -> None:
         entry.pop(key, None)
 
 
+def catalog_for_change_detection(value: dict) -> dict:
+    """Return catalog content without volatile run metadata."""
+    stable = copy.deepcopy(value)
+    stable.pop("generatedAt", None)
+    return stable
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("build_dir", nargs="?", default="dr_audio_build")
@@ -180,6 +187,26 @@ def main() -> None:
         encoding="utf-8",
     )
 
+    live_catalog_response = requests.get(
+        PUBLIC_INDEX,
+        params={"change_check": time.time_ns()},
+        headers={"Cache-Control": "no-cache"},
+        timeout=30,
+    )
+    require(
+        live_catalog_response.ok,
+        f"Could not read live DR Audio catalog: HTTP {live_catalog_response.status_code}",
+    )
+    try:
+        live_catalog = live_catalog_response.json()
+    except ValueError as error:
+        raise RuntimeError("Live DR Audio catalog is not valid JSON") from error
+
+    catalog_changed = (
+        catalog_for_change_detection(index)
+        != catalog_for_change_detection(live_catalog)
+    )
+
     local_files: dict[str, bytes] = {
         "/dr-audio/index.json": index_path.read_bytes(),
         **local_audio_files,
@@ -250,18 +277,19 @@ def main() -> None:
         "*",
     )
 
-    # Avoid creating Firebase Hosting versions when DR Audio has no changes.
-    # This protects Firebase Hosting quotas because this workflow runs frequently.
-    deploy_changed = False
-
-    for path, digest in expected.items():
-        if old_files.get(path) != digest:
-            deploy_changed = True
-            break
+    # Avoid creating Firebase Hosting versions when DR Audio has no real changes.
+    # generatedAt is intentionally ignored so the 10-minute scheduler cannot create
+    # a new Hosting version merely because another check ran.
+    config_changed = config != old.get("config", {})
+    audio_or_site_changed = any(
+        path != "/dr-audio/index.json" and old_files.get(path) != digest
+        for path, digest in expected.items()
+    )
+    deploy_changed = catalog_changed or config_changed or audio_or_site_changed
 
     if not deploy_changed:
         print(
-            "No DR Audio Hosting changes detected. Skipping Firebase deploy.",
+            "No real DR Audio Hosting changes detected. Skipping Firebase deploy.",
             flush=True,
         )
         return
@@ -271,12 +299,11 @@ def main() -> None:
     except requests.HTTPError as error:
         response = getattr(error, "response", None)
         if response is not None and response.status_code == 429:
-            print(
-                "Firebase Hosting create-version rate limit is still active; "
-                "deferring this publish to a future run without marking DR Audio failed.",
-                flush=True,
-            )
-            return
+            raise RuntimeError(
+                "Firebase Hosting create-version rate limit is still active. "
+                "The workflow will fail intentionally so unpublished .m4a files "
+                "are preserved and reused on the next run instead of regenerating them."
+            ) from error
         raise
 
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]

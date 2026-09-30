@@ -73,6 +73,15 @@ jobs:
           path: .dr-audio-state
           key: ${{ steps.quota-key.outputs.key }}
 
+      - name: Restore unpublished DR Audio files
+        id: pending-audio-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: dr_audio_build/dr-audio
+          key: dr-audio-pending-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            dr-audio-pending-
+
       - name: Generate missing shared audio and preserve history
         env:
           GEMINI_API_KEY_DR_AUDIO: '${{ secrets.GEMINI_API_KEY_DR_AUDIO }}'
@@ -124,6 +133,13 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         run: python scripts/deploy_shared_dr_audio.py dr_audio_build
+
+      - name: Preserve unpublished audio after a failed publish
+        if: ${{ failure() && hashFiles('dr_audio_build/dr-audio/*.m4a') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: dr_audio_build/dr-audio
+          key: dr-audio-pending-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Detect Gemini daily quota cooldown
         id: quota-state

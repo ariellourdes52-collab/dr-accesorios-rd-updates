@@ -713,6 +713,7 @@ def main() -> None:
     generated_count = 0
     female_generated = 0
     male_generated = 0
+    pending_reused_count = 0
     backfilled_count = 0
     quota_exhausted = False
     quota_blocked_until = ""
@@ -730,6 +731,36 @@ def main() -> None:
             break
 
         voice = VOICE_CONFIGS[voice_key]
+        audio_id = article["audioIds"][voice_key]
+        m4a_path = audio_dir / f"{audio_id}.m4a"
+
+        current = final_by_url.get(article["url"], {})
+        current.update(
+            {
+                "title": article["title"],
+                "url": article["url"],
+                "published": article["published"],
+                "model": MODEL,
+                "format": "audio/mp4",
+            }
+        )
+
+        # A previous run may have generated this exact content-hash audio before
+        # Firebase Hosting rejected the publish. Reuse that cached .m4a instead
+        # of spending another Gemini TTS request for identical content.
+        if m4a_path.exists() and m4a_path.stat().st_size > 1024:
+            print(
+                f"Reusing unpublished DR Audio ({role}, "
+                f"{voice['label']} / {voice['name']}): {article['title']}",
+                flush=True,
+            )
+            apply_generated_voice(current, article, voice_key, m4a_path)
+            final_by_url[article["url"]] = current
+            pending_reused_count += 1
+            if role == "backfill":
+                backfilled_count += 1
+            continue
+
         print(
             f"Generating DR Audio ({role}, {voice['label']} / {voice['name']}): "
             f"{article['title']}",
@@ -761,20 +792,7 @@ def main() -> None:
 
             raise
 
-        audio_id = article["audioIds"][voice_key]
-        m4a_path = audio_dir / f"{audio_id}.m4a"
         wav_to_m4a(wav, m4a_path)
-
-        current = final_by_url.get(article["url"], {})
-        current.update(
-            {
-                "title": article["title"],
-                "url": article["url"],
-                "published": article["published"],
-                "model": MODEL,
-                "format": "audio/mp4",
-            }
-        )
         apply_generated_voice(current, article, voice_key, m4a_path)
         final_by_url[article["url"]] = current
 
@@ -859,6 +877,7 @@ def main() -> None:
         f"{latest_male_ready}/{len(latest)} newest male voices ready; "
         f"{generated_count} voice files generated this run "
         f"({female_generated} female, {male_generated} male); "
+        f"{pending_reused_count} unpublished cached voice files reused; "
         f"{backfilled_count} historical voice files backfilled across "
         f"{backfill_articles_selected} selected historical article(s); "
         f"{len(final_entries)} total article entries preserved; "

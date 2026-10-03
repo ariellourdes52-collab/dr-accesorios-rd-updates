@@ -259,6 +259,7 @@ def generate_wav(
     voice_key: str,
     hard_timeout_seconds: float | None = None,
     render_model: str | None = None,
+    stream_audio: bool = True,
 ) -> bytes:
     """
     Run one Gemini TTS stream in an isolated process.
@@ -291,6 +292,7 @@ def generate_wav(
             "voice_name": voice["name"],
             "voice_style": voice["style"],
             "model": render_model or RENDER_MODEL,
+            "stream": stream_audio,
         },
         ensure_ascii=False,
     )
@@ -343,7 +345,10 @@ def generate_wav(
                 last_heartbeat = heartbeat
                 last_progress = now
 
-            if now - last_progress > TTS_STALL_TIMEOUT_SECONDS:
+            if (
+                stream_audio
+                and now - last_progress > TTS_STALL_TIMEOUT_SECONDS
+            ):
                 process.kill()
                 process.wait(timeout=10)
                 raise TTSHardTimeoutError(
@@ -766,7 +771,8 @@ def generate_wav_resilient(
                                     f"{index}.{retry_index}.{micro_index}/"
                                     f"{len(micro_chunks)} "
                                     f"({len(micro_chunk)} chars, {voice_key}, "
-                                    f"model={generation_model})...",
+                                    f"model={generation_model}, "
+                                    f"mode=unary)...",
                                     flush=True,
                                 )
                                 micro_wav = generate_wav(
@@ -774,6 +780,7 @@ def generate_wav_resilient(
                                     voice_key,
                                     hard_timeout_seconds=min(240.0, remaining),
                                     render_model=generation_model,
+                                    stream_audio=False,
                                 )
 
                                 micro_temporary = generation_path.with_suffix(

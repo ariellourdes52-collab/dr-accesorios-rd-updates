@@ -110,14 +110,14 @@ jobs:
               -F draft=true \
               -F prerelease=false \
               --raw-field body="$(cat /tmp/v25-body.md)"
-            echo "Draft 2.4 created."
+            echo "Draft 2.5 created."
             exit 0
           fi
 
           IS_DRAFT="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')"
 
           if [ "$IS_DRAFT" != "true" ]; then
-            echo "Release 2.4 is no longer a draft; metadata sync skipped."
+            echo "Release 2.5 is no longer a draft; metadata sync skipped."
             exit 0
           fi
 
@@ -126,7 +126,7 @@ jobs:
             --raw-field name="DR Accesorios RD v2.5 — Nuestro regalo de Año Nuevo 🎁✨" \
             --raw-field body="$(cat /tmp/v25-body.md)"
 
-          echo "Draft 2.4 metadata synchronized."
+          echo "Draft 2.5 metadata synchronized."
 
       - name: Checkout repository
         if: steps.gate.outputs.proceed == 'true'
@@ -160,7 +160,7 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/send_update_notifications.py --version-code 18 --version-name 2.4 --legacy-max-version-code 14 --preflight
+        run: python scripts/send_update_notifications.py --version-code 19 --version-name 2.5 --legacy-max-version-code 14 --preflight
 
       - name: Verify release and APK (draft or resumed publication)
         if: steps.gate.outputs.proceed == 'true'
@@ -174,7 +174,7 @@ jobs:
           RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.tag_name=="2.5") | .id' | head -n 1)"
 
           if [ -z "$RELEASE_ID" ]; then
-            echo "Release 2.4 was not found."
+            echo "Release 2.5 was not found."
             exit 1
           fi
 
@@ -203,7 +203,7 @@ jobs:
 
           echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Publish release 2.4 as latest
+      - name: Publish release 2.5 as latest
         if: steps.gate.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -243,7 +243,7 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/send_update_notifications.py --version-code 18 --version-name 2.4 --legacy-max-version-code 14
+        run: python scripts/send_update_notifications.py --version-code 19 --version-name 2.5 --legacy-max-version-code 14
 
       - name: Legacy 1.6/1.7 delivery reminder
         if: steps.gate.outputs.proceed == 'true'

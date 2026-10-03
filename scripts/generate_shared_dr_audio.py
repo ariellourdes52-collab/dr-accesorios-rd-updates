@@ -758,7 +758,7 @@ def apply_generated_voice(
     entry[fields["hash"]] = hash_value
     entry[fields["voice"]] = voice["name"]
     entry[fields["bytes"]] = size
-    entry[f"${voice_key}RenderModel"] = RENDER_MODEL
+    entry[f"{voice_key}RenderModel"] = RENDER_MODEL
 
     if voice_key == "female":
         # Backward compatibility with v2.3 and earlier shared-audio readers.

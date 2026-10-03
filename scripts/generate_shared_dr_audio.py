@@ -627,6 +627,100 @@ def generate_wav_resilient(
                         retry_wavs.append(retry_path.read_bytes())
                         continue
 
+                    retry_progress_exists = any(
+                        path.is_file() and path.stat().st_size > 44
+                        for path in chunk_cache_dir.glob(
+                            f"{audio_id}-{voice_key}-{index:02d}s*.wav"
+                        )
+                    )
+
+                    if retry_progress_exists and len(retry_chunk) > 500:
+                        micro_target = max(
+                            280,
+                            min(420, len(retry_chunk) // 2 + 1),
+                        )
+                        micro_chunks = split_tts_transcript(
+                            retry_chunk,
+                            target_chars=micro_target,
+                        )
+
+                        if len(micro_chunks) > 1:
+                            print(
+                                f"Retry subchunk {index}.{retry_index} "
+                                f"still pending; splitting it into "
+                                f"{len(micro_chunks)} microchunks "
+                                f"({len(retry_chunk)} chars total).",
+                                flush=True,
+                            )
+
+                            micro_wavs: list[bytes] = []
+                            for micro_index, micro_chunk in enumerate(
+                                micro_chunks,
+                                start=1,
+                            ):
+                                micro_hash = hashlib.sha256(
+                                    (
+                                        RENDER_MODEL
+                                        + "\n"
+                                        + VOICE_CONFIGS[voice_key]["name"]
+                                        + "\n"
+                                        + micro_chunk
+                                    ).encode("utf-8")
+                                ).hexdigest()[:20]
+                                micro_path = chunk_cache_dir / (
+                                    f"{audio_id}-{voice_key}-{index:02d}s"
+                                    f"{retry_index:02d}m{micro_index:02d}-"
+                                    f"{micro_hash}.wav"
+                                )
+                                used_paths.append(micro_path)
+
+                                if (
+                                    micro_path.exists()
+                                    and micro_path.stat().st_size > 44
+                                ):
+                                    print(
+                                        f"Reusing cached TTS microchunk "
+                                        f"{index}.{retry_index}.{micro_index}/"
+                                        f"{len(micro_chunks)} for {voice_key}.",
+                                        flush=True,
+                                    )
+                                    micro_wavs.append(micro_path.read_bytes())
+                                    continue
+
+                                remaining = (
+                                    deadline_monotonic - time.monotonic()
+                                )
+                                if remaining < 8:
+                                    raise TTSHardTimeoutError(
+                                        "Global TTS generation budget reached "
+                                        "during microchunk generation"
+                                    )
+
+                                print(
+                                    f"Generating TTS microchunk "
+                                    f"{index}.{retry_index}.{micro_index}/"
+                                    f"{len(micro_chunks)} "
+                                    f"({len(micro_chunk)} chars, {voice_key})...",
+                                    flush=True,
+                                )
+                                micro_wav = generate_wav(
+                                    micro_chunk,
+                                    voice_key,
+                                    hard_timeout_seconds=min(240.0, remaining),
+                                )
+
+                                micro_temporary = micro_path.with_suffix(
+                                    micro_path.suffix + ".tmp"
+                                )
+                                micro_temporary.write_bytes(micro_wav)
+                                micro_temporary.replace(micro_path)
+                                micro_wavs.append(micro_wav)
+
+                            retry_wavs.append(
+                                combine_wav_chunks(micro_wavs)
+                            )
+                            continue
+
                     remaining = deadline_monotonic - time.monotonic()
                     if remaining < 8:
                         raise TTSHardTimeoutError(

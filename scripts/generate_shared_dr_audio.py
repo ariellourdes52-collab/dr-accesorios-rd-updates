@@ -31,6 +31,7 @@ PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
 # is reusable. RENDER_MODEL is the active renderer for new audio.
 MODEL = "gemini-3.8-flash-lite-tts"
 RENDER_MODEL = "gemini-3.8-flash-tts"
+LEGACY_RESCUE_MODEL = "gemini-3.1-flash-tts-preview"
 LANGUAGE = "es"
 LATEST_REQUIRED = 5
 MAX_BACKFILL_PER_RUN = 5
@@ -715,12 +716,19 @@ def generate_wav_resilient(
                                     )
                                 )
                                 generation_model = (
-                                    RENDER_MODEL
+                                    LEGACY_RESCUE_MODEL
                                     if (
                                         sibling_micro_progress
-                                        and RENDER_MODEL != micro_model
+                                        and len(micro_chunk) <= 200
                                     )
-                                    else micro_model
+                                    else (
+                                        RENDER_MODEL
+                                        if (
+                                            sibling_micro_progress
+                                            and RENDER_MODEL != micro_model
+                                        )
+                                        else micro_model
+                                    )
                                 )
 
                                 generation_path = micro_path
@@ -805,10 +813,16 @@ def generate_wav_resilient(
                     retry_stream_audio = not (
                         retry_progress_exists and len(retry_chunk) <= 300
                     )
+                    retry_model = (
+                        LEGACY_RESCUE_MODEL
+                        if not retry_stream_audio
+                        else RENDER_MODEL
+                    )
                     print(
                         f"Generating retry TTS subchunk "
                         f"{index}.{retry_index}/{len(retry_chunks)} "
                         f"({len(retry_chunk)} chars, {voice_key}, "
+                        f"model={retry_model}, "
                         f"mode={'stream' if retry_stream_audio else 'unary'})...",
                         flush=True,
                     )
@@ -816,6 +830,7 @@ def generate_wav_resilient(
                         retry_chunk,
                         voice_key,
                         hard_timeout_seconds=min(360.0, remaining),
+                        render_model=retry_model,
                         stream_audio=retry_stream_audio,
                     )
 
@@ -1327,9 +1342,27 @@ def main() -> None:
 
     if partial_latest_tasks:
         # Finish work that already consumed Gemini time before starting a brand
-        # new voice. This prevents a partially generated male voice from being
-        # starved every time a fresh article enters the newest-five window.
-        latest_tasks = partial_latest_tasks
+        # new voice. Then continue with the normal priority class in the same
+        # run so resume-first cannot leave a fresh female task unattempted.
+        partial_keys = {
+            (task[0]["url"], task[1])
+            for task in partial_latest_tasks
+        }
+
+        if latest_female_tasks:
+            followup_tasks = [
+                task
+                for task in latest_female_tasks
+                if (task[0]["url"], task[1]) not in partial_keys
+            ]
+        else:
+            followup_tasks = [
+                task
+                for task in latest_male_tasks
+                if (task[0]["url"], task[1]) not in partial_keys
+            ]
+
+        latest_tasks = partial_latest_tasks + followup_tasks
         print(
             f"Resume-first mode: completing {len(partial_latest_tasks)} "
             "partially generated newest voice(s) before starting new TTS work.",

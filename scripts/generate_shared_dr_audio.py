@@ -1328,33 +1328,12 @@ def main() -> None:
     latest_female_tasks: list[tuple[dict[str, Any], str]] = []
     latest_male_tasks: list[tuple[dict[str, Any], str]] = []
 
-    deferred_voice_titles = {
-        (
-            "Tesla sorprende al mercado: vende más de 486 mil vehículos "
-            "mientras su futuro empieza a mirar más allá del automóvil",
-            "male",
-        ),
-    }
-
-    def intentionally_deferred_voice(
-        article: dict[str, Any],
-        voice_key: str,
-    ) -> bool:
-        return (article["title"], voice_key) in deferred_voice_titles
-
     for article in latest:
         current = final_by_url.get(article["url"])
         if not reusable_voice(current, article, "female"):
             latest_female_tasks.append((article, "female"))
         if not reusable_voice(current, article, "male"):
-            if intentionally_deferred_voice(article, "male"):
-                print(
-                    "DR Audio voice intentionally deferred by operator: "
-                    f"male | {article['title']}",
-                    flush=True,
-                )
-            else:
-                latest_male_tasks.append((article, "male"))
+            latest_male_tasks.append((article, "male"))
 
     def has_completed_partial_chunks(
         article: dict[str, Any],
@@ -1387,14 +1366,21 @@ def main() -> None:
             for task in latest_female_tasks
             if (task[0]["url"], task[1]) not in partial_female_keys
         ]
-        latest_tasks = partial_female_tasks + fresh_female_tasks
-        if latest_male_tasks:
-            latest_tasks.append(latest_male_tasks[0])
+        partial_male_tasks = [
+            task
+            for task in latest_male_tasks
+            if has_completed_partial_chunks(task[0], task[1])
+        ]
+        latest_tasks = (
+            partial_female_tasks
+            + fresh_female_tasks
+            + partial_male_tasks
+        )
         print(
             f"Female-first mode: {len(latest_female_tasks)} of the newest "
             f"{len(latest)} article(s) still need the default female voice. "
-            "The newest eligible male voice may follow only if female "
-            "coverage reaches 5/5 in this same run.",
+            f"{len(partial_male_tasks)} partially generated male voice(s) "
+            "may resume after the female attempt(s).",
             flush=True,
         )
     else:
@@ -1547,13 +1533,21 @@ def main() -> None:
                 )
             ]
             if missing_latest_female:
-                print(
-                    "Male generation deferred because newest female coverage "
-                    "is still incomplete: "
-                    + " | ".join(missing_latest_female),
-                    flush=True,
-                )
-                continue
+                if has_completed_partial_chunks(article, voice_key):
+                    print(
+                        "Resuming partially generated male voice after the "
+                        "female attempt; fresh male work remains deferred: "
+                        f"{article['title']}",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        "Male generation deferred because newest female coverage "
+                        "is still incomplete: "
+                        + " | ".join(missing_latest_female),
+                        flush=True,
+                    )
+                    continue
 
         voice = VOICE_CONFIGS[voice_key]
         audio_id = article["audioIds"][voice_key]

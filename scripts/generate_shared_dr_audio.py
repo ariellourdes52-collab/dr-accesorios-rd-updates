@@ -32,8 +32,9 @@ MAX_BACKFILL_PER_RUN = 5
 MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
 USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.5"
-TTS_REQUEST_TIMEOUT_MS = 120_000
-TTS_HARD_TIMEOUT_SECONDS = 125
+TTS_REQUEST_TIMEOUT_MS = 55_000
+TTS_HARD_TIMEOUT_SECONDS = 65
+TTS_GLOBAL_BUDGET_SECONDS = 300
 
 VOICE_CONFIGS: dict[str, dict[str, str]] = {
     "female": {
@@ -786,8 +787,29 @@ def main() -> None:
         for article, voice_key in backfill_tasks
     ]
 
-    for article, voice_key, role in tasks:
+    tts_batch_started = time.monotonic()
+
+    for task_index, (article, voice_key, role) in enumerate(tasks):
         if quota_exhausted:
+            break
+
+        if time.monotonic() - tts_batch_started >= TTS_GLOBAL_BUDGET_SECONDS:
+            for (
+                pending_article,
+                pending_voice_key,
+                _pending_role,
+            ) in tasks[task_index:]:
+                deferred_timeout_tasks.add(
+                    (pending_article["url"], pending_voice_key)
+                )
+
+            print(
+                f"Gemini TTS global generation budget "
+                f"({TTS_GLOBAL_BUDGET_SECONDS}s) reached; "
+                "publishing completed/reused audio now and "
+                "deferring the remaining voices to the next run.",
+                flush=True,
+            )
             break
 
         voice = VOICE_CONFIGS[voice_key]

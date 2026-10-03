@@ -13,7 +13,7 @@ from pathlib import Path
 
 from google import genai
 
-MODEL = "gemini-3.8-flash-lite-tts"
+DEFAULT_MODEL = "gemini-3.8-flash-lite-tts"
 REQUEST_TIMEOUT_MS = 600_000
 SAMPLE_RATE = 24_000
 CHANNELS = 1
@@ -30,6 +30,7 @@ def main() -> None:
     transcript = str(payload.get("transcript") or "")
     voice_name = str(payload.get("voice_name") or "")
     voice_style = str(payload.get("voice_style") or "")
+    model = str(payload.get("model") or DEFAULT_MODEL).strip()
 
     if not transcript.strip():
         raise RuntimeError("TTS transcript is empty")
@@ -37,6 +38,8 @@ def main() -> None:
         raise RuntimeError("TTS voice name is empty")
     if not voice_style.strip():
         raise RuntimeError("TTS voice style is empty")
+    if not model:
+        raise RuntimeError("TTS model is empty")
 
     api_key = os.environ.get("GEMINI_API_KEY_DR_AUDIO", "").strip()
     if not api_key:
@@ -56,7 +59,7 @@ def main() -> None:
 
     heartbeat()
     stream = client.interactions.create(
-        model=MODEL,
+        model=model,
         input=[
             {
                 "type": "user_input",

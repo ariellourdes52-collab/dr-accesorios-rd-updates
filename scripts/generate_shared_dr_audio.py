@@ -27,7 +27,10 @@ from bs4 import BeautifulSoup
 BLOG_FEED_BASE = "https://draccesoriosrd.blogspot.com/feeds/posts/default"
 PUBLIC_INDEX = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
 PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
+# MODEL remains the legacy content-identity key so already-published Lite audio
+# is reusable. RENDER_MODEL is the active renderer for new audio.
 MODEL = "gemini-3.8-flash-lite-tts"
+RENDER_MODEL = "gemini-3.8-flash-tts"
 LANGUAGE = "es"
 LATEST_REQUIRED = 5
 MAX_BACKFILL_PER_RUN = 5
@@ -286,6 +289,7 @@ def generate_wav(
             "transcript": transcript,
             "voice_name": voice["name"],
             "voice_style": voice["style"],
+            "model": RENDER_MODEL,
         },
         ensure_ascii=False,
     )
@@ -551,7 +555,7 @@ def generate_wav_resilient(
     for index, chunk in enumerate(chunks, start=1):
         chunk_hash = hashlib.sha256(
             (
-                MODEL
+                RENDER_MODEL
                 + "\n"
                 + VOICE_CONFIGS[voice_key]["name"]
                 + "\n"
@@ -754,6 +758,7 @@ def apply_generated_voice(
     entry[fields["hash"]] = hash_value
     entry[fields["voice"]] = voice["name"]
     entry[fields["bytes"]] = size
+    entry[f"${voice_key}RenderModel"] = RENDER_MODEL
 
     if voice_key == "female":
         # Backward compatibility with v2.3 and earlier shared-audio readers.
@@ -1350,6 +1355,7 @@ def main() -> None:
         "schemaVersion": 3,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "model": MODEL,
+        "renderModel": RENDER_MODEL,
         # Legacy metadata retained for older tooling.
         "voice": VOICE_CONFIGS["female"]["name"],
         "voices": {

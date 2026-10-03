@@ -99,7 +99,7 @@ jobs:
 
           **Archivo:** `dr-accesorios-rd.apk`
 
-          **SHA-256:** `88c72b621eb5549d456b380618f57305fb408b788dad6c2b2065e7ed90676ba5`
+          **SHA-256:** `e3097730a98b66dba7917fcea4e95ca5bc90d356905769c1d0eea05ead46457b`
           BODY
 
           if [ -z "$RELEASE_ID" ]; then
@@ -186,7 +186,7 @@ jobs:
           fi
 
           APK_DIGEST="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '.[] | select(.name=="dr-accesorios-rd.apk") | .digest')"
-          EXPECTED_DIGEST="sha256:88c72b621eb5549d456b380618f57305fb408b788dad6c2b2065e7ed90676ba5"
+          EXPECTED_DIGEST="sha256:e3097730a98b66dba7917fcea4e95ca5bc90d356905769c1d0eea05ead46457b"
 
           if [[ "$EXPECTED_DIGEST" != sha256:* ]]; then
             echo "Final v2.5 APK SHA-256 is locked in release-2.5.yml."

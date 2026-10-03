@@ -12,7 +12,7 @@ from pathlib import Path
 from google import genai
 
 MODEL = "gemini-3.8-flash-lite-tts"
-REQUEST_TIMEOUT_MS = 120_000
+REQUEST_TIMEOUT_MS = 55_000
 
 
 def main() -> None:

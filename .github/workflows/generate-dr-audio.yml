@@ -8,12 +8,13 @@ on:
       - 'scripts/generate_shared_dr_audio.py'
       - 'scripts/generate_one_tts.py'
       - 'scripts/deploy_shared_dr_audio.py'
+      - '.github/workflows/generate-dr-audio.yml'
   schedule:
     # República Dominicana = UTC-4 todo el año.
-    # Revisión automática cada 10 minutos, desplazada 3 min del cambio de decena
+    # Revisión automática cada 10 minutos, desplazada 4 min del cambio de decena
     # para reducir la posibilidad de retrasos por carga alta en GitHub Actions.
     # Las revisiones normales reservan la cuota para noticias nuevas.
-    - cron: '3,13,23,33,43,53 * * * *'
+    - cron: '4,14,24,34,44,54 * * * *'
     # Intento oportunista de 1 artículo histórico completo justo antes del reinicio diario
     # de Gemini (medianoche de Los Ángeles). Se ejecuta a ambas horas posibles
     # por el cambio DST y el propio workflow decide cuál corresponde ese día.

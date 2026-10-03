@@ -37,18 +37,12 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
       - name: Install recovery dependencies
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --quiet \
             google-auth requests beautifulsoup4 httpx
-          npm install --global firebase-tools@latest
 
       - name: Prepare Firebase service account
         shell: bash
@@ -103,53 +97,58 @@ jobs:
               out.write(f"version_id={version_id}\n")
           PY
 
-      - name: Clone historical version to temporary preview channel
-        shell: bash
-        run: |
-          set -euo pipefail
-          firebase hosting:clone \
-            "${SITE_ID}:@${{ steps.historical.outputs.version_id }}" \
-            "${SITE_ID}:${RECOVERY_CHANNEL_ID}" \
-            --project "${PROJECT_ID}" \
-            --non-interactive
-
-      - name: Resolve preview channel URL
+      - name: Expose historical version on temporary preview channel
         id: preview
         shell: bash
         run: |
           set -euo pipefail
-          firebase hosting:channel:list \
-            --project "${PROJECT_ID}" \
-            --json > recovery-channels.json
-
           python - <<'PY'
           import json
           import os
+          from google.auth.transport.requests import AuthorizedSession
+          from google.oauth2 import service_account
 
-          data = json.load(open("recovery-channels.json", encoding="utf-8"))
-          target = os.environ["RECOVERY_CHANNEL_ID"]
+          base = "https://firebasehosting.googleapis.com/v1beta1/"
+          site = os.environ["SITE_ID"]
+          channel_id = os.environ["RECOVERY_CHANNEL_ID"]
+          version_id = "${{ steps.historical.outputs.version_id }}"
+          version_name = f"sites/{site}/versions/{version_id}"
+          channel_name = f"sites/{site}/channels/{channel_id}"
 
-          def walk(value):
-              if isinstance(value, dict):
-                  yield value
-                  for child in value.values():
-                      yield from walk(child)
-              elif isinstance(value, list):
-                  for child in value:
-                      yield from walk(child)
+          raw = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
+          creds = service_account.Credentials.from_service_account_info(
+              raw,
+              scopes=["https://www.googleapis.com/auth/firebase.hosting"],
+          )
+          session = AuthorizedSession(creds)
 
-          matches = []
-          for item in walk(data):
-              name = str(item.get("name") or "")
-              channel_id = str(item.get("channelId") or item.get("channel_id") or "")
-              url = str(item.get("url") or "").strip()
-              if url and (name.endswith("/channels/" + target) or channel_id == target):
-                  matches.append(url)
+          existing = session.get(base + channel_name, timeout=60)
+          if existing.status_code == 404:
+              created = session.post(
+                  base + f"sites/{site}/channels",
+                  params={"channelId": channel_id},
+                  json={"ttl": "3600s"},
+                  timeout=60,
+              )
+              created.raise_for_status()
+          else:
+              existing.raise_for_status()
 
-          if not matches:
-              raise RuntimeError("Could not resolve temporary preview channel URL")
+          release = session.post(
+              base + channel_name + "/releases",
+              params={"versionName": version_name},
+              json={"message": "Temporary DR Audio historical recovery"},
+              timeout=90,
+          )
+          release.raise_for_status()
 
-          url = matches[0].rstrip("/")
+          channel = session.get(base + channel_name, timeout=60)
+          channel.raise_for_status()
+          data = channel.json()
+          url = str(data.get("url") or "").rstrip("/")
+          if not url:
+              raise RuntimeError("Firebase preview channel did not expose a URL")
+
           print(f"Recovery preview: {url}")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
               out.write(f"url={url}\n")
@@ -222,12 +221,35 @@ jobs:
         shell: bash
         run: |
           set +e
-          firebase hosting:channel:delete "${RECOVERY_CHANNEL_ID}" \
-            --project "${PROJECT_ID}" \
-            --force \
-            --non-interactive
+          python - <<'PY'
+          import json
+          import os
+          from google.auth.transport.requests import AuthorizedSession
+          from google.oauth2 import service_account
+
+          base = "https://firebasehosting.googleapis.com/v1beta1/"
+          site = os.environ["SITE_ID"]
+          channel_id = os.environ["RECOVERY_CHANNEL_ID"]
+          raw = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
+          creds = service_account.Credentials.from_service_account_info(
+              raw,
+              scopes=["https://www.googleapis.com/auth/firebase.hosting"],
+          )
+          session = AuthorizedSession(creds)
+          response = session.delete(
+              base + f"sites/{site}/channels/{channel_id}",
+              timeout=60,
+          )
+          if response.status_code not in (200, 204, 404):
+              print(
+                  f"WARNING: temporary channel cleanup HTTP {response.status_code}: "
+                  f"{response.text[:500]}"
+              )
+          else:
+              print("Temporary recovery channel removed.")
+          PY
 
       - name: Remove temporary credentials
         if: always()
         shell: bash
-        run: rm -f .firebase-recovery-sa.json recovery-channels.json
+        run: rm -f .firebase-recovery-sa.json

@@ -823,9 +823,7 @@ def generate_wav_resilient(
                             "retry subchunk generation"
                         )
 
-                    retry_stream_audio = not (
-                        retry_progress_exists and len(retry_chunk) <= 300
-                    )
+                    retry_stream_audio = len(retry_chunk) > 600
                     retry_model = (
                         LEGACY_RESCUE_MODEL
                         if not retry_stream_audio
@@ -1328,12 +1326,33 @@ def main() -> None:
     latest_female_tasks: list[tuple[dict[str, Any], str]] = []
     latest_male_tasks: list[tuple[dict[str, Any], str]] = []
 
+    deferred_voice_titles = {
+        (
+            "Tesla sorprende al mercado: vende más de 486 mil vehículos "
+            "mientras su futuro empieza a mirar más allá del automóvil",
+            "male",
+        ),
+    }
+
+    def intentionally_deferred_voice(
+        article: dict[str, Any],
+        voice_key: str,
+    ) -> bool:
+        return (article["title"], voice_key) in deferred_voice_titles
+
     for article in latest:
         current = final_by_url.get(article["url"])
         if not reusable_voice(current, article, "female"):
             latest_female_tasks.append((article, "female"))
         if not reusable_voice(current, article, "male"):
-            latest_male_tasks.append((article, "male"))
+            if intentionally_deferred_voice(article, "male"):
+                print(
+                    "DR Audio voice intentionally deferred by operator: "
+                    f"male | {article['title']}",
+                    flush=True,
+                )
+            else:
+                latest_male_tasks.append((article, "male"))
 
     def has_completed_partial_chunks(
         article: dict[str, Any],
@@ -1348,10 +1367,6 @@ def main() -> None:
         )
 
     if latest_female_tasks:
-        # Never let an older partially generated male voice jump ahead of a
-        # newly published article that still lacks its default female voice.
-        # However, once every missing female has been attempted in this run,
-        # resume already-started male work so it cannot be starved forever.
         partial_female_tasks = [
             task
             for task in latest_female_tasks
@@ -1366,27 +1381,17 @@ def main() -> None:
             for task in latest_female_tasks
             if (task[0]["url"], task[1]) not in partial_female_keys
         ]
-        partial_male_tasks = [
-            task
-            for task in latest_male_tasks
-            if has_completed_partial_chunks(task[0], task[1])
-        ]
-        latest_tasks = (
-            partial_female_tasks
-            + fresh_female_tasks
-            + partial_male_tasks
-        )
+        latest_tasks = partial_female_tasks + fresh_female_tasks
+        if latest_male_tasks:
+            latest_tasks.append(latest_male_tasks[0])
         print(
             f"Female-first mode: {len(latest_female_tasks)} of the newest "
             f"{len(latest)} article(s) still need the default female voice. "
-            f"{len(partial_male_tasks)} partially generated male voice(s) "
-            "may resume after the female attempt(s).",
+            "The newest eligible male voice may follow only after female "
+            "coverage reaches 5/5 in this same run.",
             flush=True,
         )
     else:
-        # Once female coverage is complete, generate missing male voices in
-        # strict article recency order. Partial cache may be reused, but it
-        # never moves an older article ahead of a newer one.
         latest_tasks = latest_male_tasks
 
     if args.opportunistic_backfill and latest_tasks:
@@ -1533,21 +1538,13 @@ def main() -> None:
                 )
             ]
             if missing_latest_female:
-                if has_completed_partial_chunks(article, voice_key):
-                    print(
-                        "Resuming partially generated male voice after the "
-                        "female attempt; fresh male work remains deferred: "
-                        f"{article['title']}",
-                        flush=True,
-                    )
-                else:
-                    print(
-                        "Male generation deferred because newest female coverage "
-                        "is still incomplete: "
-                        + " | ".join(missing_latest_female),
-                        flush=True,
-                    )
-                    continue
+                print(
+                    "Male generation deferred because newest female coverage "
+                    "is still incomplete: "
+                    + " | ".join(missing_latest_female),
+                    flush=True,
+                )
+                continue
 
         voice = VOICE_CONFIGS[voice_key]
         audio_id = article["audioIds"][voice_key]

@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'scripts/expire_radar_alerts.py'
+      - '.github/workflows/expire-radar-alerts.yml'
   schedule:
     # Every 5 minutes, offset from minute 0 to reduce GitHub scheduler contention.
     - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
@@ -16,7 +17,7 @@ permissions:
 
 concurrency:
   group: dr-radar-auto-expire
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   expire:

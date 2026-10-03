@@ -7,8 +7,8 @@ on:
     paths:
       - '.github/workflows/release-2.3.1.yml'
   schedule:
-    # 2026-11-26 00:00 UTC = 2026-11-25 20:00 America/Santo_Domingo
-    - cron: '0 0 26 11 *'
+    # 2026-11-12 00:00 UTC = 2026-11-11 20:00 America/Santo_Domingo
+    - cron: '0 0 12 11 *'
   workflow_dispatch:
     inputs:
       confirm:
@@ -37,7 +37,7 @@ jobs:
         run: |
           proceed=false
 
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y-%m-%d)" = "2026-11-26" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y-%m-%d)" = "2026-11-12" ]; then
             proceed=true
           fi
 

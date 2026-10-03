@@ -18,6 +18,14 @@
   <meta name="twitter:description" content="Escucha las noticias, Radar Sísmico y alertas importantes en una sola app.">
   <meta name="twitter:image" content="https://avatars.githubusercontent.com/u/325878565?v=4">
   <link rel="icon" href="https://avatars.githubusercontent.com/u/325878565?v=4">
+  <!-- Google Analytics 4 · DR Accesorios RD -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-6EZD7F71XS"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-6EZD7F71XS');
+  </script>
   <style>
     :root{--brand:#DA135E;--brand2:#ff3b7f;--bg:#07090d;--panel:#10131a;--panel2:#151923;--text:#f7f8fb;--muted:#aeb5c3;--line:rgba(255,255,255,.09)}
     *{box-sizing:border-box}
@@ -75,7 +83,7 @@
       <h1>Tu información, ahora <span class="pink">más cerca que nunca.</span></h1>
       <p class="lead">Noticias, audio, alertas y Radar Sísmico en una experiencia moderna creada para República Dominicana.</p>
       <div class="cta">
-        <a class="btn btn-primary" href="https://raw.githubusercontent.com/ariellourdes52-collab/dr-accesorios-rd-updates/distribution-v2.4/distribution/v2.4/dr-accesorios-rd-v2.4.apk">⬇️ Descargar DR Accesorios RD v2.4</a>
+        <a class="btn btn-primary download-v24" href="https://raw.githubusercontent.com/ariellourdes52-collab/dr-accesorios-rd-updates/distribution-v2.4/distribution/v2.4/dr-accesorios-rd-v2.4.apk">⬇️ Descargar DR Accesorios RD v2.4</a>
         <a class="btn btn-secondary" href="#instalacion">Ver cómo instalar</a>
       </div>
       <div class="micro">APK Android · aprox. 11 MB · Descarga directa</div>
@@ -116,7 +124,26 @@
   </main>
 
   <div class="sticky">
-    <a class="btn btn-primary" href="https://raw.githubusercontent.com/ariellourdes52-collab/dr-accesorios-rd-updates/distribution-v2.4/distribution/v2.4/dr-accesorios-rd-v2.4.apk">⬇️ Descargar v2.4</a>
+    <a class="btn btn-primary download-v24" href="https://raw.githubusercontent.com/ariellourdes52-collab/dr-accesorios-rd-updates/distribution-v2.4/distribution/v2.4/dr-accesorios-rd-v2.4.apk">⬇️ Descargar v2.4</a>
   </div>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const source = params.get('utm_source') || 'direct';
+      document.querySelectorAll('a.download-v24').forEach(function (link) {
+        link.addEventListener('click', function () {
+          if (typeof gtag === 'function') {
+            gtag('event', 'download_v24', {
+              app_version: '2.4',
+              file_name: 'dr-accesorios-rd-v2.4.apk',
+              link_url: link.href,
+              distribution_source: source,
+              transport_type: 'beacon'
+            });
+          }
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

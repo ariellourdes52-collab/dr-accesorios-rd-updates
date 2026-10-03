@@ -25,6 +25,10 @@ on:
         description: 'Older missing articles to generate in this manual run (0-5)'
         required: true
         default: '0'
+      scheduler_guard:
+        description: 'Internal watchdog: apply scheduled-run duplicate protection'
+        required: false
+        default: 'false'
 
 permissions:
   contents: read
@@ -96,6 +100,7 @@ jobs:
           GEMINI_API_KEY_DR_AUDIO: '${{ secrets.GEMINI_API_KEY_DR_AUDIO }}'
           EVENT_NAME: '${{ github.event_name }}'
           EVENT_SCHEDULE: '${{ github.event.schedule }}'
+          SCHEDULER_GUARD: '${{ inputs.scheduler_guard }}'
           MANUAL_BACKFILL: '${{ inputs.backfill_count }}'
         shell: bash
         run: |

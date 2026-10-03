@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
 
+import httpx
 import requests
 from bs4 import BeautifulSoup
 from google import genai
@@ -30,7 +31,8 @@ LATEST_REQUIRED = 5
 MAX_BACKFILL_PER_RUN = 5
 MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
-USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.3"
+USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.4"
+TTS_REQUEST_TIMEOUT_MS = 120_000
 
 VOICE_CONFIGS: dict[str, dict[str, str]] = {
     "female": {
@@ -486,6 +488,23 @@ def daily_quota_exhausted_error(error: Exception) -> bool:
     )
 
 
+def tts_timeout_error(error: Exception) -> bool:
+    if isinstance(error, (TimeoutError, httpx.TimeoutException)):
+        return True
+
+    error_text = str(error).lower()
+    return any(
+        marker in error_text
+        for marker in (
+            "timeout",
+            "timed out",
+            "deadline exceeded",
+            "read timeout",
+            "connect timeout",
+        )
+    )
+
+
 def next_gemini_daily_reset_iso() -> str:
     # Gemini Free Tier daily quotas reset on the provider's Pacific-time day.
     # Add a 5-minute safety margin so the first post-reset run does not race the reset.
@@ -709,7 +728,12 @@ def main() -> None:
             if backfill_articles_selected >= backfill_count:
                 break
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(
+        api_key=api_key,
+        http_options={
+            "timeout": TTS_REQUEST_TIMEOUT_MS,
+        },
+    )
     generated_count = 0
     female_generated = 0
     male_generated = 0
@@ -717,6 +741,7 @@ def main() -> None:
     backfilled_count = 0
     quota_exhausted = False
     quota_blocked_until = ""
+    deferred_timeout_tasks: set[tuple[str, str]] = set()
 
     tasks = [
         (article, voice_key, "latest")
@@ -790,6 +815,19 @@ def main() -> None:
                     )
                 break
 
+            if tts_timeout_error(error):
+                deferred_timeout_tasks.add(
+                    (article["url"], voice_key)
+                )
+                print(
+                    f"Gemini TTS timeout after "
+                    f"{TTS_REQUEST_TIMEOUT_MS // 1000}s; "
+                    f"deferring {voice['label'].lower()} voice until the "
+                    f"next run: {article['title']}",
+                    flush=True,
+                )
+                continue
+
             raise
 
         wav_to_m4a(wav, m4a_path)
@@ -813,16 +851,41 @@ def main() -> None:
         if not reusable_voice(final_by_url.get(article["url"]), article, "female")
     ]
     if missing_latest_female:
-        if not quota_exhausted:
+        missing_latest_female_urls = {
+            article["url"]
+            for article in latest
+            if not reusable_voice(
+                final_by_url.get(article["url"]),
+                article,
+                "female",
+            )
+        }
+        deferred_female_urls = {
+            url
+            for url, voice_key in deferred_timeout_tasks
+            if voice_key == "female"
+        }
+        all_missing_female_deferred = (
+            bool(missing_latest_female_urls)
+            and missing_latest_female_urls <= deferred_female_urls
+        )
+
+        if not quota_exhausted and not all_missing_female_deferred:
             raise RuntimeError(
                 "Newest DR Audio female coverage is incomplete: "
                 + " | ".join(missing_latest_female)
             )
 
+        reason = (
+            "Gemini TTS quota is unavailable"
+            if quota_exhausted
+            else "one or more Gemini TTS requests timed out"
+        )
         print(
-            "Newest DR Audio female coverage is temporarily incomplete only because "
-            "Gemini TTS quota is unavailable; keeping the workflow healthy and "
-            "preserving all already-published audio. Pending: "
+            "Newest DR Audio female coverage is temporarily incomplete because "
+            + reason
+            + "; publishing every completed voice now and retrying the pending "
+            "voice automatically on the next run. Pending: "
             + " | ".join(missing_latest_female),
             flush=True,
         )
@@ -878,6 +941,7 @@ def main() -> None:
         f"{generated_count} voice files generated this run "
         f"({female_generated} female, {male_generated} male); "
         f"{pending_reused_count} unpublished cached voice files reused; "
+        f"{len(deferred_timeout_tasks)} voice files deferred after timeout; "
         f"{backfilled_count} historical voice files backfilled across "
         f"{backfill_articles_selected} selected historical article(s); "
         f"{len(final_entries)} total article entries preserved; "

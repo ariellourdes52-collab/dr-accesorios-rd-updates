@@ -1,5 +1,4 @@
-"""Deploy the download landing to Firebase Hosting while preserving all live files."""
-import base64
+"""Deploy the branded download landing to Firebase Hosting while preserving every live file."""
 import copy
 import gzip
 import hashlib
@@ -15,15 +14,14 @@ SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 PAGE_URL = "https://dr-accesorios-rd.web.app/descargar/"
 
-def require(cond, msg):
-    if not cond:
-        raise RuntimeError(msg)
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
 
 def main():
     credentials = service_account.Credentials.from_service_account_info(
         json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"]),
-        scopes=["https://www.googleapis.com/auth/firebase.hosting"],
-    )
+        scopes=["https://www.googleapis.com/auth/firebase.hosting"])
     session = AuthorizedSession(credentials)
 
     def api(method, path, **kwargs):
@@ -56,19 +54,14 @@ def main():
     require(bool(old_files) and len(old_files) == int(old["fileCount"]), "Incomplete Hosting inventory")
     require("/version.json" in old_files, "Live version.json is missing")
 
-    with open("landing/descargar/index.html", "rb") as f:
-        html = f.read()
-    with open("landing/descargar/logo.jpg.b64", "rt", encoding="ascii") as f:
-        logo = base64.b64decode(f.read().strip(), validate=True)
-
+    with open("landing/descargar/index.html", "rb") as stream:
+        html = stream.read()
     require(b"DR_DOWNLOAD_V24" in html, "Landing marker missing")
-    payloads = {
-        "/descargar/index.html": gzip.compress(html, mtime=0),
-        "/descargar/logo.jpg": gzip.compress(logo, mtime=0),
-    }
-    digests = {path: hashlib.sha256(data).hexdigest() for path, data in payloads.items()}
+
+    body = gzip.compress(html, mtime=0)
+    digest = hashlib.sha256(body).hexdigest()
     expected = dict(old_files)
-    expected.update(digests)
+    expected["/descargar/index.html"] = digest
 
     config = copy.deepcopy(old.get("config", {}))
     headers = config.setdefault("headers", [])
@@ -77,28 +70,24 @@ def main():
             "glob": "/descargar/**",
             "headers": {
                 "Cache-Control": "public, max-age=300",
-                "X-Content-Type-Options": "nosniff",
-            },
+                "X-Content-Type-Options": "nosniff"
+            }
         })
 
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
-
     items = list(expected.items())
-    new_hashes = set(digests.values())
-    digest_to_body = {digests[path]: payloads[path] for path in payloads}
 
     for offset in range(0, len(items), 1000):
         batch = api("POST", new_version + ":populateFiles", json={"files": dict(items[offset:offset + 1000])})
         required = set(batch.get("uploadRequiredHashes", []))
-        require(required <= new_hashes, "Existing Hosting content unavailable; aborting")
-        for digest in required:
+        require(required <= {digest}, "An existing Hosting file is unavailable; aborting")
+        if digest in required:
             upload = session.post(
                 batch["uploadUrl"] + "/" + digest,
-                data=digest_to_body[digest],
+                data=body,
                 headers={"Content-Type": "application/octet-stream"},
-                timeout=60,
-            )
+                timeout=60)
             upload.raise_for_status()
 
     require(files(new_version) == expected, "File inventory mismatch before finalization")
@@ -108,13 +97,12 @@ def main():
         "POST",
         SITE + "/releases",
         params={"versionName": new_version},
-        json={"message": "Add DR Accesorios RD v2.4 download landing; preserve all live Hosting files"},
-    )
+        json={"message": "Add branded DR Accesorios RD v2.4 download page; preserve all live files"})
     print("Hosting release:", release["name"], flush=True)
     require(active()[1] == new_version, "Unexpected active Hosting version")
     require(files(new_version) == expected, "Released inventory mismatch")
 
-    for _ in range(18):
+    for attempt in range(18):
         response = requests.get(PAGE_URL, params={"verify": time.time_ns()}, timeout=30)
         if response.ok and "DR_DOWNLOAD_V24" in response.text:
             print("VERIFIED:", PAGE_URL, flush=True)

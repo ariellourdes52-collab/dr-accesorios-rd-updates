@@ -1,0 +1,55 @@
+name: Prepare v2.4 distribution branch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/distribute-v2.4.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download and verify final v2.4 APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.tag_name=="2.4" and .draft==true) | .id' | head -n 1)"
+          test -n "$RELEASE_ID"
+          ASSET_ID="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '.[] | select(.name=="dr-accesorios-rd.apk") | .id')"
+          test -n "$ASSET_ID"
+          mkdir -p /tmp/v24
+          gh api -H "Accept: application/octet-stream" "/repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}" > /tmp/v24/dr-accesorios-rd-v2.4.apk
+          echo "059bd0063f44ab44fa729144f08834940966462b8cf4dbaae94ec24c343199b1  /tmp/v24/dr-accesorios-rd-v2.4.apk" | sha256sum -c -
+
+      - name: Publish isolated distribution branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan distribution-v2.4
+          git rm -rf . >/dev/null 2>&1 || true
+          mkdir -p distribution/v2.4
+          cp /tmp/v24/dr-accesorios-rd-v2.4.apk distribution/v2.4/dr-accesorios-rd-v2.4.apk
+          cat > distribution/v2.4/README.txt <<'TXT'
+DR Accesorios RD v2.4 - distribución previa
+Archivo: dr-accesorios-rd-v2.4.apk
+SHA-256: 059bd0063f44ab44fa729144f08834940966462b8cf4dbaae94ec24c343199b1
+No constituye la publicación oficial de la Release.
+TXT
+          git add distribution/v2.4
+          git commit -m "Add isolated v2.4 distribution APK"
+          git push --force origin distribution-v2.4

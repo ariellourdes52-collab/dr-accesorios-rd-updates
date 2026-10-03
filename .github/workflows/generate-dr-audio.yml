@@ -11,10 +11,11 @@ on:
       - '.github/workflows/generate-dr-audio.yml'
   schedule:
     # República Dominicana = UTC-4 todo el año.
-    # Revisión redundante cada 5 minutos. GitHub puede retrasar o incluso
-    # descartar algún schedule bajo carga; el siguiente ciclo vuelve a intentarlo.
-    # Cuando no falta audio, el generador no llama a Gemini.
-    - cron: '*/5 * * * *'
+    # Configuración restaurada al último esquema probado en producción (#609).
+    # Se desplaza 3 minutos del cambio de decena para evitar horas de mayor carga.
+    - cron: '3,13,23,33,43,53 * * * *'
+    # Intento oportunista histórico justo antes del reinicio diario de Gemini.
+    - cron: '50 6,7 * * *'
   workflow_dispatch:
     inputs:
       confirm:
@@ -35,9 +36,7 @@ permissions:
 
 concurrency:
   group: dr-accesorios-rd-production-release
-  # Un parche manual debe sustituir una ejecución atascada inmediatamente.
-  # Las ejecuciones programadas normales siguen esperando su turno.
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 
 jobs:
   generate:

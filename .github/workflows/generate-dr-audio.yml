@@ -11,10 +11,10 @@ on:
       - '.github/workflows/generate-dr-audio.yml'
   schedule:
     # República Dominicana = UTC-4 todo el año.
-    # Revisión automática cada 10 minutos, desplazada 4 min del cambio de decena
-    # para reducir la posibilidad de retrasos por carga alta en GitHub Actions.
-    # Las revisiones normales reservan la cuota para noticias nuevas.
-    - cron: '4,14,24,34,44,54 * * * *'
+    # Revisión redundante cada 5 minutos. GitHub puede retrasar o incluso
+    # descartar algún schedule bajo carga; el siguiente ciclo vuelve a intentarlo.
+    # Cuando no falta audio, el generador no llama a Gemini.
+    - cron: '*/5 * * * *'
     # Intento oportunista de 1 artículo histórico completo justo antes del reinicio diario
     # de Gemini (medianoche de Los Ángeles). Se ejecuta a ambas horas posibles
     # por el cambio DST y el propio workflow decide cuál corresponde ese día.
@@ -87,6 +87,14 @@ jobs:
           restore-keys: |
             dr-audio-pending-
 
+      - name: Restore partial TTS chunk cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .dr-audio-chunks
+          key: dr-audio-chunks-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            dr-audio-chunks-
+
       - name: Generate missing shared audio and preserve history
         env:
           GEMINI_API_KEY_DR_AUDIO: '${{ secrets.GEMINI_API_KEY_DR_AUDIO }}'
@@ -146,6 +154,13 @@ jobs:
           path: dr_audio_build/dr-audio
           key: dr-audio-pending-${{ github.run_id }}-${{ github.run_attempt }}
 
+      - name: Save partial TTS chunk cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .dr-audio-chunks
+          key: dr-audio-chunks-${{ github.run_id }}-${{ github.run_attempt }}
+
       - name: Detect Gemini daily quota cooldown
         id: quota-state
         if: always()
@@ -179,6 +194,8 @@ jobs:
           print(f"Shared historical articles: **{data.get('historyCount', len(data.get('entries', [])))}**")
           print("")
           print(f"Library cap: **{data.get('maxLibraryEntries', 'n/a')}** article entries")
+          print("")
+          print(f"Newest female voices ready: **{data.get('latestFemaleReady', 0)}/{data.get('latestCount', 0)}**")
           print("")
           print(f"Newest male voices ready: **{data.get('latestMaleReady', 0)}/{data.get('latestCount', 0)}**")
           print("")

@@ -9,8 +9,8 @@ import html as html_module
 import json
 import os
 import re
-import signal
 import subprocess
+import sys
 import tempfile
 import time
 from datetime import datetime, timedelta, timezone
@@ -21,7 +21,6 @@ from typing import Any
 import httpx
 import requests
 from bs4 import BeautifulSoup
-from google import genai
 
 BLOG_FEED_BASE = "https://draccesoriosrd.blogspot.com/feeds/posts/default"
 PUBLIC_INDEX = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
@@ -32,7 +31,7 @@ LATEST_REQUIRED = 5
 MAX_BACKFILL_PER_RUN = 5
 MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
-USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.4"
+USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.5"
 TTS_REQUEST_TIMEOUT_MS = 120_000
 TTS_HARD_TIMEOUT_SECONDS = 125
 
@@ -245,71 +244,77 @@ class TTSHardTimeoutError(TimeoutError):
     pass
 
 
-def _raise_tts_hard_timeout(_signum, _frame):
-    raise TTSHardTimeoutError(
-        f"Gemini TTS exceeded {TTS_HARD_TIMEOUT_SECONDS}s hard timeout"
-    )
-
-
 def generate_wav(
-    client: genai.Client,
     transcript: str,
     voice_key: str,
 ) -> bytes:
+    """
+    Run each Gemini TTS request in its own Python process.
+
+    This is intentionally stronger than an SDK/HTTP timeout: if the Gemini
+    client gets stuck internally, the parent process kills the whole worker
+    after TTS_HARD_TIMEOUT_SECONDS and continues with the next voice.
+    """
     voice = VOICE_CONFIGS[voice_key]
+    worker = Path(__file__).with_name("generate_one_tts.py")
 
-    previous_handler = None
-    hard_timeout_enabled = hasattr(signal, "SIGALRM")
+    if not worker.exists():
+        raise RuntimeError(f"TTS worker missing: {worker}")
 
-    if hard_timeout_enabled:
-        previous_handler = signal.getsignal(signal.SIGALRM)
-        signal.signal(signal.SIGALRM, _raise_tts_hard_timeout)
-        signal.setitimer(
-            signal.ITIMER_REAL,
-            TTS_HARD_TIMEOUT_SECONDS,
-        )
+    with tempfile.NamedTemporaryFile(
+        suffix=".wav",
+        delete=False,
+    ) as temp:
+        wav_path = Path(temp.name)
+
+    payload = json.dumps(
+        {
+            "transcript": transcript,
+            "voice_name": voice["name"],
+            "voice_style": voice["style"],
+        },
+        ensure_ascii=False,
+    )
 
     try:
-        interaction = client.interactions.create(
-        model=MODEL,
-        input=[
-            {
-                "type": "user_input",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": transcript,
-                        "annotations": [
-                            {
-                                "type": "speech_metadata",
-                                "style": voice["style"],
-                            }
-                        ],
-                    }
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(worker),
+                    "--output",
+                    str(wav_path),
                 ],
-            }
-        ],
-        response_format={"type": "audio"},
-            generation_config={
-                "speech_config": [
-                    {"voice": voice["name"]},
-                ]
-            },
-        )
+                input=payload,
+                text=True,
+                capture_output=True,
+                timeout=TTS_HARD_TIMEOUT_SECONDS,
+                env=os.environ.copy(),
+            )
+        except subprocess.TimeoutExpired as error:
+            raise TTSHardTimeoutError(
+                f"Gemini TTS worker exceeded "
+                f"{TTS_HARD_TIMEOUT_SECONDS}s hard timeout"
+            ) from error
+
+        if result.returncode != 0:
+            detail = (
+                result.stderr.strip()
+                or result.stdout.strip()
+                or f"TTS worker exited with code {result.returncode}"
+            )
+            raise RuntimeError(detail)
+
+        wav = wav_path.read_bytes()
+        if not wav:
+            raise RuntimeError("Gemini TTS worker produced an empty WAV")
+
+        return wav
     finally:
-        if hard_timeout_enabled:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-            signal.signal(signal.SIGALRM, previous_handler)
-
-    output_audio = getattr(interaction, "output_audio", None)
-    data = getattr(output_audio, "data", None)
-    if not data:
-        raise RuntimeError("Gemini did not return output audio")
-
-    if isinstance(data, (bytes, bytearray)):
-        return bytes(data)
-
-    return base64.b64decode(data)
+        try:
+            wav_path.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def wav_to_m4a(wav_bytes: bytes, destination: Path) -> None:
@@ -764,12 +769,6 @@ def main() -> None:
             if backfill_articles_selected >= backfill_count:
                 break
 
-    client = genai.Client(
-        api_key=api_key,
-        http_options={
-            "timeout": TTS_REQUEST_TIMEOUT_MS,
-        },
-    )
     generated_count = 0
     female_generated = 0
     male_generated = 0
@@ -829,7 +828,7 @@ def main() -> None:
         )
 
         try:
-            wav = generate_wav(client, article["text"], voice_key)
+            wav = generate_wav(article["text"], voice_key)
         except Exception as error:
             if quota_exhausted_error(error):
                 quota_exhausted = True

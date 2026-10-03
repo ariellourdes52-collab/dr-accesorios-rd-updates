@@ -1,0 +1,233 @@
+name: Recover DR Audio from pre-incident release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/recover_dr_audio_from_release.py'
+      - '.github/workflows/recover-dr-audio-history.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-accesorios-rd-production-release
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      SITE_ID: dr-accesorios-rd
+      PROJECT_ID: dr-accesorios-rd
+      RECOVERY_RELEASE_ID: '1791038062787000'
+      RECOVERY_CHANNEL_ID: dr-audio-recovery-609
+      FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install recovery dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet \
+            google-auth requests beautifulsoup4 httpx
+          npm install --global firebase-tools@latest
+
+      - name: Prepare Firebase service account
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          raw = os.environ["FIREBASE_SERVICE_ACCOUNT"].strip()
+          data = json.loads(raw)
+          path = Path(".firebase-recovery-sa.json").resolve()
+          path.write_text(json.dumps(data), encoding="utf-8")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as out:
+              out.write(f"GOOGLE_APPLICATION_CREDENTIALS={path}\n")
+          PY
+
+      - name: Resolve historical Firebase version
+        id: historical
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from google.auth.transport.requests import AuthorizedSession
+          from google.oauth2 import service_account
+
+          site = os.environ["SITE_ID"]
+          release_id = os.environ["RECOVERY_RELEASE_ID"]
+          raw = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
+          creds = service_account.Credentials.from_service_account_info(
+              raw,
+              scopes=["https://www.googleapis.com/auth/firebase.hosting"],
+          )
+          session = AuthorizedSession(creds)
+          url = (
+              "https://firebasehosting.googleapis.com/v1beta1/"
+              f"sites/{site}/releases/{release_id}"
+          )
+          response = session.get(url, timeout=60)
+          response.raise_for_status()
+          release = response.json()
+          version_name = str((release.get("version") or {}).get("name") or "")
+          if not version_name:
+              raise RuntimeError("Historical release did not expose a version name")
+          version_id = version_name.rsplit("/", 1)[-1]
+          print(f"Historical release: {release.get('name')}")
+          print(f"Historical version: {version_name}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"version_id={version_id}\n")
+          PY
+
+      - name: Clone historical version to temporary preview channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          firebase hosting:clone \
+            "${SITE_ID}:@${{ steps.historical.outputs.version_id }}" \
+            "${SITE_ID}:${RECOVERY_CHANNEL_ID}" \
+            --project "${PROJECT_ID}" \
+            --non-interactive
+
+      - name: Resolve preview channel URL
+        id: preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          firebase hosting:channel:list \
+            --project "${PROJECT_ID}" \
+            --json > recovery-channels.json
+
+          python - <<'PY'
+          import json
+          import os
+
+          data = json.load(open("recovery-channels.json", encoding="utf-8"))
+          target = os.environ["RECOVERY_CHANNEL_ID"]
+
+          def walk(value):
+              if isinstance(value, dict):
+                  yield value
+                  for child in value.values():
+                      yield from walk(child)
+              elif isinstance(value, list):
+                  for child in value:
+                      yield from walk(child)
+
+          matches = []
+          for item in walk(data):
+              name = str(item.get("name") or "")
+              channel_id = str(item.get("channelId") or item.get("channel_id") or "")
+              url = str(item.get("url") or "").strip()
+              if url and (name.endswith("/channels/" + target) or channel_id == target):
+                  matches.append(url)
+
+          if not matches:
+              raise RuntimeError("Could not resolve temporary preview channel URL")
+
+          url = matches[0].rstrip("/")
+          print(f"Recovery preview: {url}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"url={url}\n")
+          PY
+
+      - name: Recover reusable historical DR Audio voices
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/recover_dr_audio_from_release.py \
+            --preview-base-url "${{ steps.preview.outputs.url }}" \
+            --output dr_audio_recovery_build
+
+      - name: Deploy recovered DR Audio preserving all other Hosting files
+        env:
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+        run: python scripts/deploy_shared_dr_audio.py dr_audio_recovery_build
+
+      - name: Verify restored 5 plus 5 coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import requests
+          import time
+
+          url = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
+          response = requests.get(
+              url,
+              params={"verify": time.time_ns()},
+              headers={"Cache-Control": "no-cache"},
+              timeout=30,
+          )
+          response.raise_for_status()
+          data = response.json()
+
+          female = int(data.get("latestFemaleReady") or 0)
+          male = int(data.get("latestMaleReady") or 0)
+          latest = int(data.get("latestCount") or 0)
+
+          print(f"Production DR Audio coverage: female={female}/{latest}, male={male}/{latest}")
+
+          if latest != 5 or female != 5 or male != 5:
+              raise RuntimeError(
+                  f"Recovery verification failed: female={female}/{latest}, male={male}/{latest}"
+              )
+
+          for entry in (data.get("entries") or [])[:5]:
+              for key in ("audioFemaleUrl", "audioMaleUrl"):
+                  audio_url = str(entry.get(key) or "").strip()
+                  if not audio_url:
+                      raise RuntimeError(f"Missing {key}: {entry.get('title')}")
+                  check = requests.head(
+                      audio_url,
+                      params={"verify": time.time_ns()},
+                      headers={"Cache-Control": "no-cache"},
+                      timeout=30,
+                      allow_redirects=True,
+                  )
+                  if not check.ok:
+                      raise RuntimeError(
+                          f"Unreachable {key} HTTP {check.status_code}: {audio_url}"
+                      )
+
+          print("VERIFIED: newest five have both female and male DR Audio.")
+          PY
+
+      - name: Delete temporary preview channel
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          firebase hosting:channel:delete "${RECOVERY_CHANNEL_ID}" \
+            --project "${PROJECT_ID}" \
+            --force \
+            --non-interactive
+
+      - name: Remove temporary credentials
+        if: always()
+        shell: bash
+        run: rm -f .firebase-recovery-sa.json recovery-channels.json

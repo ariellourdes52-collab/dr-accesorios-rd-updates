@@ -12,7 +12,11 @@ from google.auth.transport.requests import AuthorizedSession
 
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
-PAGE_URL = "https://dr-accesorios-rd.web.app/descargar/"
+PAGE_URLS = (
+    "https://dr-accesorios-rd.web.app/descargar/",
+    "https://dr-accesorios-rd.web.app/whatsapp/",
+    "https://dr-accesorios-rd.web.app/facebook/",
+)
 
 def require(condition, message):
     if not condition:
@@ -63,18 +67,28 @@ def main():
     body = gzip.compress(html, mtime=0)
     digest = hashlib.sha256(body).hexdigest()
     expected = dict(old_files)
-    expected["/descargar/index.html"] = digest
+    for path in (
+        "/descargar/index.html",
+        "/whatsapp/index.html",
+        "/facebook/index.html",
+    ):
+        expected[path] = digest
 
     config = copy.deepcopy(old.get("config", {}))
     headers = config.setdefault("headers", [])
-    if not any(h.get("glob") == "/descargar/**" for h in headers):
-        headers.append({
-            "glob": "/descargar/**",
-            "headers": {
-                "Cache-Control": "public, max-age=300",
-                "X-Content-Type-Options": "nosniff"
-            }
-        })
+    for glob in (
+        "/descargar/**",
+        "/whatsapp/**",
+        "/facebook/**",
+    ):
+        if not any(h.get("glob") == glob for h in headers):
+            headers.append({
+                "glob": glob,
+                "headers": {
+                    "Cache-Control": "public, max-age=300",
+                    "X-Content-Type-Options": "nosniff"
+                }
+            })
 
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
@@ -104,13 +118,23 @@ def main():
     require(active()[1] == new_version, "Unexpected active Hosting version")
     require(files(new_version) == expected, "Released inventory mismatch")
 
-    for attempt in range(18):
-        response = requests.get(PAGE_URL, params={"verify": time.time_ns()}, timeout=30)
-        if response.ok and "DR_DOWNLOAD_V24" in response.text:
-            print("VERIFIED:", PAGE_URL, flush=True)
-            return
-        time.sleep(5)
-    raise RuntimeError("Landing verification did not complete")
+    for page_url in PAGE_URLS:
+        verified = False
+        for attempt in range(18):
+            response = requests.get(
+                page_url,
+                params={"verify": time.time_ns()},
+                timeout=30,
+            )
+            if response.ok and "DR_DOWNLOAD_V24" in response.text:
+                print("VERIFIED:", page_url, flush=True)
+                verified = True
+                break
+            time.sleep(5)
+        require(
+            verified,
+            "Landing verification did not complete: " + page_url,
+        )
 
 if __name__ == "__main__":
     main()

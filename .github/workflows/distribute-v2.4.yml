@@ -15,6 +15,7 @@ jobs:
   distribute:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -45,12 +46,7 @@ jobs:
           git rm -rf . >/dev/null 2>&1 || true
           mkdir -p distribution/v2.4
           cp /tmp/v24/dr-accesorios-rd-v2.4.apk distribution/v2.4/dr-accesorios-rd-v2.4.apk
-          cat > distribution/v2.4/README.txt <<'TXT'
-DR Accesorios RD v2.4 - distribución previa
-Archivo: dr-accesorios-rd-v2.4.apk
-SHA-256: 059bd0063f44ab44fa729144f08834940966462b8cf4dbaae94ec24c343199b1
-No constituye la publicación oficial de la Release.
-TXT
+          printf '%s\n'             'DR Accesorios RD v2.4 - distribución previa'             'Archivo: dr-accesorios-rd-v2.4.apk'             'SHA-256: 059bd0063f44ab44fa729144f08834940966462b8cf4dbaae94ec24c343199b1'             'No constituye la publicación oficial de la Release.'             > distribution/v2.4/README.txt
           git add distribution/v2.4
           git commit -m "Add isolated v2.4 distribution APK"
           git push --force origin distribution-v2.4

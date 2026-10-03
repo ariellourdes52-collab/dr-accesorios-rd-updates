@@ -58,23 +58,29 @@ def main() -> None:
         http_options={"timeout": REQUEST_TIMEOUT_MS},
     )
 
-    request_input = [
-        {
-            "type": "user_input",
-            "content": [
-                {
-                    "type": "text",
-                    "text": transcript,
-                    "annotations": [
-                        {
-                            "type": "speech_metadata",
-                            "style": voice_style,
-                        }
-                    ],
-                }
-            ],
-        }
-    ]
+    if model.startswith("gemini-3.1-"):
+        # Legacy 3.1 TTS does not accept speech_metadata annotations.
+        # It is used only as a last-resort tiny-fragment rescue path.
+        request_input = transcript
+    else:
+        request_input = [
+            {
+                "type": "user_input",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": transcript,
+                        "annotations": [
+                            {
+                                "type": "speech_metadata",
+                                "style": voice_style,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+
     speech_config = {
         "speech_config": [
             {"voice": voice_name},

@@ -31,6 +31,7 @@ def main() -> None:
     voice_name = str(payload.get("voice_name") or "")
     voice_style = str(payload.get("voice_style") or "")
     model = str(payload.get("model") or DEFAULT_MODEL).strip()
+    stream_audio = bool(payload.get("stream", True))
 
     if not transcript.strip():
         raise RuntimeError("TTS transcript is empty")
@@ -57,36 +58,76 @@ def main() -> None:
         http_options={"timeout": REQUEST_TIMEOUT_MS},
     )
 
+    request_input = [
+        {
+            "type": "user_input",
+            "content": [
+                {
+                    "type": "text",
+                    "text": transcript,
+                    "annotations": [
+                        {
+                            "type": "speech_metadata",
+                            "style": voice_style,
+                        }
+                    ],
+                }
+            ],
+        }
+    ]
+    speech_config = {
+        "speech_config": [
+            {"voice": voice_name},
+        ]
+    }
+
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     heartbeat()
+
+    if not stream_audio:
+        interaction = client.interactions.create(
+            model=model,
+            input=request_input,
+            response_format={"type": "audio"},
+            generation_config=speech_config,
+        )
+
+        output_audio = getattr(interaction, "output_audio", None)
+        data = getattr(output_audio, "data", None)
+        if not data:
+            raise RuntimeError("Gemini unary TTS returned no audio")
+
+        if isinstance(data, (bytes, bytearray)):
+            wav_bytes = bytes(data)
+        else:
+            wav_bytes = base64.b64decode(data)
+
+        if not wav_bytes:
+            raise RuntimeError("Gemini unary TTS returned empty audio")
+
+        if wav_bytes[:4] == b"RIFF":
+            output_path.write_bytes(wav_bytes)
+        else:
+            with wave.open(str(output_path), "wb") as writer:
+                writer.setnchannels(CHANNELS)
+                writer.setsampwidth(SAMPLE_WIDTH)
+                writer.setframerate(SAMPLE_RATE)
+                writer.writeframes(wav_bytes)
+
+        heartbeat()
+        return
+
     stream = client.interactions.create(
         model=model,
-        input=[
-            {
-                "type": "user_input",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": transcript,
-                        "annotations": [
-                            {
-                                "type": "speech_metadata",
-                                "style": voice_style,
-                            }
-                        ],
-                    }
-                ],
-            }
-        ],
+        input=request_input,
         response_format={
             "type": "audio",
             "mime_type": "audio/l16",
             "sample_rate": SAMPLE_RATE,
         },
-        generation_config={
-            "speech_config": [
-                {"voice": voice_name},
-            ]
-        },
+        generation_config=speech_config,
         stream=True,
     )
 
@@ -117,9 +158,6 @@ def main() -> None:
 
     if not pcm:
         raise RuntimeError("Gemini streaming TTS returned no audio")
-
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with wave.open(str(output_path), "wb") as writer:
         writer.setnchannels(CHANNELS)

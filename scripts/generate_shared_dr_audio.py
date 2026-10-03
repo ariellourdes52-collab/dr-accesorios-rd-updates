@@ -34,11 +34,13 @@ MAX_BACKFILL_PER_RUN = 5
 MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
 USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.6"
-TTS_REQUEST_TIMEOUT_MS = 55_000
-TTS_HARD_TIMEOUT_SECONDS = 65
+TTS_REQUEST_TIMEOUT_MS = 600_000
+TTS_HARD_TIMEOUT_SECONDS = 300
+TTS_STALL_TIMEOUT_SECONDS = 75
 TTS_GLOBAL_BUDGET_SECONDS = 300
-TTS_CHUNK_TRIGGER_CHARS = 3200
+TTS_CHUNK_TRIGGER_CHARS = 20_000
 TTS_CHUNK_TARGET_CHARS = 1800
+TTS_MIN_SCHEDULE_INTERVAL_SECONDS = 8 * 60
 
 VOICE_CONFIGS: dict[str, dict[str, str]] = {
     "female": {
@@ -255,11 +257,11 @@ def generate_wav(
     hard_timeout_seconds: float | None = None,
 ) -> bytes:
     """
-    Run each Gemini TTS request in its own Python process.
+    Run one Gemini TTS stream in an isolated process.
 
-    This is intentionally stronger than an SDK/HTTP timeout: if the Gemini
-    client gets stuck internally, the parent process kills the whole worker
-    after TTS_HARD_TIMEOUT_SECONDS and continues with the next voice.
+    The child emits a heartbeat whenever streaming audio arrives. We therefore
+    kill only a genuinely stalled request, instead of killing a healthy long
+    narration merely because the final WAV has not been completed yet.
     """
     voice = VOICE_CONFIGS[voice_key]
     worker = Path(__file__).with_name("generate_one_tts.py")
@@ -273,6 +275,12 @@ def generate_wav(
     ) as temp:
         wav_path = Path(temp.name)
 
+    heartbeat_path = wav_path.with_suffix(wav_path.suffix + ".heartbeat")
+    try:
+        heartbeat_path.unlink()
+    except FileNotFoundError:
+        pass
+
     payload = json.dumps(
         {
             "transcript": transcript,
@@ -285,49 +293,99 @@ def generate_wav(
     worker_timeout = (
         float(TTS_HARD_TIMEOUT_SECONDS)
         if hard_timeout_seconds is None
-        else max(5.0, min(float(TTS_HARD_TIMEOUT_SECONDS), hard_timeout_seconds))
+        else max(10.0, min(float(TTS_HARD_TIMEOUT_SECONDS), hard_timeout_seconds))
     )
 
-    try:
-        try:
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(worker),
-                    "--output",
-                    str(wav_path),
-                ],
-                input=payload,
-                text=True,
-                capture_output=True,
-                timeout=worker_timeout,
-                env=os.environ.copy(),
-            )
-        except subprocess.TimeoutExpired as error:
-            raise TTSHardTimeoutError(
-                f"Gemini TTS worker exceeded "
-                f"{worker_timeout:.1f}s hard timeout"
-            ) from error
+    process: subprocess.Popen[str] | None = None
 
-        if result.returncode != 0:
+    try:
+        process = subprocess.Popen(
+            [
+                sys.executable,
+                str(worker),
+                "--output",
+                str(wav_path),
+                "--heartbeat",
+                str(heartbeat_path),
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=os.environ.copy(),
+        )
+
+        if process.stdin is None:
+            raise RuntimeError("Could not open Gemini TTS worker stdin")
+
+        process.stdin.write(payload)
+        process.stdin.close()
+        process.stdin = None
+
+        started = time.monotonic()
+        last_progress = started
+        last_heartbeat = ""
+
+        while process.poll() is None:
+            now = time.monotonic()
+
+            try:
+                heartbeat = heartbeat_path.read_text(encoding="utf-8").strip()
+            except (FileNotFoundError, OSError):
+                heartbeat = ""
+
+            if heartbeat and heartbeat != last_heartbeat:
+                last_heartbeat = heartbeat
+                last_progress = now
+
+            if now - last_progress > TTS_STALL_TIMEOUT_SECONDS:
+                process.kill()
+                process.wait(timeout=10)
+                raise TTSHardTimeoutError(
+                    f"Gemini streaming TTS produced no audio progress for "
+                    f"{TTS_STALL_TIMEOUT_SECONDS}s"
+                )
+
+            if now - started > worker_timeout:
+                process.kill()
+                process.wait(timeout=10)
+                raise TTSHardTimeoutError(
+                    f"Gemini streaming TTS exceeded "
+                    f"{worker_timeout:.1f}s maximum request time"
+                )
+
+            time.sleep(1.0)
+
+        stdout = process.stdout.read() if process.stdout is not None else ""
+        stderr = process.stderr.read() if process.stderr is not None else ""
+
+        if process.returncode != 0:
             detail = (
-                result.stderr.strip()
-                or result.stdout.strip()
-                or f"TTS worker exited with code {result.returncode}"
+                stderr.strip()
+                or stdout.strip()
+                or f"TTS worker exited with code {process.returncode}"
             )
             raise RuntimeError(detail)
 
         wav = wav_path.read_bytes()
-        if not wav:
-            raise RuntimeError("Gemini TTS worker produced an empty WAV")
+        if len(wav) <= 44:
+            raise RuntimeError("Gemini streaming TTS worker produced an empty WAV")
 
         return wav
-    finally:
-        try:
-            wav_path.unlink()
-        except FileNotFoundError:
-            pass
 
+    finally:
+        if process is not None and process.poll() is None:
+            process.kill()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                pass
+
+        for temporary_path in (wav_path, heartbeat_path):
+            try:
+                temporary_path.unlink()
+            except FileNotFoundError:
+                pass
 
 
 def split_tts_transcript(
@@ -1048,6 +1106,58 @@ def main() -> None:
         (article, voice_key, "backfill")
         for article, voice_key in backfill_tasks
     ]
+
+    # GitHub schedule is intentionally redundant (every 5 minutes). Persist the
+    # actual TTS attempt time in the restored chunk cache so a delayed/duplicate
+    # scheduler event cannot double-spend Gemini quota.
+    attempt_state_path = chunk_cache_dir / "last-tts-attempt.json"
+    event_name = os.environ.get("EVENT_NAME", "").strip()
+
+    if tasks and event_name == "schedule" and attempt_state_path.exists():
+        try:
+            attempt_state = json.loads(
+                attempt_state_path.read_text(encoding="utf-8")
+            )
+            attempted_at = datetime.fromisoformat(
+                str(attempt_state.get("attemptedAt") or "").replace("Z", "+00:00")
+            )
+            if attempted_at.tzinfo is None:
+                attempted_at = attempted_at.replace(tzinfo=timezone.utc)
+            elapsed = (
+                datetime.now(timezone.utc) - attempted_at.astimezone(timezone.utc)
+            ).total_seconds()
+        except (OSError, ValueError, TypeError):
+            elapsed = TTS_MIN_SCHEDULE_INTERVAL_SECONDS
+
+        if (
+            elapsed < TTS_MIN_SCHEDULE_INTERVAL_SECONDS
+            and bool(live_index.get("entries"))
+        ):
+            (audio_dir / "index.json").write_text(
+                json.dumps(live_index, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            print(
+                "DR Audio scheduler guard: previous real TTS attempt was "
+                f"{int(elapsed)}s ago; skipping this redundant schedule event "
+                "without calling Gemini.",
+                flush=True,
+            )
+            return
+
+    if tasks:
+        attempt_state_path.write_text(
+            json.dumps(
+                {
+                    "attemptedAt": datetime.now(timezone.utc).isoformat(),
+                    "pendingTasks": len(tasks),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
     tts_batch_started = time.monotonic()
     tts_deadline = tts_batch_started + TTS_GLOBAL_BUDGET_SECONDS

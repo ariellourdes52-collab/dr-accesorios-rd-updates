@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - '.github/workflows/distribute-v2.4.yml'
+      - 'distribution-trigger-v2.4.txt'
 
 permissions:
   contents: write

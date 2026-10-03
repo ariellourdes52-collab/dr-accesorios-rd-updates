@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import io
 import html as html_module
 import json
 import os
@@ -13,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import wave
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -35,6 +37,8 @@ USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.6"
 TTS_REQUEST_TIMEOUT_MS = 55_000
 TTS_HARD_TIMEOUT_SECONDS = 65
 TTS_GLOBAL_BUDGET_SECONDS = 300
+TTS_CHUNK_TRIGGER_CHARS = 3200
+TTS_CHUNK_TARGET_CHARS = 1800
 
 VOICE_CONFIGS: dict[str, dict[str, str]] = {
     "female": {
@@ -248,6 +252,7 @@ class TTSHardTimeoutError(TimeoutError):
 def generate_wav(
     transcript: str,
     voice_key: str,
+    hard_timeout_seconds: float | None = None,
 ) -> bytes:
     """
     Run each Gemini TTS request in its own Python process.
@@ -277,6 +282,12 @@ def generate_wav(
         ensure_ascii=False,
     )
 
+    worker_timeout = (
+        float(TTS_HARD_TIMEOUT_SECONDS)
+        if hard_timeout_seconds is None
+        else max(5.0, min(float(TTS_HARD_TIMEOUT_SECONDS), hard_timeout_seconds))
+    )
+
     try:
         try:
             result = subprocess.run(
@@ -289,13 +300,13 @@ def generate_wav(
                 input=payload,
                 text=True,
                 capture_output=True,
-                timeout=TTS_HARD_TIMEOUT_SECONDS,
+                timeout=worker_timeout,
                 env=os.environ.copy(),
             )
         except subprocess.TimeoutExpired as error:
             raise TTSHardTimeoutError(
                 f"Gemini TTS worker exceeded "
-                f"{TTS_HARD_TIMEOUT_SECONDS}s hard timeout"
+                f"{worker_timeout:.1f}s hard timeout"
             ) from error
 
         if result.returncode != 0:
@@ -316,6 +327,230 @@ def generate_wav(
             wav_path.unlink()
         except FileNotFoundError:
             pass
+
+
+
+def split_tts_transcript(
+    transcript: str,
+    target_chars: int = TTS_CHUNK_TARGET_CHARS,
+) -> list[str]:
+    """Split long speech into sentence-aware chunks small enough for reliable TTS."""
+    text = re.sub(r"\s+", " ", transcript or "").strip()
+    if not text:
+        return []
+
+    sentences = [
+        part.strip()
+        for part in re.split(r"(?<=[.!?…])\s+", text)
+        if part.strip()
+    ]
+
+    pieces: list[str] = []
+    for sentence in sentences or [text]:
+        if len(sentence) <= target_chars:
+            pieces.append(sentence)
+            continue
+
+        words = sentence.split()
+        current: list[str] = []
+        current_len = 0
+        for word in words:
+            extra = len(word) + (1 if current else 0)
+            if current and current_len + extra > target_chars:
+                pieces.append(" ".join(current))
+                current = [word]
+                current_len = len(word)
+            else:
+                current.append(word)
+                current_len += extra
+        if current:
+            pieces.append(" ".join(current))
+
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+    for piece in pieces:
+        extra = len(piece) + (1 if current else 0)
+        if current and current_len + extra > target_chars:
+            chunks.append(" ".join(current))
+            current = [piece]
+            current_len = len(piece)
+        else:
+            current.append(piece)
+            current_len += extra
+    if current:
+        chunks.append(" ".join(current))
+
+    return chunks
+
+
+def combine_wav_chunks(chunks: list[bytes]) -> bytes:
+    """Concatenate PCM WAV chunks without re-encoding."""
+    if not chunks:
+        raise RuntimeError("No WAV chunks to combine")
+    if len(chunks) == 1:
+        return chunks[0]
+
+    frames: list[bytes] = []
+    audio_format: tuple[int, int, int, str, str] | None = None
+
+    try:
+        for raw in chunks:
+            with wave.open(io.BytesIO(raw), "rb") as reader:
+                current_format = (
+                    reader.getnchannels(),
+                    reader.getsampwidth(),
+                    reader.getframerate(),
+                    reader.getcomptype(),
+                    reader.getcompname(),
+                )
+                if audio_format is None:
+                    audio_format = current_format
+                elif current_format != audio_format:
+                    raise RuntimeError(
+                        "Gemini returned incompatible WAV formats across TTS chunks"
+                    )
+                frames.append(reader.readframes(reader.getnframes()))
+
+        if audio_format is None:
+            raise RuntimeError("Could not determine WAV format")
+
+        output = io.BytesIO()
+        with wave.open(output, "wb") as writer:
+            writer.setnchannels(audio_format[0])
+            writer.setsampwidth(audio_format[1])
+            writer.setframerate(audio_format[2])
+            writer.setcomptype(audio_format[3], audio_format[4])
+            for frame_bytes in frames:
+                writer.writeframes(frame_bytes)
+        return output.getvalue()
+
+    except (wave.Error, EOFError) as error:
+        raise RuntimeError(f"Could not combine Gemini WAV chunks: {error}") from error
+
+
+def generate_wav_resilient(
+    transcript: str,
+    voice_key: str,
+    audio_id: str,
+    chunk_cache_dir: Path,
+    deadline_monotonic: float,
+) -> bytes:
+    """Generate one article, falling back to cached short chunks after long-call timeouts."""
+    chunk_cache_dir.mkdir(parents=True, exist_ok=True)
+    force_chunk_marker = chunk_cache_dir / f"{audio_id}-{voice_key}.force-chunk"
+
+    use_chunks = (
+        len(transcript) > TTS_CHUNK_TRIGGER_CHARS
+        or force_chunk_marker.exists()
+    )
+
+    if not use_chunks:
+        remaining = deadline_monotonic - time.monotonic()
+        if remaining < 8:
+            raise TTSHardTimeoutError("Global TTS generation budget is exhausted")
+
+        try:
+            return generate_wav(
+                transcript,
+                voice_key,
+                hard_timeout_seconds=min(TTS_HARD_TIMEOUT_SECONDS, remaining),
+            )
+        except Exception as error:
+            if not tts_timeout_error(error):
+                raise
+
+            force_chunk_marker.write_text(
+                "Full-article TTS timed out; use chunked generation.\n",
+                encoding="utf-8",
+            )
+            use_chunks = True
+            print(
+                f"Full-article Gemini TTS timed out for {len(transcript)} chars; "
+                "switching this voice to cached chunked generation.",
+                flush=True,
+            )
+
+    chunks = split_tts_transcript(transcript)
+    if len(chunks) == 1:
+        chunks = split_tts_transcript(
+            transcript,
+            target_chars=max(600, min(TTS_CHUNK_TARGET_CHARS, len(transcript) // 2)),
+        )
+
+    if not chunks:
+        raise RuntimeError("TTS chunk planner produced no text")
+
+    print(
+        f"Chunked Gemini TTS: {len(chunks)} chunk(s), "
+        f"{len(transcript)} total chars.",
+        flush=True,
+    )
+
+    wav_chunks: list[bytes] = []
+    used_paths: list[Path] = []
+
+    for index, chunk in enumerate(chunks, start=1):
+        chunk_hash = hashlib.sha256(
+            (
+                MODEL
+                + "\n"
+                + VOICE_CONFIGS[voice_key]["name"]
+                + "\n"
+                + chunk
+            ).encode("utf-8")
+        ).hexdigest()[:20]
+        cache_path = chunk_cache_dir / (
+            f"{audio_id}-{voice_key}-{index:02d}-{chunk_hash}.wav"
+        )
+        used_paths.append(cache_path)
+
+        if cache_path.exists() and cache_path.stat().st_size > 44:
+            print(
+                f"Reusing cached TTS chunk {index}/{len(chunks)} "
+                f"for {voice_key}.",
+                flush=True,
+            )
+            wav_chunks.append(cache_path.read_bytes())
+            continue
+
+        remaining = deadline_monotonic - time.monotonic()
+        if remaining < 8:
+            raise TTSHardTimeoutError(
+                "Global TTS generation budget reached during chunked generation"
+            )
+
+        print(
+            f"Generating TTS chunk {index}/{len(chunks)} "
+            f"({len(chunk)} chars, {voice_key})...",
+            flush=True,
+        )
+        wav = generate_wav(
+            chunk,
+            voice_key,
+            hard_timeout_seconds=min(TTS_HARD_TIMEOUT_SECONDS, remaining),
+        )
+
+        temporary = cache_path.with_suffix(cache_path.suffix + ".tmp")
+        temporary.write_bytes(wav)
+        temporary.replace(cache_path)
+        wav_chunks.append(wav)
+
+    combined = combine_wav_chunks(wav_chunks)
+
+    # Final article audio is now complete. Remove only this article/voice's
+    # temporary chunk cache; incomplete articles keep their finished chunks.
+    for path in chunk_cache_dir.glob(f"{audio_id}-{voice_key}-*.wav"):
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+    try:
+        force_chunk_marker.unlink()
+    except FileNotFoundError:
+        pass
+
+    return combined
 
 
 def wav_to_m4a(wav_bytes: bytes, destination: Path) -> None:
@@ -651,6 +886,17 @@ def main() -> None:
     audio_dir = output / "dr-audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
 
+    chunk_cache_dir = Path(
+        os.environ.get("DR_AUDIO_CHUNK_CACHE_DIR", ".dr-audio-chunks")
+    )
+    chunk_cache_dir.mkdir(parents=True, exist_ok=True)
+    # Keep the cache directory non-empty so each run can save a fresh snapshot
+    # and supersede stale partial chunks from older runs.
+    (chunk_cache_dir / ".cache-version").write_text(
+        "dr-audio-chunks-v1\n",
+        encoding="utf-8",
+    )
+
     feed = parse_feed(args.scan_posts)
     if not feed:
         raise RuntimeError("Blogger feed returned no usable posts")
@@ -804,6 +1050,7 @@ def main() -> None:
     ]
 
     tts_batch_started = time.monotonic()
+    tts_deadline = tts_batch_started + TTS_GLOBAL_BUDGET_SECONDS
 
     for task_index, (article, voice_key, role) in enumerate(tasks):
         if quota_exhausted:
@@ -866,7 +1113,13 @@ def main() -> None:
         )
 
         try:
-            wav = generate_wav(article["text"], voice_key)
+            wav = generate_wav_resilient(
+                article["text"],
+                voice_key,
+                audio_id,
+                chunk_cache_dir,
+                tts_deadline,
+            )
         except Exception as error:
             if quota_exhausted_error(error):
                 quota_exhausted = True
@@ -893,10 +1146,10 @@ def main() -> None:
                     (article["url"], voice_key)
                 )
                 print(
-                    f"Gemini TTS timeout after "
-                    f"{TTS_REQUEST_TIMEOUT_MS // 1000}s; "
+                    "Gemini TTS attempt timed out; "
                     f"deferring {voice['label'].lower()} voice until the "
-                    f"next run: {article['title']}",
+                    f"next run while preserving any completed chunks: "
+                    f"{article['title']}",
                     flush=True,
                 )
                 continue

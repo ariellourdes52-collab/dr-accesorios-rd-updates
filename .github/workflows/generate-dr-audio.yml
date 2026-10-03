@@ -7,6 +7,7 @@ on:
     paths:
       - 'scripts/generate_shared_dr_audio.py'
       - 'scripts/generate_one_tts.py'
+      - 'scripts/deploy_shared_dr_audio.py'
   schedule:
     # República Dominicana = UTC-4 todo el año.
     # Revisión automática cada 10 minutos, desplazada 3 min del cambio de decena

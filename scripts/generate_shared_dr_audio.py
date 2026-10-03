@@ -802,16 +802,21 @@ def generate_wav_resilient(
                             "retry subchunk generation"
                         )
 
+                    retry_stream_audio = not (
+                        retry_progress_exists and len(retry_chunk) <= 300
+                    )
                     print(
                         f"Generating retry TTS subchunk "
                         f"{index}.{retry_index}/{len(retry_chunks)} "
-                        f"({len(retry_chunk)} chars, {voice_key})...",
+                        f"({len(retry_chunk)} chars, {voice_key}, "
+                        f"mode={'stream' if retry_stream_audio else 'unary'})...",
                         flush=True,
                     )
                     retry_wav = generate_wav(
                         retry_chunk,
                         voice_key,
                         hard_timeout_seconds=min(360.0, remaining),
+                        stream_audio=retry_stream_audio,
                     )
 
                     retry_temporary = retry_path.with_suffix(
@@ -1302,7 +1307,35 @@ def main() -> None:
         if not reusable_voice(current, article, "male"):
             latest_male_tasks.append((article, "male"))
 
-    if latest_female_tasks:
+    def has_completed_partial_chunks(
+        article: dict[str, Any],
+        voice_key: str,
+    ) -> bool:
+        audio_id = article["audioIds"][voice_key]
+        return any(
+            path.is_file() and path.stat().st_size > 44
+            for path in chunk_cache_dir.glob(
+                f"{audio_id}-{voice_key}-*.wav"
+            )
+        )
+
+    partial_latest_tasks = [
+        task
+        for task in (latest_female_tasks + latest_male_tasks)
+        if has_completed_partial_chunks(task[0], task[1])
+    ]
+
+    if partial_latest_tasks:
+        # Finish work that already consumed Gemini time before starting a brand
+        # new voice. This prevents a partially generated male voice from being
+        # starved every time a fresh article enters the newest-five window.
+        latest_tasks = partial_latest_tasks
+        print(
+            f"Resume-first mode: completing {len(partial_latest_tasks)} "
+            "partially generated newest voice(s) before starting new TTS work.",
+            flush=True,
+        )
+    elif latest_female_tasks:
         latest_tasks = latest_female_tasks
         print(
             f"Female-first mode: {len(latest_female_tasks)} of the newest "

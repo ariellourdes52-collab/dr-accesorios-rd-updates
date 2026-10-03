@@ -540,11 +540,24 @@ def generate_wav_resilient(
                 flush=True,
             )
 
-    chunks = split_tts_transcript(transcript)
+    existing_chunk_cache = any(
+        path.is_file() and path.stat().st_size > 44
+        for path in chunk_cache_dir.glob(f"{audio_id}-{voice_key}-*.wav")
+    )
+    planner_target = (
+        900
+        if force_chunk_marker.exists() and not existing_chunk_cache
+        else TTS_CHUNK_TARGET_CHARS
+    )
+
+    chunks = split_tts_transcript(
+        transcript,
+        target_chars=planner_target,
+    )
     if len(chunks) == 1:
         chunks = split_tts_transcript(
             transcript,
-            target_chars=max(600, min(TTS_CHUNK_TARGET_CHARS, len(transcript) // 2)),
+            target_chars=max(600, min(planner_target, len(transcript) // 2)),
         )
 
     if not chunks:
@@ -1334,42 +1347,24 @@ def main() -> None:
             )
         )
 
-    partial_latest_tasks = [
-        task
-        for task in (latest_female_tasks + latest_male_tasks)
-        if has_completed_partial_chunks(task[0], task[1])
-    ]
-
-    if partial_latest_tasks:
-        # Finish work that already consumed Gemini time before starting a brand
-        # new voice. Then continue with the normal priority class in the same
-        # run so resume-first cannot leave a fresh female task unattempted.
-        partial_keys = {
+    if latest_female_tasks:
+        # Never let an older partially generated male voice jump ahead of a
+        # newly published article that still lacks its default female voice.
+        partial_female_tasks = [
+            task
+            for task in latest_female_tasks
+            if has_completed_partial_chunks(task[0], task[1])
+        ]
+        partial_female_keys = {
             (task[0]["url"], task[1])
-            for task in partial_latest_tasks
+            for task in partial_female_tasks
         }
-
-        if latest_female_tasks:
-            followup_tasks = [
-                task
-                for task in latest_female_tasks
-                if (task[0]["url"], task[1]) not in partial_keys
-            ]
-        else:
-            followup_tasks = [
-                task
-                for task in latest_male_tasks
-                if (task[0]["url"], task[1]) not in partial_keys
-            ]
-
-        latest_tasks = partial_latest_tasks + followup_tasks
-        print(
-            f"Resume-first mode: completing {len(partial_latest_tasks)} "
-            "partially generated newest voice(s) before starting new TTS work.",
-            flush=True,
-        )
-    elif latest_female_tasks:
-        latest_tasks = latest_female_tasks
+        fresh_female_tasks = [
+            task
+            for task in latest_female_tasks
+            if (task[0]["url"], task[1]) not in partial_female_keys
+        ]
+        latest_tasks = partial_female_tasks + fresh_female_tasks
         print(
             f"Female-first mode: {len(latest_female_tasks)} of the newest "
             f"{len(latest)} article(s) still need the default female voice. "
@@ -1377,6 +1372,9 @@ def main() -> None:
             flush=True,
         )
     else:
+        # Once female coverage is complete, generate missing male voices in
+        # strict article recency order. Partial cache may be reused, but it
+        # never moves an older article ahead of a newer one.
         latest_tasks = latest_male_tasks
 
     if args.opportunistic_backfill and latest_tasks:

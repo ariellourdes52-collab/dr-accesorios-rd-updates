@@ -697,6 +697,61 @@ def generate_wav_resilient(
                                     micro_wavs.append(micro_path.read_bytes())
                                     continue
 
+                                # If earlier microchunks from this same stalled
+                                # retry are already complete but this one is not,
+                                # do not repeat the exact Lite request that just
+                                # stalled. Use the normal Flash renderer only for
+                                # this missing microchunk and cache it separately.
+                                sibling_micro_progress = any(
+                                    path.is_file() and path.stat().st_size > 44
+                                    for path in chunk_cache_dir.glob(
+                                        f"{audio_id}-{voice_key}-{index:02d}s"
+                                        f"{retry_index:02d}m*.wav"
+                                    )
+                                )
+                                generation_model = (
+                                    RENDER_MODEL
+                                    if (
+                                        sibling_micro_progress
+                                        and RENDER_MODEL != micro_model
+                                    )
+                                    else micro_model
+                                )
+
+                                generation_path = micro_path
+                                if generation_model != micro_model:
+                                    generation_hash = hashlib.sha256(
+                                        (
+                                            generation_model
+                                            + "\n"
+                                            + VOICE_CONFIGS[voice_key]["name"]
+                                            + "\n"
+                                            + micro_chunk
+                                        ).encode("utf-8")
+                                    ).hexdigest()[:20]
+                                    generation_path = chunk_cache_dir / (
+                                        f"{audio_id}-{voice_key}-{index:02d}s"
+                                        f"{retry_index:02d}m{micro_index:02d}-"
+                                        f"{generation_hash}.wav"
+                                    )
+                                    used_paths.append(generation_path)
+
+                                    if (
+                                        generation_path.exists()
+                                        and generation_path.stat().st_size > 44
+                                    ):
+                                        print(
+                                            f"Reusing cached alternate TTS "
+                                            f"microchunk "
+                                            f"{index}.{retry_index}.{micro_index}/"
+                                            f"{len(micro_chunks)} for {voice_key}.",
+                                            flush=True,
+                                        )
+                                        micro_wavs.append(
+                                            generation_path.read_bytes()
+                                        )
+                                        continue
+
                                 remaining = (
                                     deadline_monotonic - time.monotonic()
                                 )
@@ -711,21 +766,21 @@ def generate_wav_resilient(
                                     f"{index}.{retry_index}.{micro_index}/"
                                     f"{len(micro_chunks)} "
                                     f"({len(micro_chunk)} chars, {voice_key}, "
-                                    f"model={micro_model})...",
+                                    f"model={generation_model})...",
                                     flush=True,
                                 )
                                 micro_wav = generate_wav(
                                     micro_chunk,
                                     voice_key,
                                     hard_timeout_seconds=min(240.0, remaining),
-                                    render_model=micro_model,
+                                    render_model=generation_model,
                                 )
 
-                                micro_temporary = micro_path.with_suffix(
-                                    micro_path.suffix + ".tmp"
+                                micro_temporary = generation_path.with_suffix(
+                                    generation_path.suffix + ".tmp"
                                 )
                                 micro_temporary.write_bytes(micro_wav)
-                                micro_temporary.replace(micro_path)
+                                micro_temporary.replace(generation_path)
                                 micro_wavs.append(micro_wav)
 
                             retry_wavs.append(

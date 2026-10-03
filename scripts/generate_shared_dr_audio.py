@@ -1350,6 +1350,8 @@ def main() -> None:
     if latest_female_tasks:
         # Never let an older partially generated male voice jump ahead of a
         # newly published article that still lacks its default female voice.
+        # However, once every missing female has been attempted in this run,
+        # resume already-started male work so it cannot be starved forever.
         partial_female_tasks = [
             task
             for task in latest_female_tasks
@@ -1364,11 +1366,21 @@ def main() -> None:
             for task in latest_female_tasks
             if (task[0]["url"], task[1]) not in partial_female_keys
         ]
-        latest_tasks = partial_female_tasks + fresh_female_tasks
+        partial_male_tasks = [
+            task
+            for task in latest_male_tasks
+            if has_completed_partial_chunks(task[0], task[1])
+        ]
+        latest_tasks = (
+            partial_female_tasks
+            + fresh_female_tasks
+            + partial_male_tasks
+        )
         print(
             f"Female-first mode: {len(latest_female_tasks)} of the newest "
             f"{len(latest)} article(s) still need the default female voice. "
-            "Male generation is deferred until female coverage reaches 5/5.",
+            f"{len(partial_male_tasks)} partially generated male voice(s) "
+            "will resume after the female attempt(s).",
             flush=True,
         )
     else:

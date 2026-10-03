@@ -732,13 +732,29 @@ def main() -> None:
         else:
             final_by_url.pop(article["url"], None)
 
-    # Priority is deliberate: all female gaps first (v2.3 compatibility), then male gaps.
-    latest_tasks: list[tuple[dict[str, Any], str]] = []
-    for voice_key in ("female", "male"):
-        for article in latest:
-            current = final_by_url.get(article["url"])
-            if not reusable_voice(current, article, voice_key):
-                latest_tasks.append((article, voice_key))
+    # Hard priority: the newest five must have the default female voice first.
+    # Do not spend this run's Gemini budget on male voices while any of the
+    # newest five is still missing its female audio.
+    latest_female_tasks: list[tuple[dict[str, Any], str]] = []
+    latest_male_tasks: list[tuple[dict[str, Any], str]] = []
+
+    for article in latest:
+        current = final_by_url.get(article["url"])
+        if not reusable_voice(current, article, "female"):
+            latest_female_tasks.append((article, "female"))
+        if not reusable_voice(current, article, "male"):
+            latest_male_tasks.append((article, "male"))
+
+    if latest_female_tasks:
+        latest_tasks = latest_female_tasks
+        print(
+            f"Female-first mode: {len(latest_female_tasks)} of the newest "
+            f"{len(latest)} article(s) still need the default female voice. "
+            "Male generation is deferred until female coverage reaches 5/5.",
+            flush=True,
+        )
+    else:
+        latest_tasks = latest_male_tasks
 
     if args.opportunistic_backfill and latest_tasks:
         print(
@@ -947,6 +963,11 @@ def main() -> None:
             flush=True,
         )
 
+    latest_female_ready = sum(
+        1
+        for article in latest
+        if reusable_voice(final_by_url.get(article["url"]), article, "female")
+    )
     latest_male_ready = sum(
         1
         for article in latest
@@ -976,6 +997,7 @@ def main() -> None:
             for key, config in VOICE_CONFIGS.items()
         },
         "latestCount": min(LATEST_REQUIRED, len(feed)),
+        "latestFemaleReady": latest_female_ready,
         "latestMaleReady": latest_male_ready,
         "historyCount": len(final_entries),
         "maxLibraryEntries": MAX_LIBRARY_ENTRIES,
@@ -993,7 +1015,8 @@ def main() -> None:
     )
 
     print(
-        f"DR Audio dual-voice ready: {len(latest)} newest female voices protected; "
+        f"DR Audio dual-voice ready: {latest_female_ready}/{len(latest)} "
+        f"newest female voices ready; "
         f"{latest_male_ready}/{len(latest)} newest male voices ready; "
         f"{generated_count} voice files generated this run "
         f"({female_generated} female, {male_generated} male); "

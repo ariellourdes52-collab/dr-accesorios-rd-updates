@@ -193,19 +193,36 @@ def main() -> None:
         headers={"Cache-Control": "no-cache"},
         timeout=30,
     )
-    require(
-        live_catalog_response.ok,
-        f"Could not read live DR Audio catalog: HTTP {live_catalog_response.status_code}",
-    )
-    try:
-        live_catalog = live_catalog_response.json()
-    except ValueError as error:
-        raise RuntimeError("Live DR Audio catalog is not valid JSON") from error
 
-    catalog_changed = (
-        catalog_for_change_detection(index)
-        != catalog_for_change_detection(live_catalog)
-    )
+    if live_catalog_response.status_code == 404:
+        # Recovery mode: a previous full Hosting deploy may have removed the
+        # DR Audio catalog. Rebuild only /dr-audio/ from files that are
+        # actually available in this run while preserving every other live
+        # Hosting path exactly as-is.
+        print(
+            "RECOVERY: live DR Audio catalog is missing (HTTP 404). "
+            "Rebuilding DR Audio from verified local/cached assets.",
+            flush=True,
+        )
+        live_catalog = {"entries": []}
+        catalog_changed = True
+    else:
+        require(
+            live_catalog_response.ok,
+            f"Could not read live DR Audio catalog: "
+            f"HTTP {live_catalog_response.status_code}",
+        )
+        try:
+            live_catalog = live_catalog_response.json()
+        except ValueError as error:
+            raise RuntimeError(
+                "Live DR Audio catalog is not valid JSON"
+            ) from error
+
+        catalog_changed = (
+            catalog_for_change_detection(index)
+            != catalog_for_change_detection(live_catalog)
+        )
 
     local_files: dict[str, bytes] = {
         "/dr-audio/index.json": index_path.read_bytes(),

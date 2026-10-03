@@ -258,6 +258,7 @@ def generate_wav(
     transcript: str,
     voice_key: str,
     hard_timeout_seconds: float | None = None,
+    render_model: str | None = None,
 ) -> bytes:
     """
     Run one Gemini TTS stream in an isolated process.
@@ -289,7 +290,7 @@ def generate_wav(
             "transcript": transcript,
             "voice_name": voice["name"],
             "voice_style": voice["style"],
-            "model": RENDER_MODEL,
+            "model": render_model or RENDER_MODEL,
         },
         ensure_ascii=False,
     )
@@ -658,9 +659,18 @@ def generate_wav_resilient(
                                 micro_chunks,
                                 start=1,
                             ):
+                                # This path is reached only after the normal
+                                # renderer already stalled on the parent chunk
+                                # and again on its retry subchunk. Use the legacy
+                                # Lite renderer only for these tiny fallback pieces.
+                                micro_model = (
+                                    MODEL
+                                    if MODEL != RENDER_MODEL
+                                    else RENDER_MODEL
+                                )
                                 micro_hash = hashlib.sha256(
                                     (
-                                        RENDER_MODEL
+                                        micro_model
                                         + "\n"
                                         + VOICE_CONFIGS[voice_key]["name"]
                                         + "\n"
@@ -700,13 +710,15 @@ def generate_wav_resilient(
                                     f"Generating TTS microchunk "
                                     f"{index}.{retry_index}.{micro_index}/"
                                     f"{len(micro_chunks)} "
-                                    f"({len(micro_chunk)} chars, {voice_key})...",
+                                    f"({len(micro_chunk)} chars, {voice_key}, "
+                                    f"model={micro_model})...",
                                     flush=True,
                                 )
                                 micro_wav = generate_wav(
                                     micro_chunk,
                                     voice_key,
                                     hard_timeout_seconds=min(240.0, remaining),
+                                    render_model=micro_model,
                                 )
 
                                 micro_temporary = micro_path.with_suffix(

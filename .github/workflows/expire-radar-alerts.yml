@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'scripts/expire_radar_alerts.py'
-      - '.github/workflows/expire-radar-alerts.yml'
   schedule:
     # Native GitHub cron is only an emergency bootstrap.
     # The workflow self-chains every ~5 minutes through workflow_dispatch.
@@ -45,6 +44,10 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         run: python scripts/expire_radar_alerts.py
 
+      - name: Hold five-minute cadence
+        if: always()
+        run: sleep 300
+
       - name: Queue next automatic expiry cycle
         if: always()
         env:
@@ -75,10 +78,6 @@ jobs:
 
           echo "ERROR: no se pudo encolar el próximo ciclo."
           exit 1
-
-      - name: Hold five-minute cadence
-        if: always()
-        run: sleep 300
 
       - name: Propagate expiration failure
         if: always() && steps.expire.outcome == 'failure'

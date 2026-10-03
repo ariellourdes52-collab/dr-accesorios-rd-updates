@@ -552,6 +552,15 @@ def generate_wav_resilient(
     wav_chunks: list[bytes] = []
     used_paths: list[Path] = []
 
+    # If this article/voice already has completed chunks from an earlier run,
+    # preserve those exact chunks. A still-missing large chunk is treated as
+    # the previously stalled piece and is split more finely without changing
+    # the normal planner or invalidating the good cache.
+    had_partial_cache = any(
+        path.is_file() and path.stat().st_size > 44
+        for path in chunk_cache_dir.glob(f"{audio_id}-{voice_key}-*.wav")
+    )
+
     for index, chunk in enumerate(chunks, start=1):
         chunk_hash = hashlib.sha256(
             (
@@ -575,6 +584,77 @@ def generate_wav_resilient(
             )
             wav_chunks.append(cache_path.read_bytes())
             continue
+
+        if had_partial_cache and len(chunk) > 1200:
+            retry_target = max(600, min(850, len(chunk) // 2 + 1))
+            retry_chunks = split_tts_transcript(
+                chunk,
+                target_chars=retry_target,
+            )
+
+            if len(retry_chunks) > 1:
+                print(
+                    f"Retrying stalled TTS chunk {index}/{len(chunks)} "
+                    f"as {len(retry_chunks)} smaller cached subchunks "
+                    f"({len(chunk)} chars total, {voice_key}).",
+                    flush=True,
+                )
+
+                retry_wavs: list[bytes] = []
+                for retry_index, retry_chunk in enumerate(retry_chunks, start=1):
+                    retry_hash = hashlib.sha256(
+                        (
+                            RENDER_MODEL
+                            + "\n"
+                            + VOICE_CONFIGS[voice_key]["name"]
+                            + "\n"
+                            + retry_chunk
+                        ).encode("utf-8")
+                    ).hexdigest()[:20]
+                    retry_path = chunk_cache_dir / (
+                        f"{audio_id}-{voice_key}-{index:02d}s"
+                        f"{retry_index:02d}-{retry_hash}.wav"
+                    )
+                    used_paths.append(retry_path)
+
+                    if retry_path.exists() and retry_path.stat().st_size > 44:
+                        print(
+                            f"Reusing cached TTS subchunk "
+                            f"{index}.{retry_index}/{len(retry_chunks)} "
+                            f"for {voice_key}.",
+                            flush=True,
+                        )
+                        retry_wavs.append(retry_path.read_bytes())
+                        continue
+
+                    remaining = deadline_monotonic - time.monotonic()
+                    if remaining < 8:
+                        raise TTSHardTimeoutError(
+                            "Global TTS generation budget reached during "
+                            "retry subchunk generation"
+                        )
+
+                    print(
+                        f"Generating retry TTS subchunk "
+                        f"{index}.{retry_index}/{len(retry_chunks)} "
+                        f"({len(retry_chunk)} chars, {voice_key})...",
+                        flush=True,
+                    )
+                    retry_wav = generate_wav(
+                        retry_chunk,
+                        voice_key,
+                        hard_timeout_seconds=min(360.0, remaining),
+                    )
+
+                    retry_temporary = retry_path.with_suffix(
+                        retry_path.suffix + ".tmp"
+                    )
+                    retry_temporary.write_bytes(retry_wav)
+                    retry_temporary.replace(retry_path)
+                    retry_wavs.append(retry_wav)
+
+                wav_chunks.append(combine_wav_chunks(retry_wavs))
+                continue
 
         remaining = deadline_monotonic - time.monotonic()
         if remaining < 8:

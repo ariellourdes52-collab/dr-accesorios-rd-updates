@@ -51,7 +51,9 @@ def main():
     old_release, old_version = active()
     old = api("GET", old_version)
     old_files = files(old_version)
-    require(bool(old_files) and len(old_files) == int(old["fileCount"]), "Incomplete Hosting inventory")
+    require(bool(old_files), "Hosting inventory is empty")
+    if "fileCount" in old:
+        require(len(old_files) == int(old["fileCount"]), "Incomplete Hosting inventory")
     require("/version.json" in old_files, "Live version.json is missing")
 
     with open("landing/descargar/index.html", "rb") as stream:

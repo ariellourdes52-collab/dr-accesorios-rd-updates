@@ -1117,8 +1117,16 @@ def main() -> None:
     # scheduler event cannot double-spend Gemini quota.
     attempt_state_path = chunk_cache_dir / "last-tts-attempt.json"
     event_name = os.environ.get("EVENT_NAME", "").strip()
+    scheduler_guard = (
+        os.environ.get("SCHEDULER_GUARD", "").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
 
-    if tasks and event_name == "schedule" and attempt_state_path.exists():
+    if (
+        tasks
+        and (event_name == "schedule" or scheduler_guard)
+        and attempt_state_path.exists()
+    ):
         try:
             attempt_state = json.loads(
                 attempt_state_path.read_text(encoding="utf-8")

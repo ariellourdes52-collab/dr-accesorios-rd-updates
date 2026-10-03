@@ -9,6 +9,7 @@ import html as html_module
 import json
 import os
 import re
+import signal
 import subprocess
 import tempfile
 import time
@@ -33,6 +34,7 @@ MAX_LIBRARY_ENTRIES = 1500
 PAGE_SIZE = 50
 USER_AGENT = "DRAccesoriosRD-AudioGenerator/3.0.4"
 TTS_REQUEST_TIMEOUT_MS = 120_000
+TTS_HARD_TIMEOUT_SECONDS = 125
 
 VOICE_CONFIGS: dict[str, dict[str, str]] = {
     "female": {
@@ -239,13 +241,36 @@ def public_audio_exists(url: str) -> bool:
     return result
 
 
+class TTSHardTimeoutError(TimeoutError):
+    pass
+
+
+def _raise_tts_hard_timeout(_signum, _frame):
+    raise TTSHardTimeoutError(
+        f"Gemini TTS exceeded {TTS_HARD_TIMEOUT_SECONDS}s hard timeout"
+    )
+
+
 def generate_wav(
     client: genai.Client,
     transcript: str,
     voice_key: str,
 ) -> bytes:
     voice = VOICE_CONFIGS[voice_key]
-    interaction = client.interactions.create(
+
+    previous_handler = None
+    hard_timeout_enabled = hasattr(signal, "SIGALRM")
+
+    if hard_timeout_enabled:
+        previous_handler = signal.getsignal(signal.SIGALRM)
+        signal.signal(signal.SIGALRM, _raise_tts_hard_timeout)
+        signal.setitimer(
+            signal.ITIMER_REAL,
+            TTS_HARD_TIMEOUT_SECONDS,
+        )
+
+    try:
+        interaction = client.interactions.create(
         model=MODEL,
         input=[
             {
@@ -265,12 +290,16 @@ def generate_wav(
             }
         ],
         response_format={"type": "audio"},
-        generation_config={
-            "speech_config": [
-                {"voice": voice["name"]},
-            ]
-        },
-    )
+            generation_config={
+                "speech_config": [
+                    {"voice": voice["name"]},
+                ]
+            },
+        )
+    finally:
+        if hard_timeout_enabled:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, previous_handler)
 
     output_audio = getattr(interaction, "output_audio", None)
     data = getattr(output_audio, "data", None)
@@ -489,7 +518,14 @@ def daily_quota_exhausted_error(error: Exception) -> bool:
 
 
 def tts_timeout_error(error: Exception) -> bool:
-    if isinstance(error, (TimeoutError, httpx.TimeoutException)):
+    if isinstance(
+        error,
+        (
+            TimeoutError,
+            TTSHardTimeoutError,
+            httpx.TimeoutException,
+        ),
+    ):
         return True
 
     error_text = str(error).lower()

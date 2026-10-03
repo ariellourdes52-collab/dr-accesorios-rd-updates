@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dr-accesorios-rd-production-release
+  group: dr-radar-auto-expire
   cancel-in-progress: false
 
 jobs:

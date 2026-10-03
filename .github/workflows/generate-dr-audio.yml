@@ -32,7 +32,9 @@ permissions:
 
 concurrency:
   group: dr-accesorios-rd-production-release
-  cancel-in-progress: false
+  # Un parche manual debe sustituir una ejecución atascada inmediatamente.
+  # Las ejecuciones programadas normales siguen esperando su turno.
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   generate:

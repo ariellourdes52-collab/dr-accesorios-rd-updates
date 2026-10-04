@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Recover reusable DR Audio voices from a historical Firebase Hosting preview."""
+"""Restore the full DR Audio catalog from a historical Firebase Hosting release.
+
+This recovery never calls Gemini. It unions the pre-incident catalog with the
+current live catalog, always preferring the current live entry for duplicate
+article URLs, and downloads every historical audio asset that is no longer
+present in the live catalog so Firebase Hosting can republish it safely.
+"""
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,18 +18,9 @@ from typing import Any
 import requests
 
 from generate_shared_dr_audio import (
-    LATEST_REQUIRED,
-    MODEL,
     MAX_LIBRARY_ENTRIES,
-    PUBLIC_BASE,
     PUBLIC_INDEX,
-    VOICE_CONFIGS,
     canonical_url,
-    current_voice_path,
-    parse_feed,
-    refresh_article_entry,
-    reusable_voice,
-    normalize_reusable_voice,
 )
 
 
@@ -46,6 +42,22 @@ def get_json(url: str) -> dict[str, Any]:
     return payload
 
 
+def valid_audio_path(value: object) -> str:
+    path = str(value or "").strip()
+    if path.startswith("/dr-audio/") and path.endswith(".m4a"):
+        return path
+    return ""
+
+
+def entry_audio_paths(entry: dict[str, Any]) -> list[str]:
+    paths: list[str] = []
+    for key in ("audioPath", "audioFemalePath", "audioMalePath"):
+        path = valid_audio_path(entry.get(key))
+        if path and path not in paths:
+            paths.append(path)
+    return paths
+
+
 def download_preview_asset(base_url: str, path: str, destination: Path) -> None:
     require(path.startswith("/dr-audio/"), f"Unsafe DR Audio path: {path}")
     url = base_url.rstrip("/") + path
@@ -64,6 +76,14 @@ def download_preview_asset(base_url: str, path: str, destination: Path) -> None:
     destination.write_bytes(response.content)
 
 
+def normalize_entries(index: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        dict(entry)
+        for entry in (index.get("entries") or [])
+        if isinstance(entry, dict) and canonical_url(str(entry.get("url") or ""))
+    ]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview-base-url", required=True)
@@ -78,82 +98,40 @@ def main() -> None:
     old_index = get_json(preview_base + "/dr-audio/index.json")
     live_index = get_json(PUBLIC_INDEX)
 
-    old_entries = [
-        entry
-        for entry in (old_index.get("entries") or [])
-        if isinstance(entry, dict) and entry.get("url")
-    ]
-    live_entries = [
-        entry
-        for entry in (live_index.get("entries") or [])
-        if isinstance(entry, dict) and entry.get("url")
-    ]
+    old_entries = normalize_entries(old_index)
+    live_entries = normalize_entries(live_index)
+
+    require(old_entries, "Historical release has no DR Audio entries")
+    require(live_entries, "Current live DR Audio catalog has no entries")
 
     old_by_url = {
         canonical_url(str(entry.get("url") or "")): dict(entry)
         for entry in old_entries
-        if canonical_url(str(entry.get("url") or ""))
     }
-    final_by_url = {
+    live_by_url = {
         canonical_url(str(entry.get("url") or "")): dict(entry)
         for entry in live_entries
-        if canonical_url(str(entry.get("url") or ""))
     }
 
-    feed = parse_feed(max(20, LATEST_REQUIRED))
-    latest = feed[:LATEST_REQUIRED]
-    require(len(latest) == LATEST_REQUIRED, "Could not resolve the newest five Blogger posts")
+    historical_count = len(old_by_url)
+    live_count = len(live_by_url)
 
-    recovered: list[str] = []
-
-    for article in latest:
-        url = article["url"]
-        current = refresh_article_entry(final_by_url.get(url), article)
-        historical = old_by_url.get(url)
-
-        for voice_key in ("female", "male"):
-            if reusable_voice(current, article, voice_key):
-                continue
-            if not historical or not reusable_voice(historical, article, voice_key):
-                print(
-                    f"Historical release has no reusable {voice_key} voice for: "
-                    f"{article['title']}",
-                    flush=True,
-                )
-                continue
-
-            old_path = current_voice_path(historical, voice_key)
-            require(old_path, f"Historical {voice_key} path missing for {article['title']}")
-            destination = audio_dir / Path(old_path).name
-            if not destination.exists():
-                download_preview_asset(preview_base, old_path, destination)
-
-            normalize_reusable_voice(current, historical, article, voice_key)
-            recovered.append(f"{voice_key}: {article['title']}")
-            print(
-                f"RECOVERED {voice_key}: {article['title']} -> {old_path}",
-                flush=True,
-            )
-
-        if reusable_voice(current, article, "female") or reusable_voice(current, article, "male"):
-            final_by_url[url] = current
-
-    latest_female_ready = sum(
-        1
-        for article in latest
-        if reusable_voice(final_by_url.get(article["url"]), article, "female")
-    )
-    latest_male_ready = sum(
-        1
-        for article in latest
-        if reusable_voice(final_by_url.get(article["url"]), article, "male")
-    )
-
-    require(recovered, "Historical release did not contain any reusable missing voice")
+    # The selected pre-incident release is expected to be the healthy catalog
+    # that existed before today's reduction. Refuse to deploy a stale/wrong
+    # release that does not actually contain the historical library.
     require(
-        latest_female_ready == LATEST_REQUIRED,
-        f"Recovery would still leave female coverage at {latest_female_ready}/{LATEST_REQUIRED}; aborting deploy",
+        historical_count >= 27,
+        f"Historical release only contains {historical_count} entries; expected at least 27. Aborting.",
     )
+    require(
+        historical_count >= live_count,
+        f"Historical release ({historical_count}) is unexpectedly smaller than live ({live_count}). Aborting.",
+    )
+
+    # Start with the historical library, then overlay the live catalog.
+    # This guarantees that today's current entries/metadata win on duplicates.
+    final_by_url: dict[str, dict[str, Any]] = dict(old_by_url)
+    final_by_url.update(live_by_url)
 
     entries = sorted(
         final_by_url.values(),
@@ -161,46 +139,99 @@ def main() -> None:
         reverse=True,
     )[:MAX_LIBRARY_ENTRIES]
 
+    final_urls = {
+        canonical_url(str(entry.get("url") or ""))
+        for entry in entries
+    }
+    live_urls = set(live_by_url)
+    historical_urls = set(old_by_url)
+
+    require(
+        live_urls <= final_urls,
+        "Recovery would lose one or more currently live DR Audio entries. Aborting.",
+    )
+    require(
+        historical_urls <= final_urls,
+        "Recovery would fail to restore one or more historical DR Audio entries. Aborting.",
+    )
+
+    # Confirm that sorting/merge does not replace today's newest live articles
+    # with stale historical metadata.
+    live_top_urls = [
+        canonical_url(str(entry.get("url") or ""))
+        for entry in live_entries[: min(5, len(live_entries))]
+    ]
+    final_top_urls = [
+        canonical_url(str(entry.get("url") or ""))
+        for entry in entries[: len(live_top_urls)]
+    ]
+    require(
+        final_top_urls == live_top_urls,
+        "Historical merge would alter the order/content of the current newest live entries. Aborting.",
+    )
+
+    live_audio_paths = {
+        path
+        for entry in live_entries
+        for path in entry_audio_paths(entry)
+    }
+    historical_audio_paths = {
+        path
+        for entry in old_entries
+        for path in entry_audio_paths(entry)
+    }
+
+    # Any historical path no longer referenced by live Hosting must be copied
+    # from the pre-incident preview into this build, otherwise the next Hosting
+    # version would have no bytes available to restore it.
+    paths_to_restore = sorted(historical_audio_paths - live_audio_paths)
+    restored_paths: list[str] = []
+    for path in paths_to_restore:
+        destination = audio_dir / Path(path).name
+        if not destination.exists():
+            download_preview_asset(preview_base, path, destination)
+        restored_paths.append(path)
+        print(f"RECOVERED HISTORICAL ASSET: {path}", flush=True)
+
+    # The current live entries are authoritative. Preserve their metadata and
+    # readiness counters, only replacing library-wide fields.
     index = dict(live_index)
     index.update(
         {
-            "schemaVersion": max(3, int(live_index.get("schemaVersion") or 0)),
             "generatedAt": datetime.now(timezone.utc).isoformat(),
-            "model": MODEL,
-            "voice": VOICE_CONFIGS["female"]["name"],
-            "voices": {
-                key: {"name": cfg["name"], "label": cfg["label"]}
-                for key, cfg in VOICE_CONFIGS.items()
-            },
-            "latestCount": LATEST_REQUIRED,
-            "latestFemaleReady": latest_female_ready,
-            "latestMaleReady": latest_male_ready,
             "historyCount": len(entries),
             "maxLibraryEntries": MAX_LIBRARY_ENTRIES,
+            "prunedCount": 0,
             "entries": entries,
         }
     )
-    index.pop("quotaBlockedUntil", None)
-    index.pop("quotaBlockedReason", None)
 
     (audio_dir / "index.json").write_text(
         json.dumps(index, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
-    print(
-        f"Recovery build ready: {latest_female_ready}/{LATEST_REQUIRED} female, "
-        f"{latest_male_ready}/{LATEST_REQUIRED} male; "
-        f"{len(recovered)} historical voice file(s) recovered.",
-        flush=True,
+    manifest = {
+        "historicalCount": historical_count,
+        "liveCountBeforeRecovery": live_count,
+        "expectedFinalCount": len(entries),
+        "historicalUrls": sorted(historical_urls),
+        "liveUrls": sorted(live_urls),
+        "liveTopUrls": live_top_urls,
+        "historicalAudioPaths": sorted(historical_audio_paths),
+        "liveAudioPaths": sorted(live_audio_paths),
+        "restoredAudioPaths": restored_paths,
+    }
+    (output / "recovery-manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
     )
 
-    # Require the recovery to improve male coverage too. The pre-incident release
-    # is expected to contain 5/5; this guards against accidentally publishing a
-    # stale or unrelated historical version.
-    require(
-        latest_male_ready > int(live_index.get("latestMaleReady") or 0),
-        "Historical release did not improve newest male coverage; aborting deploy",
+    print(
+        "FULL DR AUDIO RECOVERY BUILD READY: "
+        f"historical={historical_count}, live_before={live_count}, "
+        f"final={len(entries)}, assets_restored={len(restored_paths)}",
+        flush=True,
     )
 
 

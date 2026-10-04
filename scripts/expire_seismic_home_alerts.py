@@ -14,8 +14,8 @@ from google.oauth2 import service_account
 PROJECT_ID = "dr-accesorios-rd"
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
-RADAR_PATH = "/radar.json"
-RADAR_URL = "https://dr-accesorios-rd.web.app/radar.json"
+SEISMIC_PATH = "/radar-seismic-v231.json"
+SEISMIC_URL = "https://dr-accesorios-rd.web.app/radar-seismic-v231.json"
 FCM_URL = f"https://fcm.googleapis.com/v1/projects/{PROJECT_ID}/messages:send"
 
 
@@ -99,11 +99,16 @@ def main():
                 return result
 
     response = requests.get(
-        RADAR_URL,
+        SEISMIC_URL,
         params={"seismic_home_expire_check": time.time_ns()},
         headers={"Cache-Control": "no-cache"},
         timeout=30,
     )
+
+    if response.status_code == 404:
+        print("OK: no existe feed sísmico activo; nada que vencer.")
+        return
+
     response.raise_for_status()
     radar = response.json()
 
@@ -111,7 +116,7 @@ def main():
     expired = []
 
     for alert in radar.get("alerts", []):
-        # Quirúrgico: SOLO sismos. Alertas tecnológicas quedan intactas.
+        # Quirúrgico: SOLO sismos del feed dedicado.
         if str(alert.get("type") or "").strip().lower() != "earthquake":
             continue
 
@@ -120,6 +125,7 @@ def main():
 
         raw_expires = str(alert.get("expiresAt") or "").strip()
 
+        # Sin expiresAt o fecha inválida: se conserva sin tocar.
         if not raw_expires:
             continue
 
@@ -142,7 +148,7 @@ def main():
             )
 
     if not expired:
-        print("OK: no hay sismos vencidos activos en radar.json.")
+        print("OK: no hay sismos vencidos activos en el feed sísmico.")
         return
 
     radar["updatedAt"] = now_iso()
@@ -160,30 +166,30 @@ def main():
         "El inventario de Hosting está vacío.",
     )
     require(
-        RADAR_PATH in old_files,
-        "radar.json publicado no existe.",
+        SEISMIC_PATH in old_files,
+        "radar-seismic-v231.json publicado no existe.",
     )
 
     config = copy.deepcopy(old.get("config", {}))
     headers = config.setdefault("headers", [])
 
-    radar_header = next(
+    seismic_header = next(
         (
             item
             for item in reversed(headers)
-            if item.get("glob") == RADAR_PATH
+            if item.get("glob") == SEISMIC_PATH
         ),
         None,
     )
 
-    if radar_header is None:
-        radar_header = {
-            "glob": RADAR_PATH,
+    if seismic_header is None:
+        seismic_header = {
+            "glob": SEISMIC_PATH,
             "headers": {},
         }
-        headers.append(radar_header)
+        headers.append(seismic_header)
 
-    radar_header.setdefault("headers", {})[
+    seismic_header.setdefault("headers", {})[
         "Cache-Control"
     ] = "no-cache, no-store, must-revalidate"
 
@@ -200,7 +206,7 @@ def main():
     digest = hashlib.sha256(body).hexdigest()
 
     expected = dict(old_files)
-    expected[RADAR_PATH] = digest
+    expected[SEISMIC_PATH] = digest
 
     created = api(
         "POST",
@@ -276,7 +282,7 @@ def main():
         params={"versionName": new_version},
         json={
             "message":
-                "DR Ahora: desactivar solo sismos cuyo expiresAt venció"
+                "DR Ahora: marcar inactivo sismo dedicado al vencer"
         },
     )
 
@@ -285,18 +291,18 @@ def main():
         "La nueva versión de Hosting no quedó activa.",
     )
 
-    print("OK: radar.json publicado; alertas tecnológicas intactas.")
+    print("OK: feed sísmico publicado; detección y radar tecnológico intactos.")
 
-    # Refresco silencioso del mismo flujo que ya usa DR Radar.
-    # No crea una alerta nueva: solo obliga a releer radar.json/caché.
+    # Refresco silencioso del topic sísmico ya usado por v2.4/v2.5.
+    # No es una nueva alerta: obliga a releer el feed/caché.
     fcm = session.post(
         FCM_URL,
         json={
             "message": {
-                "topic": "blog_updates",
+                "topic": "radar_seismic_v231",
                 "android": {
                     "priority": "high",
-                    "collapse_key": "dr_radar_refresh",
+                    "collapse_key": "dr_radar_seismic_home_refresh",
                     "restricted_package_name":
                         "com.draccesoriosrd.app",
                 },

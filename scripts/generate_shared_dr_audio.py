@@ -10,6 +10,7 @@ import html as html_module
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -259,9 +260,18 @@ def generate_wav(
     voice_key: str,
 ) -> bytes:
     voice = VOICE_CONFIGS[voice_key]
-    interaction = client.interactions.create(
-        model=MODEL,
-        timeout=TTS_DIRECT_REQUEST_TIMEOUT_SECONDS,
+
+    def _hard_timeout_handler(_signum: int, _frame: Any) -> None:
+        raise TTSHardTimeoutError(
+            f"Gemini direct TTS exceeded {TTS_DIRECT_REQUEST_TIMEOUT_SECONDS}s"
+        )
+
+    previous_handler = signal.signal(signal.SIGALRM, _hard_timeout_handler)
+    signal.setitimer(signal.ITIMER_REAL, TTS_DIRECT_REQUEST_TIMEOUT_SECONDS)
+    try:
+        interaction = client.interactions.create(
+            model=MODEL,
+            timeout=TTS_DIRECT_REQUEST_TIMEOUT_SECONDS,
         input=[
             {
                 "type": "user_input",
@@ -286,6 +296,10 @@ def generate_wav(
             ]
         },
     )
+
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
 
     output_audio = getattr(interaction, "output_audio", None)
     data = getattr(output_audio, "data", None)

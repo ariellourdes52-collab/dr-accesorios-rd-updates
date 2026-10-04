@@ -23,6 +23,7 @@ from typing import Any
 import httpx
 import requests
 from bs4 import BeautifulSoup
+from google import genai
 
 BLOG_FEED_BASE = "https://draccesoriosrd.blogspot.com/feeds/posts/default"
 PUBLIC_INDEX = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
@@ -30,7 +31,7 @@ PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
 # MODEL remains the legacy content-identity key so already-published Lite audio
 # is reusable. RENDER_MODEL is the active renderer for new audio.
 MODEL = "gemini-3.8-flash-lite-tts"
-RENDER_MODEL = "gemini-3.8-flash-tts"
+RENDER_MODEL = MODEL
 LEGACY_RESCUE_MODEL = "gemini-3.1-flash-tts-preview"
 LANGUAGE = "es"
 LATEST_REQUIRED = 5
@@ -188,22 +189,18 @@ def parse_feed(scan_posts: int) -> list[dict[str, Any]]:
 
 
 def load_live_index() -> dict[str, Any]:
-    try:
-        response = requests.get(
-            PUBLIC_INDEX,
-            params={"t": time.time_ns()},
-            headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"},
-            timeout=20,
-        )
-        if response.status_code == 404:
-            return {"entries": []}
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict):
-            return {"entries": []}
-        return payload
-    except (requests.RequestException, ValueError):
-        return {"entries": []}
+    """Never rebuild over an unreadable or malformed live catalog."""
+    response = requests.get(
+        PUBLIC_INDEX,
+        params={"t": time.time_ns()},
+        headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"},
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict) or not isinstance(payload.get("entries"), list):
+        raise RuntimeError("Live DR Audio catalog is invalid; refusing to replace it")
+    return payload
 
 
 _PUBLIC_AUDIO_EXISTS_CACHE: dict[str, bool] = {}
@@ -256,642 +253,47 @@ class TTSHardTimeoutError(TimeoutError):
 
 
 def generate_wav(
+    client: genai.Client,
     transcript: str,
     voice_key: str,
-    hard_timeout_seconds: float | None = None,
-    render_model: str | None = None,
-    stream_audio: bool = True,
 ) -> bytes:
-    """
-    Run one Gemini TTS stream in an isolated process.
-
-    The child emits a heartbeat whenever streaming audio arrives. We therefore
-    kill only a genuinely stalled request, instead of killing a healthy long
-    narration merely because the final WAV has not been completed yet.
-    """
     voice = VOICE_CONFIGS[voice_key]
-    worker = Path(__file__).with_name("generate_one_tts.py")
-
-    if not worker.exists():
-        raise RuntimeError(f"TTS worker missing: {worker}")
-
-    with tempfile.NamedTemporaryFile(
-        suffix=".wav",
-        delete=False,
-    ) as temp:
-        wav_path = Path(temp.name)
-
-    heartbeat_path = wav_path.with_suffix(wav_path.suffix + ".heartbeat")
-    try:
-        heartbeat_path.unlink()
-    except FileNotFoundError:
-        pass
-
-    payload = json.dumps(
-        {
-            "transcript": transcript,
-            "voice_name": voice["name"],
-            "voice_style": voice["style"],
-            "model": render_model or RENDER_MODEL,
-            "stream": stream_audio,
+    interaction = client.interactions.create(
+        model=MODEL,
+        input=[
+            {
+                "type": "user_input",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": transcript,
+                        "annotations": [
+                            {
+                                "type": "speech_metadata",
+                                "style": voice["style"],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+        response_format={"type": "audio"},
+        generation_config={
+            "speech_config": [
+                {"voice": voice["name"]},
+            ]
         },
-        ensure_ascii=False,
     )
 
-    worker_timeout = (
-        float(TTS_HARD_TIMEOUT_SECONDS)
-        if hard_timeout_seconds is None
-        else max(10.0, min(float(TTS_HARD_TIMEOUT_SECONDS), hard_timeout_seconds))
-    )
-
-    process: subprocess.Popen[str] | None = None
-
-    try:
-        process = subprocess.Popen(
-            [
-                sys.executable,
-                str(worker),
-                "--output",
-                str(wav_path),
-                "--heartbeat",
-                str(heartbeat_path),
-            ],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=os.environ.copy(),
-        )
-
-        if process.stdin is None:
-            raise RuntimeError("Could not open Gemini TTS worker stdin")
-
-        process.stdin.write(payload)
-        process.stdin.close()
-        process.stdin = None
-
-        started = time.monotonic()
-        last_progress = started
-        last_heartbeat = ""
-
-        while process.poll() is None:
-            now = time.monotonic()
-
-            try:
-                heartbeat = heartbeat_path.read_text(encoding="utf-8").strip()
-            except (FileNotFoundError, OSError):
-                heartbeat = ""
-
-            if heartbeat and heartbeat != last_heartbeat:
-                last_heartbeat = heartbeat
-                last_progress = now
-
-            if (
-                stream_audio
-                and now - last_progress > TTS_STALL_TIMEOUT_SECONDS
-            ):
-                process.kill()
-                process.wait(timeout=10)
-                raise TTSHardTimeoutError(
-                    f"Gemini streaming TTS produced no audio progress for "
-                    f"{TTS_STALL_TIMEOUT_SECONDS}s"
-                )
-
-            if now - started > worker_timeout:
-                process.kill()
-                process.wait(timeout=10)
-                raise TTSHardTimeoutError(
-                    f"Gemini streaming TTS exceeded "
-                    f"{worker_timeout:.1f}s maximum request time"
-                )
-
-            time.sleep(1.0)
-
-        stdout = process.stdout.read() if process.stdout is not None else ""
-        stderr = process.stderr.read() if process.stderr is not None else ""
-
-        if process.returncode != 0:
-            detail = (
-                stderr.strip()
-                or stdout.strip()
-                or f"TTS worker exited with code {process.returncode}"
-            )
-            raise RuntimeError(detail)
-
-        wav = wav_path.read_bytes()
-        if len(wav) <= 44:
-            raise RuntimeError("Gemini streaming TTS worker produced an empty WAV")
-
-        return wav
-
-    finally:
-        if process is not None and process.poll() is None:
-            process.kill()
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                pass
-
-        for temporary_path in (wav_path, heartbeat_path):
-            try:
-                temporary_path.unlink()
-            except FileNotFoundError:
-                pass
-
-
-def split_tts_transcript(
-    transcript: str,
-    target_chars: int = TTS_CHUNK_TARGET_CHARS,
-) -> list[str]:
-    """Split long speech into sentence-aware chunks small enough for reliable TTS."""
-    text = re.sub(r"\s+", " ", transcript or "").strip()
-    if not text:
-        return []
-
-    sentences = [
-        part.strip()
-        for part in re.split(r"(?<=[.!?…])\s+", text)
-        if part.strip()
-    ]
-
-    pieces: list[str] = []
-    for sentence in sentences or [text]:
-        if len(sentence) <= target_chars:
-            pieces.append(sentence)
-            continue
-
-        words = sentence.split()
-        current: list[str] = []
-        current_len = 0
-        for word in words:
-            extra = len(word) + (1 if current else 0)
-            if current and current_len + extra > target_chars:
-                pieces.append(" ".join(current))
-                current = [word]
-                current_len = len(word)
-            else:
-                current.append(word)
-                current_len += extra
-        if current:
-            pieces.append(" ".join(current))
-
-    chunks: list[str] = []
-    current: list[str] = []
-    current_len = 0
-    for piece in pieces:
-        extra = len(piece) + (1 if current else 0)
-        if current and current_len + extra > target_chars:
-            chunks.append(" ".join(current))
-            current = [piece]
-            current_len = len(piece)
-        else:
-            current.append(piece)
-            current_len += extra
-    if current:
-        chunks.append(" ".join(current))
-
-    return chunks
-
-
-def combine_wav_chunks(chunks: list[bytes]) -> bytes:
-    """Concatenate PCM WAV chunks without re-encoding."""
-    if not chunks:
-        raise RuntimeError("No WAV chunks to combine")
-    if len(chunks) == 1:
-        return chunks[0]
-
-    frames: list[bytes] = []
-    audio_format: tuple[int, int, int, str, str] | None = None
-
-    try:
-        for raw in chunks:
-            with wave.open(io.BytesIO(raw), "rb") as reader:
-                current_format = (
-                    reader.getnchannels(),
-                    reader.getsampwidth(),
-                    reader.getframerate(),
-                    reader.getcomptype(),
-                    reader.getcompname(),
-                )
-                if audio_format is None:
-                    audio_format = current_format
-                elif current_format != audio_format:
-                    raise RuntimeError(
-                        "Gemini returned incompatible WAV formats across TTS chunks"
-                    )
-                frames.append(reader.readframes(reader.getnframes()))
-
-        if audio_format is None:
-            raise RuntimeError("Could not determine WAV format")
-
-        output = io.BytesIO()
-        with wave.open(output, "wb") as writer:
-            writer.setnchannels(audio_format[0])
-            writer.setsampwidth(audio_format[1])
-            writer.setframerate(audio_format[2])
-            writer.setcomptype(audio_format[3], audio_format[4])
-            for frame_bytes in frames:
-                writer.writeframes(frame_bytes)
-        return output.getvalue()
-
-    except (wave.Error, EOFError) as error:
-        raise RuntimeError(f"Could not combine Gemini WAV chunks: {error}") from error
-
-
-def generate_wav_resilient(
-    transcript: str,
-    voice_key: str,
-    audio_id: str,
-    chunk_cache_dir: Path,
-    deadline_monotonic: float,
-) -> bytes:
-    """Generate one article, falling back to cached short chunks after long-call timeouts."""
-    chunk_cache_dir.mkdir(parents=True, exist_ok=True)
-    force_chunk_marker = chunk_cache_dir / f"{audio_id}-{voice_key}.force-chunk"
-
-    use_chunks = (
-        len(transcript) > TTS_CHUNK_TRIGGER_CHARS
-        or force_chunk_marker.exists()
-    )
-
-    if not use_chunks:
-        remaining = deadline_monotonic - time.monotonic()
-        if remaining < 8:
-            raise TTSHardTimeoutError("Global TTS generation budget is exhausted")
-
-        try:
-            return generate_wav(
-                transcript,
-                voice_key,
-                hard_timeout_seconds=min(TTS_HARD_TIMEOUT_SECONDS, remaining),
-            )
-        except Exception as error:
-            if not tts_timeout_error(error):
-                raise
-
-            force_chunk_marker.write_text(
-                "Full-article TTS timed out; use chunked generation.\n",
-                encoding="utf-8",
-            )
-            use_chunks = True
-            print(
-                f"Full-article Gemini TTS timed out for {len(transcript)} chars; "
-                "switching this voice to cached chunked generation.",
-                flush=True,
-            )
-
-    existing_chunk_cache = any(
-        path.is_file() and path.stat().st_size > 44
-        for path in chunk_cache_dir.glob(f"{audio_id}-{voice_key}-*.wav")
-    )
-    planner_target = (
-        900
-        if force_chunk_marker.exists() and not existing_chunk_cache
-        else TTS_CHUNK_TARGET_CHARS
-    )
-
-    chunks = split_tts_transcript(
-        transcript,
-        target_chars=planner_target,
-    )
-    if len(chunks) == 1:
-        chunks = split_tts_transcript(
-            transcript,
-            target_chars=max(600, min(planner_target, len(transcript) // 2)),
-        )
-
-    if not chunks:
-        raise RuntimeError("TTS chunk planner produced no text")
-
-    print(
-        f"Chunked Gemini TTS: {len(chunks)} chunk(s), "
-        f"{len(transcript)} total chars.",
-        flush=True,
-    )
-
-    wav_chunks: list[bytes] = []
-    used_paths: list[Path] = []
-
-    # If this article/voice already has completed chunks from an earlier run,
-    # preserve those exact chunks. A still-missing large chunk is treated as
-    # the previously stalled piece and is split more finely without changing
-    # the normal planner or invalidating the good cache.
-    had_partial_cache = any(
-        path.is_file() and path.stat().st_size > 44
-        for path in chunk_cache_dir.glob(f"{audio_id}-{voice_key}-*.wav")
-    )
-
-    for index, chunk in enumerate(chunks, start=1):
-        chunk_hash = hashlib.sha256(
-            (
-                RENDER_MODEL
-                + "\n"
-                + VOICE_CONFIGS[voice_key]["name"]
-                + "\n"
-                + chunk
-            ).encode("utf-8")
-        ).hexdigest()[:20]
-        cache_path = chunk_cache_dir / (
-            f"{audio_id}-{voice_key}-{index:02d}-{chunk_hash}.wav"
-        )
-        used_paths.append(cache_path)
-
-        if cache_path.exists() and cache_path.stat().st_size > 44:
-            print(
-                f"Reusing cached TTS chunk {index}/{len(chunks)} "
-                f"for {voice_key}.",
-                flush=True,
-            )
-            wav_chunks.append(cache_path.read_bytes())
-            continue
-
-        if (had_partial_cache or bool(wav_chunks)) and len(chunk) > 500:
-            retry_target = max(320, min(600, len(chunk) // 2 + 1))
-            retry_chunks = split_tts_transcript(
-                chunk,
-                target_chars=retry_target,
-            )
-
-            if len(retry_chunks) > 1:
-                print(
-                    f"Retrying stalled TTS chunk {index}/{len(chunks)} "
-                    f"as {len(retry_chunks)} smaller cached subchunks "
-                    f"({len(chunk)} chars total, {voice_key}).",
-                    flush=True,
-                )
-
-                retry_wavs: list[bytes] = []
-                for retry_index, retry_chunk in enumerate(retry_chunks, start=1):
-                    retry_hash = hashlib.sha256(
-                        (
-                            RENDER_MODEL
-                            + "\n"
-                            + VOICE_CONFIGS[voice_key]["name"]
-                            + "\n"
-                            + retry_chunk
-                        ).encode("utf-8")
-                    ).hexdigest()[:20]
-                    retry_path = chunk_cache_dir / (
-                        f"{audio_id}-{voice_key}-{index:02d}s"
-                        f"{retry_index:02d}-{retry_hash}.wav"
-                    )
-                    used_paths.append(retry_path)
-
-                    if retry_path.exists() and retry_path.stat().st_size > 44:
-                        print(
-                            f"Reusing cached TTS subchunk "
-                            f"{index}.{retry_index}/{len(retry_chunks)} "
-                            f"for {voice_key}.",
-                            flush=True,
-                        )
-                        retry_wavs.append(retry_path.read_bytes())
-                        continue
-
-                    retry_progress_exists = any(
-                        path.is_file() and path.stat().st_size > 44
-                        for path in chunk_cache_dir.glob(
-                            f"{audio_id}-{voice_key}-{index:02d}s*.wav"
-                        )
-                    )
-
-                    if retry_progress_exists and len(retry_chunk) > 500:
-                        micro_target = max(
-                            280,
-                            min(420, len(retry_chunk) // 2 + 1),
-                        )
-                        micro_chunks = split_tts_transcript(
-                            retry_chunk,
-                            target_chars=micro_target,
-                        )
-
-                        if len(micro_chunks) > 1:
-                            print(
-                                f"Retry subchunk {index}.{retry_index} "
-                                f"still pending; splitting it into "
-                                f"{len(micro_chunks)} microchunks "
-                                f"({len(retry_chunk)} chars total).",
-                                flush=True,
-                            )
-
-                            micro_wavs: list[bytes] = []
-                            for micro_index, micro_chunk in enumerate(
-                                micro_chunks,
-                                start=1,
-                            ):
-                                # This path is reached only after the normal
-                                # renderer already stalled on the parent chunk
-                                # and again on its retry subchunk. Use the legacy
-                                # Lite renderer only for these tiny fallback pieces.
-                                micro_model = (
-                                    MODEL
-                                    if MODEL != RENDER_MODEL
-                                    else RENDER_MODEL
-                                )
-                                micro_hash = hashlib.sha256(
-                                    (
-                                        micro_model
-                                        + "\n"
-                                        + VOICE_CONFIGS[voice_key]["name"]
-                                        + "\n"
-                                        + micro_chunk
-                                    ).encode("utf-8")
-                                ).hexdigest()[:20]
-                                micro_path = chunk_cache_dir / (
-                                    f"{audio_id}-{voice_key}-{index:02d}s"
-                                    f"{retry_index:02d}m{micro_index:02d}-"
-                                    f"{micro_hash}.wav"
-                                )
-                                used_paths.append(micro_path)
-
-                                if (
-                                    micro_path.exists()
-                                    and micro_path.stat().st_size > 44
-                                ):
-                                    print(
-                                        f"Reusing cached TTS microchunk "
-                                        f"{index}.{retry_index}.{micro_index}/"
-                                        f"{len(micro_chunks)} for {voice_key}.",
-                                        flush=True,
-                                    )
-                                    micro_wavs.append(micro_path.read_bytes())
-                                    continue
-
-                                # If earlier microchunks from this same stalled
-                                # retry are already complete but this one is not,
-                                # do not repeat the exact Lite request that just
-                                # stalled. Use the normal Flash renderer only for
-                                # this missing microchunk and cache it separately.
-                                sibling_micro_progress = any(
-                                    path.is_file() and path.stat().st_size > 44
-                                    for path in chunk_cache_dir.glob(
-                                        f"{audio_id}-{voice_key}-{index:02d}s"
-                                        f"{retry_index:02d}m*.wav"
-                                    )
-                                )
-                                generation_model = (
-                                    LEGACY_RESCUE_MODEL
-                                    if (
-                                        sibling_micro_progress
-                                        and len(micro_chunk) <= 200
-                                    )
-                                    else (
-                                        RENDER_MODEL
-                                        if (
-                                            sibling_micro_progress
-                                            and RENDER_MODEL != micro_model
-                                        )
-                                        else micro_model
-                                    )
-                                )
-
-                                generation_path = micro_path
-                                if generation_model != micro_model:
-                                    generation_hash = hashlib.sha256(
-                                        (
-                                            generation_model
-                                            + "\n"
-                                            + VOICE_CONFIGS[voice_key]["name"]
-                                            + "\n"
-                                            + micro_chunk
-                                        ).encode("utf-8")
-                                    ).hexdigest()[:20]
-                                    generation_path = chunk_cache_dir / (
-                                        f"{audio_id}-{voice_key}-{index:02d}s"
-                                        f"{retry_index:02d}m{micro_index:02d}-"
-                                        f"{generation_hash}.wav"
-                                    )
-                                    used_paths.append(generation_path)
-
-                                    if (
-                                        generation_path.exists()
-                                        and generation_path.stat().st_size > 44
-                                    ):
-                                        print(
-                                            f"Reusing cached alternate TTS "
-                                            f"microchunk "
-                                            f"{index}.{retry_index}.{micro_index}/"
-                                            f"{len(micro_chunks)} for {voice_key}.",
-                                            flush=True,
-                                        )
-                                        micro_wavs.append(
-                                            generation_path.read_bytes()
-                                        )
-                                        continue
-
-                                remaining = (
-                                    deadline_monotonic - time.monotonic()
-                                )
-                                if remaining < 8:
-                                    raise TTSHardTimeoutError(
-                                        "Global TTS generation budget reached "
-                                        "during microchunk generation"
-                                    )
-
-                                print(
-                                    f"Generating TTS microchunk "
-                                    f"{index}.{retry_index}.{micro_index}/"
-                                    f"{len(micro_chunks)} "
-                                    f"({len(micro_chunk)} chars, {voice_key}, "
-                                    f"model={generation_model}, "
-                                    f"mode=unary)...",
-                                    flush=True,
-                                )
-                                micro_wav = generate_wav(
-                                    micro_chunk,
-                                    voice_key,
-                                    hard_timeout_seconds=min(240.0, remaining),
-                                    render_model=generation_model,
-                                    stream_audio=False,
-                                )
-
-                                micro_temporary = generation_path.with_suffix(
-                                    generation_path.suffix + ".tmp"
-                                )
-                                micro_temporary.write_bytes(micro_wav)
-                                micro_temporary.replace(generation_path)
-                                micro_wavs.append(micro_wav)
-
-                            retry_wavs.append(
-                                combine_wav_chunks(micro_wavs)
-                            )
-                            continue
-
-                    remaining = deadline_monotonic - time.monotonic()
-                    if remaining < 8:
-                        raise TTSHardTimeoutError(
-                            "Global TTS generation budget reached during "
-                            "retry subchunk generation"
-                        )
-
-                    retry_stream_audio = len(retry_chunk) > 600
-                    retry_model = (
-                        LEGACY_RESCUE_MODEL
-                        if not retry_stream_audio
-                        else RENDER_MODEL
-                    )
-                    print(
-                        f"Generating retry TTS subchunk "
-                        f"{index}.{retry_index}/{len(retry_chunks)} "
-                        f"({len(retry_chunk)} chars, {voice_key}, "
-                        f"model={retry_model}, "
-                        f"mode={'stream' if retry_stream_audio else 'unary'})...",
-                        flush=True,
-                    )
-                    retry_wav = generate_wav(
-                        retry_chunk,
-                        voice_key,
-                        hard_timeout_seconds=min(360.0, remaining),
-                        render_model=retry_model,
-                        stream_audio=retry_stream_audio,
-                    )
-
-                    retry_temporary = retry_path.with_suffix(
-                        retry_path.suffix + ".tmp"
-                    )
-                    retry_temporary.write_bytes(retry_wav)
-                    retry_temporary.replace(retry_path)
-                    retry_wavs.append(retry_wav)
-
-                wav_chunks.append(combine_wav_chunks(retry_wavs))
-                continue
-
-        remaining = deadline_monotonic - time.monotonic()
-        if remaining < 8:
-            raise TTSHardTimeoutError(
-                "Global TTS generation budget reached during chunked generation"
-            )
-
-        print(
-            f"Generating TTS chunk {index}/{len(chunks)} "
-            f"({len(chunk)} chars, {voice_key})...",
-            flush=True,
-        )
-        wav = generate_wav(
-            chunk,
-            voice_key,
-            hard_timeout_seconds=min(TTS_HARD_TIMEOUT_SECONDS, remaining),
-        )
-
-        temporary = cache_path.with_suffix(cache_path.suffix + ".tmp")
-        temporary.write_bytes(wav)
-        temporary.replace(cache_path)
-        wav_chunks.append(wav)
-
-    combined = combine_wav_chunks(wav_chunks)
-
-    # Final article audio is now complete. Remove only this article/voice's
-    # temporary chunk cache; incomplete articles keep their finished chunks.
-    for path in chunk_cache_dir.glob(f"{audio_id}-{voice_key}-*.wav"):
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            pass
-    try:
-        force_chunk_marker.unlink()
-    except FileNotFoundError:
-        pass
-
-    return combined
+    output_audio = getattr(interaction, "output_audio", None)
+    data = getattr(output_audio, "data", None)
+    if not data:
+        raise RuntimeError("Gemini did not return output audio")
+
+    if isinstance(data, (bytes, bytearray)):
+        return bytes(data)
+
+    return base64.b64decode(data)
 
 
 def wav_to_m4a(wav_bytes: bytes, destination: Path) -> None:
@@ -1312,7 +714,7 @@ def main() -> None:
             remove_voice_fields(old, voice_key)
 
     # Refresh metadata and discard stale voice links before planning generation.
-    for article in feed:
+    for article in latest:
         old = old_by_url.get(article["url"])
         refreshed = refresh_article_entry(old, article)
         if current_voice_url(refreshed, "female") or current_voice_url(refreshed, "male"):
@@ -1424,6 +826,7 @@ def main() -> None:
             if backfill_articles_selected >= backfill_count:
                 break
 
+    client = genai.Client(api_key=api_key)
     generated_count = 0
     female_generated = 0
     male_generated = 0
@@ -1584,13 +987,7 @@ def main() -> None:
         )
 
         try:
-            wav = generate_wav_resilient(
-                article["text"],
-                voice_key,
-                audio_id,
-                chunk_cache_dir,
-                tts_deadline,
-            )
+            wav = generate_wav(client, article["text"], voice_key)
         except Exception as error:
             if quota_exhausted_error(error):
                 quota_exhausted = True

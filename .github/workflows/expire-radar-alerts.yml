@@ -7,9 +7,24 @@ on:
     paths:
       - 'scripts/expire_radar_alerts.py'
       - '.github/workflows/expire-radar-alerts.yml'
+
   schedule:
-    # Every 5 minutes, offset from minute 0 to reduce GitHub scheduler contention.
-    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
+    # Keep each 5-minute slot as its own cron entry.
+    # This preserves the 5-minute cadence while avoiding one single
+    # minute-list schedule as the only trigger source.
+    - cron: '2 * * * *'
+    - cron: '7 * * * *'
+    - cron: '12 * * * *'
+    - cron: '17 * * * *'
+    - cron: '22 * * * *'
+    - cron: '27 * * * *'
+    - cron: '32 * * * *'
+    - cron: '37 * * * *'
+    - cron: '42 * * * *'
+    - cron: '47 * * * *'
+    - cron: '52 * * * *'
+    - cron: '57 * * * *'
+
   workflow_dispatch:
 
 permissions:

@@ -272,31 +272,30 @@ def generate_wav(
         interaction = client.interactions.create(
             model=MODEL,
             timeout=TTS_DIRECT_REQUEST_TIMEOUT_SECONDS,
-        input=[
-            {
-                "type": "user_input",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": transcript,
-                        "annotations": [
-                            {
-                                "type": "speech_metadata",
-                                "style": voice["style"],
-                            }
-                        ],
-                    }
-                ],
-            }
-        ],
-        response_format={"type": "audio"},
-        generation_config={
-            "speech_config": [
-                {"voice": voice["name"]},
-            ]
-        },
-    )
-
+            input=[
+                {
+                    "type": "user_input",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": transcript,
+                            "annotations": [
+                                {
+                                    "type": "speech_metadata",
+                                    "style": voice["style"],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            response_format={"type": "audio"},
+            generation_config={
+                "speech_config": [
+                    {"voice": voice["name"]},
+                ]
+            },
+        )
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous_handler)
@@ -310,7 +309,6 @@ def generate_wav(
         return bytes(data)
 
     return base64.b64decode(data)
-
 
 def wav_to_m4a(wav_bytes: bytes, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)

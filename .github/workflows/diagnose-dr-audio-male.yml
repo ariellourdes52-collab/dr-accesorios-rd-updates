@@ -94,6 +94,104 @@ jobs:
           print(json.dumps(report, ensure_ascii=False, indent=2))
           PY
 
+      - name: Set up Python for Gemini quota probe
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Gemini probe dependency
+        shell: bash
+        run: python -m pip install --disable-pip-version-check --quiet google-genai
+
+      - name: Probe Gemini TTS quota with same DR Audio key
+        env:
+          GEMINI_API_KEY_DR_AUDIO: '${{ secrets.GEMINI_API_KEY_DR_AUDIO }}'
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p diagnostics
+
+          set +e
+          timeout --signal=TERM --kill-after=5s 45s python - <<'PY' > diagnostics/gemini-tts-probe.txt 2>&1
+          import os
+          import sys
+          from google import genai
+
+          key = os.environ.get("GEMINI_API_KEY_DR_AUDIO", "").strip()
+          if not key:
+              print("RESULT=MISSING_KEY")
+              raise SystemExit(2)
+
+          client = genai.Client(api_key=key)
+
+          try:
+              interaction = client.interactions.create(
+                  model="gemini-3.8-flash-lite-tts",
+                  timeout=30,
+                  input=[
+                      {
+                          "type": "user_input",
+                          "content": [
+                              {
+                                  "type": "text",
+                                  "text": "Prueba de cuota DR Audio.",
+                                  "annotations": [
+                                      {
+                                          "type": "speech_metadata",
+                                          "style": "Voz femenina natural, clara y breve en español latino neutro.",
+                                      }
+                                  ],
+                              }
+                          ],
+                      }
+                  ],
+                  response_format={"type": "audio"},
+                  generation_config={
+                      "speech_config": [
+                          {"voice": "Achernar"},
+                      ]
+                  },
+              )
+              output_audio = getattr(interaction, "output_audio", None)
+              data = getattr(output_audio, "data", None)
+              if not data:
+                  print("RESULT=NO_AUDIO")
+                  raise SystemExit(3)
+
+              print("RESULT=OK")
+              print("Gemini TTS returned audio for the minimal probe.")
+          except Exception as exc:
+              message = f"{type(exc).__name__}: {exc}"
+              upper = message.upper()
+              if (
+                  "RESOURCE_EXHAUSTED" in upper
+                  or "429" in upper
+                  or "QUOTA" in upper and ("EXCEEDED" in upper or "EXHAUSTED" in upper)
+              ):
+                  print("RESULT=QUOTA_EXHAUSTED")
+              else:
+                  print("RESULT=API_ERROR")
+              print(message)
+              raise
+          PY
+          code=$?
+          set -e
+
+          if [[ "$code" -eq 124 || "$code" -eq 137 || "$code" -eq 143 ]]; then
+            echo "RESULT=TIMEOUT" > diagnostics/gemini-tts-probe.txt
+            echo "Gemini TTS probe did not return within 45 seconds." >> diagnostics/gemini-tts-probe.txt
+          fi
+
+          cat diagnostics/gemini-tts-probe.txt
+
+      - name: Upload Gemini quota probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-tts-quota-probe
+          path: diagnostics/gemini-tts-probe.txt
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload diagnostic report
         uses: actions/upload-artifact@v4
         with:

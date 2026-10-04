@@ -46,6 +46,7 @@ TTS_GLOBAL_BUDGET_SECONDS = 900
 TTS_CHUNK_TRIGGER_CHARS = 20_000
 TTS_CHUNK_TARGET_CHARS = 1800
 TTS_MIN_SCHEDULE_INTERVAL_SECONDS = 8 * 60
+TTS_DIRECT_REQUEST_TIMEOUT_SECONDS = 240
 
 VOICE_CONFIGS: dict[str, dict[str, str]] = {
     "female": {
@@ -260,6 +261,7 @@ def generate_wav(
     voice = VOICE_CONFIGS[voice_key]
     interaction = client.interactions.create(
         model=MODEL,
+        timeout=TTS_DIRECT_REQUEST_TIMEOUT_SECONDS,
         input=[
             {
                 "type": "user_input",

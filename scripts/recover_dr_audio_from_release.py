@@ -36,16 +36,27 @@ def require(condition: bool, message: str) -> None:
 
 
 def get_json(url: str) -> dict[str, Any]:
-    response = requests.get(
-        url,
-        params={"recovery": time.time_ns()},
-        headers={"Cache-Control": "no-cache"},
-        timeout=30,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    require(isinstance(payload, dict), f"Expected JSON object from {url}")
-    return payload
+    last_response = None
+    for attempt in range(20):
+        response = requests.get(
+            url,
+            params={"recovery": time.time_ns()},
+            headers={"Cache-Control": "no-cache"},
+            timeout=30,
+        )
+        last_response = response
+        if response.ok:
+            payload = response.json()
+            require(isinstance(payload, dict), f"Expected JSON object from {url}")
+            return payload
+        if response.status_code in {404, 429, 500, 502, 503, 504} and attempt < 19:
+            time.sleep(3)
+            continue
+        response.raise_for_status()
+
+    assert last_response is not None
+    last_response.raise_for_status()
+    raise RuntimeError(f"Could not load JSON from {url}")
 
 
 def valid_audio_path(value: object) -> str:
@@ -67,19 +78,30 @@ def entry_audio_paths(entry: dict[str, Any]) -> list[str]:
 def download_preview_asset(base_url: str, path: str, destination: Path) -> None:
     require(path.startswith("/dr-audio/"), f"Unsafe DR Audio path: {path}")
     url = base_url.rstrip("/") + path
-    response = requests.get(
-        url,
-        params={"recovery": time.time_ns()},
-        headers={"Cache-Control": "no-cache"},
-        timeout=120,
-    )
-    response.raise_for_status()
-    require(
-        len(response.content) > 1024,
-        f"Historical audio is unexpectedly small: {path}",
-    )
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_bytes(response.content)
+    last_response = None
+    for attempt in range(12):
+        response = requests.get(
+            url,
+            params={"recovery": time.time_ns()},
+            headers={"Cache-Control": "no-cache"},
+            timeout=120,
+        )
+        last_response = response
+        if response.ok:
+            require(
+                len(response.content) > 1024,
+                f"Historical audio is unexpectedly small: {path}",
+            )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(response.content)
+            return
+        if response.status_code in {404, 429, 500, 502, 503, 504} and attempt < 11:
+            time.sleep(3)
+            continue
+        response.raise_for_status()
+
+    assert last_response is not None
+    last_response.raise_for_status()
 
 
 def normalize_entries(index: dict[str, Any]) -> list[dict[str, Any]]:

@@ -40,3 +40,60 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         run: python scripts/expire_radar_alerts.py
+
+  wake-dr-audio:
+    name: Wake DR Audio independently
+    needs: expire
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    continue-on-error: true
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Decide whether this Radar heartbeat should wake DR Audio
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Do not spend more Gemini requests before the expected daily reset.
+          # 2026-10-04 07:05 UTC = 03:05 in República Dominicana.
+          RESUME_EPOCH="$(date -u -d '2026-10-04 07:05:00Z' +%s)"
+          NOW_EPOCH="$(date -u +%s)"
+          if (( NOW_EPOCH < RESUME_EPOCH )); then
+            echo "dispatch=false" >> "$GITHUB_OUTPUT"
+            echo "DR Audio wake is armed but paused until 03:05 RD on 2026-10-04."
+            exit 0
+          fi
+
+          # Radar's independent heartbeat arrives about every five minutes.
+          # Wake DR Audio only on alternate five-minute buckets (~10 min).
+          BUCKET=$(( NOW_EPOCH / 300 ))
+          if (( BUCKET % 2 != 0 )); then
+            echo "dispatch=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping this heartbeat; next eligible bucket is about five minutes away."
+            exit 0
+          fi
+
+          echo "dispatch=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch guarded DR Audio check
+        if: steps.gate.outputs.dispatch == 'true'
+        env:
+          GH_TOKEN: '${{ github.token }}'
+          REPOSITORY: '${{ github.repository }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --location \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPOSITORY/actions/workflows/generate-dr-audio.yml/dispatches" \
+            --data '{"ref":"main","inputs":{"confirm":"GENERATE-DR-AUDIO","backfill_count":"0","scheduler_guard":"true"}}'
+          echo "Guarded DR Audio workflow_dispatch sent."
+

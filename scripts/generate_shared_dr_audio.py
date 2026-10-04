@@ -742,33 +742,12 @@ def main() -> None:
     latest_female_tasks: list[tuple[dict[str, Any], str]] = []
     latest_male_tasks: list[tuple[dict[str, Any], str]] = []
 
-    deferred_voice_titles = {
-        (
-            "Tesla sorprende al mercado: vende más de 486 mil vehículos "
-            "mientras su futuro empieza a mirar más allá del automóvil",
-            "male",
-        ),
-    }
-
-    def intentionally_deferred_voice(
-        article: dict[str, Any],
-        voice_key: str,
-    ) -> bool:
-        return (article["title"], voice_key) in deferred_voice_titles
-
     for article in latest:
         current = final_by_url.get(article["url"])
         if not reusable_voice(current, article, "female"):
             latest_female_tasks.append((article, "female"))
         if not reusable_voice(current, article, "male"):
-            if intentionally_deferred_voice(article, "male"):
-                print(
-                    "DR Audio voice intentionally deferred by operator: "
-                    f"male | {article['title']}",
-                    flush=True,
-                )
-            else:
-                latest_male_tasks.append((article, "male"))
+            latest_male_tasks.append((article, "male"))
 
     def has_completed_partial_chunks(
         article: dict[str, Any],

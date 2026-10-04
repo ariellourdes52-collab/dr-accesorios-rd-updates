@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,11 +18,16 @@ from typing import Any
 
 import requests
 
-from generate_shared_dr_audio import (
-    MAX_LIBRARY_ENTRIES,
-    PUBLIC_INDEX,
-    canonical_url,
-)
+MAX_LIBRARY_ENTRIES = 1500
+PUBLIC_INDEX = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
+
+
+def canonical_url(raw_url: str) -> str:
+    url = (raw_url or "").strip()
+    url = re.sub(r"^http://", "https://", url, flags=re.I)
+    url = url.split("?", 1)[0].split("#", 1)[0].rstrip("/")
+    return url
+
 
 
 def require(condition: bool, message: str) -> None:

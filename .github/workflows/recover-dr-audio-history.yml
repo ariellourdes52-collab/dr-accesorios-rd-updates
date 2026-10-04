@@ -167,13 +167,22 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         run: python scripts/deploy_shared_dr_audio.py dr_audio_recovery_build
 
-      - name: Verify restored 5 plus 5 coverage
+      - name: Verify full historical DR Audio recovery
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          import requests
+          import json
           import time
+          from pathlib import Path
+
+          import requests
+
+          manifest = json.loads(
+              Path("dr_audio_recovery_build/recovery-manifest.json").read_text(
+                  encoding="utf-8"
+              )
+          )
 
           url = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
           response = requests.get(
@@ -185,35 +194,75 @@ jobs:
           response.raise_for_status()
           data = response.json()
 
-          female = int(data.get("latestFemaleReady") or 0)
-          male = int(data.get("latestMaleReady") or 0)
-          latest = int(data.get("latestCount") or 0)
+          entries = [
+              entry
+              for entry in (data.get("entries") or [])
+              if isinstance(entry, dict) and entry.get("url")
+          ]
+          final_urls = {
+              str(entry.get("url") or "").split("?", 1)[0].split("#", 1)[0].rstrip("/")
+              for entry in entries
+          }
 
-          print(f"Production DR Audio coverage: female={female}/{latest}, male={male}/{latest}")
+          expected_count = int(manifest["expectedFinalCount"])
+          history_count = int(data.get("historyCount") or 0)
 
-          if latest != 5 or female != 5 or male != 5:
+          if len(entries) != expected_count or history_count != expected_count:
               raise RuntimeError(
-                  f"Recovery verification failed: female={female}/{latest}, male={male}/{latest}"
+                  "Historical recovery count mismatch: "
+                  f"entries={len(entries)}, historyCount={history_count}, "
+                  f"expected={expected_count}"
               )
 
-          for entry in (data.get("entries") or [])[:5]:
-              for key in ("audioFemaleUrl", "audioMaleUrl"):
-                  audio_url = str(entry.get(key) or "").strip()
-                  if not audio_url:
-                      raise RuntimeError(f"Missing {key}: {entry.get('title')}")
-                  check = requests.head(
-                      audio_url,
-                      params={"verify": time.time_ns()},
-                      headers={"Cache-Control": "no-cache"},
-                      timeout=30,
-                      allow_redirects=True,
-                  )
-                  if not check.ok:
-                      raise RuntimeError(
-                          f"Unreachable {key} HTTP {check.status_code}: {audio_url}"
-                      )
+          missing_historical = set(manifest["historicalUrls"]) - final_urls
+          missing_live = set(manifest["liveUrls"]) - final_urls
+          if missing_historical:
+              raise RuntimeError(
+                  "Historical URLs still missing after recovery: "
+                  + " | ".join(sorted(missing_historical)[:10])
+              )
+          if missing_live:
+              raise RuntimeError(
+                  "Current live URLs were lost during recovery: "
+                  + " | ".join(sorted(missing_live)[:10])
+              )
 
-          print("VERIFIED: newest five have both female and male DR Audio.")
+          live_top_urls = manifest["liveTopUrls"]
+          final_top_urls = [
+              str(entry.get("url") or "").split("?", 1)[0].split("#", 1)[0].rstrip("/")
+              for entry in entries[: len(live_top_urls)]
+          ]
+          if final_top_urls != live_top_urls:
+              raise RuntimeError(
+                  "Newest live DR Audio order changed during historical recovery"
+              )
+
+          all_audio_paths = sorted(
+              set(manifest["historicalAudioPaths"])
+              | set(manifest["liveAudioPaths"])
+          )
+
+          for path in all_audio_paths:
+              audio_url = "https://dr-accesorios-rd.web.app" + path
+              check = requests.head(
+                  audio_url,
+                  params={"verify": time.time_ns()},
+                  headers={"Cache-Control": "no-cache"},
+                  timeout=30,
+                  allow_redirects=True,
+              )
+              if not check.ok:
+                  raise RuntimeError(
+                      f"Recovered audio unreachable HTTP {check.status_code}: {path}"
+                  )
+
+          print(
+              "VERIFIED FULL DR AUDIO HISTORY: "
+              f"historical_source={manifest['historicalCount']}, "
+              f"live_before={manifest['liveCountBeforeRecovery']}, "
+              f"live_after={history_count}, "
+              f"audio_assets_verified={len(all_audio_paths)}"
+          )
           PY
 
       - name: Delete temporary preview channel

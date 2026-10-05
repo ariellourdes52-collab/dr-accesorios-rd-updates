@@ -18,6 +18,7 @@ PAGE_URLS = (
     "https://dr-accesorios-rd.web.app/facebook/",
     "https://dr-accesorios-rd.web.app/instagram/",
     "https://dr-accesorios-rd.web.app/tiktok/",
+    "https://dr-accesorios-rd.web.app/yt/",
 )
 
 def require(condition, message):
@@ -68,6 +69,28 @@ def main():
 
     body = gzip.compress(html, mtime=0)
     digest = hashlib.sha256(body).hexdigest()
+
+    # Short YouTube route: keep the public URL clean (/yt) while setting
+    # GA4 campaign attribution before Analytics initializes in the browser.
+    ga4_marker = b"  <!-- Google Analytics 4 Â· DR Accesorios RD -->"
+    ga4_prelude = b"""  <script>
+    (function () {
+      const p = new URLSearchParams(window.location.search);
+      if (!p.has('utm_source')) {
+        p.set('utm_source', 'youtube');
+        p.set('utm_medium', 'shorts');
+        p.set('utm_campaign', 'v24');
+        history.replaceState(null, '', window.location.pathname + '?' + p.toString() + window.location.hash);
+      }
+    })();
+  </script>
+  <!-- Google Analytics 4 Â· DR Accesorios RD -->"""
+    require(ga4_marker in html, "GA4 marker missing")
+    yt_html = html.replace(ga4_marker, ga4_prelude, 1)
+    require(yt_html != html, "YouTube landing attribution injection failed")
+    yt_body = gzip.compress(yt_html, mtime=0)
+    yt_digest = hashlib.sha256(yt_body).hexdigest()
+
     expected = dict(old_files)
     for path in (
         "/descargar/index.html",
@@ -77,6 +100,7 @@ def main():
         "/tiktok/index.html",
     ):
         expected[path] = digest
+    expected["/yt/index.html"] = yt_digest
 
     config = copy.deepcopy(old.get("config", {}))
     headers = config.setdefault("headers", [])
@@ -86,6 +110,7 @@ def main():
         "/facebook/**",
         "/instagram/**",
         "/tiktok/**",
+        "/yt/**",
     ):
         if not any(h.get("glob") == glob for h in headers):
             headers.append({
@@ -103,11 +128,12 @@ def main():
     for offset in range(0, len(items), 1000):
         batch = api("POST", new_version + ":populateFiles", json={"files": dict(items[offset:offset + 1000])})
         required = set(batch.get("uploadRequiredHashes", []))
-        require(required <= {digest}, "An existing Hosting file is unavailable; aborting")
-        if digest in required:
+        require(required <= {digest, yt_digest}, "An existing Hosting file is unavailable; aborting")
+        upload_bodies = {digest: body, yt_digest: yt_body}
+        for required_digest in required:
             upload = session.post(
-                batch["uploadUrl"] + "/" + digest,
-                data=body,
+                batch["uploadUrl"] + "/" + required_digest,
+                data=upload_bodies[required_digest],
                 headers={"Content-Type": "application/octet-stream"},
                 timeout=60)
             upload.raise_for_status()

@@ -16,6 +16,8 @@ PAGE_URLS = (
     "https://dr-accesorios-rd.web.app/descargar/",
     "https://dr-accesorios-rd.web.app/whatsapp/",
     "https://dr-accesorios-rd.web.app/facebook/",
+    "https://dr-accesorios-rd.web.app/instagram/",
+    "https://dr-accesorios-rd.web.app/tiktok/",
 )
 
 def require(condition, message):
@@ -71,6 +73,8 @@ def main():
         "/descargar/index.html",
         "/whatsapp/index.html",
         "/facebook/index.html",
+        "/instagram/index.html",
+        "/tiktok/index.html",
     ):
         expected[path] = digest
 
@@ -80,6 +84,8 @@ def main():
         "/descargar/**",
         "/whatsapp/**",
         "/facebook/**",
+        "/instagram/**",
+        "/tiktok/**",
     ):
         if not any(h.get("glob") == glob for h in headers):
             headers.append({
@@ -113,7 +119,7 @@ def main():
         "POST",
         SITE + "/releases",
         params={"versionName": new_version},
-        json={"message": "Add branded DR Accesorios RD v2.4 download page; preserve all live files"})
+        json={"message": "Update branded DR Accesorios RD v2.4 social download routes; preserve all live files"})
     print("Hosting release:", release["name"], flush=True)
     require(active()[1] == new_version, "Unexpected active Hosting version")
     require(files(new_version) == expected, "Released inventory mismatch")

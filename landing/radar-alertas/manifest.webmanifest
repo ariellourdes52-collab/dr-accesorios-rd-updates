@@ -1,8 +1,8 @@
 {
   "id": "/radar-alertas/",
-  "name": "DR Radar",
-  "short_name": "DR Radar",
-  "description": "Alertas en tiempo real de DR Radar.",
+  "name": "DR Accesorios RD",
+  "short_name": "DR Accesorios RD",
+  "description": "DR Accesorios RD: noticias, DR Radar, alertas y comunidad.",
   "start_url": "/radar-alertas/index.html?launch=1",
   "scope": "/radar-alertas/",
   "display": "standalone",

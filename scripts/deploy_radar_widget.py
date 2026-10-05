@@ -20,8 +20,10 @@ PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
 
 ASSETS = {
     "/radar-widget/index.html": (Path("landing/radar-widget/index.html"), b"DR_RADAR_BLOGGER_WIDGET_V1"),
-    "/radar-widget/sw.js": (Path("landing/radar-alertas/sw.js"), b"DR_RADAR_WIDGET_SW_V1"),
-    "/radar-alertas/index.html": (Path("landing/radar-alertas/index.html"), b"DR_RADAR_BROWSER_ALERTS_V1"),
+    "/radar-widget/sw.js": (Path("landing/radar-alertas/sw.js"), b"DR_RADAR_WEBPUSH_SW_V2"),
+    "/radar-alertas/index.html": (Path("landing/radar-alertas/index.html"), b"DR_RADAR_BROWSER_ALERTS_V2"),
+    "/radar-alertas/sw.js": (Path("landing/radar-alertas/sw.js"), b"DR_RADAR_WEBPUSH_SW_V2"),
+    "/radar-alertas/manifest.webmanifest": (Path("landing/radar-alertas/manifest.webmanifest"), b"\"name\": \"DR Radar\""),
 }
 
 CRITICAL_PATHS = (
@@ -184,8 +186,10 @@ def main() -> None:
 
     checks = (
         ("/radar-widget/index.html", "DR_RADAR_BLOGGER_WIDGET_V1"),
-        ("/radar-widget/sw.js", "DR_RADAR_WIDGET_SW_V1"),
-        ("/radar-alertas/index.html", "DR_RADAR_BROWSER_ALERTS_V1"),
+        ("/radar-widget/sw.js", "DR_RADAR_WEBPUSH_SW_V2"),
+        ("/radar-alertas/index.html", "DR_RADAR_BROWSER_ALERTS_V2"),
+        ("/radar-alertas/sw.js", "DR_RADAR_WEBPUSH_SW_V2"),
+        ("/radar-alertas/manifest.webmanifest", "\"name\": \"DR Radar\""),
     )
     for route, marker in checks:
         verified = False
@@ -214,6 +218,8 @@ def main() -> None:
     print("✅ /radar-widget/index.html publicado a 30 s.")
     print("✅ /radar-widget/sw.js publicado.")
     print("✅ /radar-alertas/index.html publicado.")
+    print("✅ /radar-alertas/sw.js publicado.")
+    print("✅ /radar-alertas/manifest.webmanifest publicado.")
     print("✅ radar.json preservado.")
     print("✅ /descargar/ preservado.")
     print("✅ DR Audio preservado.")

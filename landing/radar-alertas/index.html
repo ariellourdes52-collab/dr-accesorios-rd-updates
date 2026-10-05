@@ -4,68 +4,240 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
-  <title>Activar alertas · DR Radar</title>
-  <!-- DR_RADAR_BROWSER_ALERTS_V1 -->
+  <meta name="theme-color" content="#DA135E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="DR Radar">
+  <link rel="manifest" href="/radar-alertas/manifest.webmanifest">
+  <title>DR Radar · Alertas 24/7</title>
+  <!-- DR_RADAR_BROWSER_ALERTS_V2 -->
   <style>
-    :root{--brand:#DA135E;--bg:#f6f6f8;--card:#fff;--text:#17171a;--muted:#696971;--border:rgba(23,23,26,.10);--ok:#16854b}
-    @media(prefers-color-scheme:dark){:root{--bg:#111114;--card:#19191e;--text:#f5f5f7;--muted:#b2b2ba;--border:rgba(255,255,255,.11)}}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;padding:22px}
-    .card{max-width:560px;margin:6vh auto;background:var(--card);border:1px solid var(--border);border-radius:22px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.10)}
-    .head{padding:18px 20px;background:linear-gradient(135deg,var(--brand),#b90f4e);color:#fff;font-weight:800;font-size:20px}
-    .body{padding:22px}.lead{font-size:16px;font-weight:700;margin:0 0 9px}.copy{font-size:14px;line-height:1.5;color:var(--muted);margin:0 0 18px}
+    :root{--brand:#DA135E;--bg:#f6f6f8;--card:#fff;--text:#17171a;--muted:#696971;--border:rgba(23,23,26,.10);--ok:#16854b;--warn:#b46a00}
+    @media(prefers-color-scheme:dark){:root{--bg:#111114;--card:#19191e;--text:#f5f5f7;--muted:#b2b2ba;--border:rgba(255,255,255,.11);--ok:#4bd18b;--warn:#ffbd59}}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;padding:18px}
+    .card{max-width:620px;margin:4vh auto;background:var(--card);border:1px solid var(--border);border-radius:24px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.10)}
+    .head{padding:20px;background:linear-gradient(135deg,var(--brand),#b90f4e);color:#fff}
+    .head h1{margin:0;font-size:21px}.head p{margin:6px 0 0;font-size:13px;opacity:.9}
+    .body{padding:22px}.lead{font-size:16px;font-weight:800;margin:0 0 9px}.copy{font-size:14px;line-height:1.5;color:var(--muted);margin:0 0 16px}
+    .box{margin:14px 0;padding:13px;border:1px solid var(--border);border-radius:14px;font-size:13px;line-height:1.45}
+    .install{display:none}.install.show{display:block}.install strong{color:var(--brand)}
+    .actions{display:grid;gap:10px}
     button{width:100%;border:0;border-radius:14px;background:var(--brand);color:#fff;padding:13px 16px;font-size:15px;font-weight:800;cursor:pointer}
-    button:disabled{opacity:.55;cursor:not-allowed}.status{margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:12px;font-size:13px;line-height:1.45}
-    .ok{color:var(--ok);font-weight:700}.small{font-size:11px;line-height:1.45;color:var(--muted);margin:14px 0 0}
+    button.secondary{background:transparent;color:var(--text);border:1px solid var(--border)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .status{margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:12px;font-size:13px;line-height:1.45}
+    .ok{color:var(--ok);font-weight:800}.warn{color:var(--warn);font-weight:800}
+    .small{font-size:11px;line-height:1.45;color:var(--muted);margin:14px 0 0}
+    .steps{margin:8px 0 0;padding-left:20px;color:var(--muted);font-size:13px;line-height:1.55}
   </style>
 </head>
 <body>
   <main class="card">
-    <div class="head">📡 DR Radar · Alertas del navegador</div>
+    <div class="head">
+      <h1>📡 DR Radar · Alertas 24/7</h1>
+      <p>Web Push para recibir alertas aunque cierres el navegador.</p>
+    </div>
     <div class="body">
-      <p class="lead">Activa los avisos de nuevas alertas</p>
-      <p class="copy">El permiso se solicita aquí porque los navegadores no permiten pedirlo directamente desde el widget integrado en Blogger.</p>
-      <button id="activate" type="button">🔔 Activar notificaciones</button>
-      <div class="status" id="status">Estado: pendiente de autorización.</div>
-      <p class="small">Después de autorizar, vuelve a DR Accesorios RD. El widget revisa DR Radar cada 30 segundos y puede mostrar una notificación del sistema cuando detecta una alerta nueva mientras el blog permanezca abierto en alguna pestaña.</p>
+      <p class="lead">Activa DR Radar en este dispositivo</p>
+      <p class="copy">Las alertas se envían mediante Web Push estándar. El sistema de detección de DR Radar continúa separado e independiente.</p>
+
+      <div class="box install" id="iosInstall">
+        <strong>📱 iPhone / iPad</strong>
+        <ol class="steps">
+          <li>En Safari toca <strong>Compartir</strong>.</li>
+          <li>Elige <strong>Añadir a pantalla de inicio</strong>.</li>
+          <li>Abre DR Radar desde el nuevo icono.</li>
+          <li>Dentro de la app web pulsa <strong>Activar alertas 24/7</strong>.</li>
+        </ol>
+      </div>
+
+      <div class="box install" id="genericInstall">
+        <strong>📲 Instalar DR Radar</strong>
+        <p class="copy" style="margin:6px 0 0">Puedes instalar esta web como aplicación para tener acceso directo a las alertas.</p>
+        <button class="secondary" id="installButton" type="button">Instalar DR Radar</button>
+      </div>
+
+      <div class="actions">
+        <button id="activate" type="button">🔔 Activar alertas 24/7</button>
+        <button class="secondary" id="deactivate" type="button" style="display:none">Desactivar alertas en este dispositivo</button>
+      </div>
+
+      <div class="status" id="status">Comprobando este dispositivo…</div>
+      <p class="small">DR Radar consulta los feeds cada 30 segundos desde un servicio independiente y envía únicamente alertas nuevas. La alerta que ya estaba activa al iniciar el servicio se usa como referencia y no se reenvía.</p>
     </div>
   </main>
-  <script>
-    (function(){
-      var button=document.getElementById('activate');
-      var status=document.getElementById('status');
 
-      function render(){
-        if(!('Notification' in window)){
-          button.disabled=true;
-          status.textContent='Este navegador no admite la API de notificaciones.';
-          return;
-        }
-        if(Notification.permission==='granted'){
-          button.textContent='✅ Notificaciones activadas';
-          button.disabled=true;
-          status.innerHTML='<span class="ok">Permiso concedido.</span> Ya puedes cerrar esta pestaña y volver al blog.';
-        }else if(Notification.permission==='denied'){
-          button.textContent='🔕 Notificaciones bloqueadas';
-          button.disabled=true;
-          status.textContent='El navegador tiene las notificaciones bloqueadas para este sitio. Debes habilitarlas desde la configuración/permisos del sitio.';
-        }else{
-          button.textContent='🔔 Activar notificaciones';
-          button.disabled=false;
-          status.textContent='Estado: pendiente de autorización.';
-        }
+  <script>
+  (function(){
+    const API = 'https://dr-radar-webpush-production.up.railway.app';
+    const FLAG = 'drRadarPushSubscribedV1';
+    const button = document.getElementById('activate');
+    const deactivate = document.getElementById('deactivate');
+    const status = document.getElementById('status');
+    const iosInstall = document.getElementById('iosInstall');
+    const genericInstall = document.getElementById('genericInstall');
+    const installButton = document.getElementById('installButton');
+    let deferredPrompt = null;
+    let registration = null;
+
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    function b64ToUint8Array(value){
+      const padding = '='.repeat((4 - value.length % 4) % 4);
+      const base64 = (value + padding).replace(/-/g,'+').replace(/_/g,'/');
+      const raw = atob(base64);
+      return Uint8Array.from([...raw].map(ch => ch.charCodeAt(0)));
+    }
+
+    function setFlag(on){
+      try { localStorage.setItem(FLAG, on ? '1' : '0'); } catch (_) {}
+    }
+
+    function setStatus(html){ status.innerHTML = html; }
+
+    async function postSubscription(sub){
+      const response = await fetch(API + '/subscribe', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(sub.toJSON())
+      });
+      if(!response.ok) throw new Error('HTTP ' + response.status);
+    }
+
+    async function syncExisting(){
+      if(!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+      registration = await navigator.serviceWorker.register('/radar-alertas/sw.js', {scope:'/radar-alertas/'});
+      await navigator.serviceWorker.ready;
+      const sub = await registration.pushManager.getSubscription();
+      if(sub){
+        await postSubscription(sub);
+        setFlag(true);
+        return true;
+      }
+      setFlag(false);
+      return false;
+    }
+
+    async function render(){
+      if(isIOS && !isStandalone){
+        iosInstall.classList.add('show');
+      } else {
+        iosInstall.classList.remove('show');
       }
 
-      button.addEventListener('click', async function(){
-        if(!('Notification' in window)) return;
-        button.disabled=true;
-        try{
-          await Notification.requestPermission();
-        }catch(e){}
-        render();
-      });
+      if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+        button.disabled = true;
+        setStatus('<span class="warn">Este navegador no admite Web Push.</span>');
+        return;
+      }
 
+      try{
+        const active = await syncExisting();
+        if(active){
+          button.textContent='✅ Alertas 24/7 activas';
+          button.disabled=true;
+          deactivate.style.display='block';
+          setStatus('<span class="ok">Suscripción activa.</span> Este dispositivo puede recibir nuevas alertas aunque cierres el navegador.');
+          return;
+        }
+      }catch(e){
+        setFlag(false);
+      }
+
+      deactivate.style.display='none';
+      button.disabled=false;
+
+      if(Notification.permission==='denied'){
+        button.textContent='🔕 Notificaciones bloqueadas';
+        setStatus('<span class="warn">El permiso está bloqueado.</span> Habilita las notificaciones desde los permisos del sitio y vuelve a intentarlo.');
+      }else if(isIOS && !isStandalone){
+        button.textContent='📲 Añade DR Radar a inicio primero';
+        button.disabled=true;
+        setStatus('En iPhone/iPad, Web Push requiere abrir DR Radar desde la pantalla de inicio.');
+      }else{
+        button.textContent='🔔 Activar alertas 24/7';
+        setStatus('Listo para activar Web Push en este dispositivo.');
+      }
+    }
+
+    button.addEventListener('click', async function(){
+      button.disabled=true;
+      try{
+        registration = registration || await navigator.serviceWorker.register('/radar-alertas/sw.js', {scope:'/radar-alertas/'});
+        await navigator.serviceWorker.ready;
+
+        const permission = await Notification.requestPermission();
+        if(permission !== 'granted') throw new Error('permission');
+
+        const keyResponse = await fetch(API + '/vapid-public-key', {cache:'no-store'});
+        if(!keyResponse.ok) throw new Error('vapid');
+        const keyData = await keyResponse.json();
+
+        let sub = await registration.pushManager.getSubscription();
+        if(!sub){
+          sub = await registration.pushManager.subscribe({
+            userVisibleOnly:true,
+            applicationServerKey:b64ToUint8Array(keyData.publicKey)
+          });
+        }
+        await postSubscription(sub);
+        setFlag(true);
+        await render();
+      }catch(e){
+        setFlag(false);
+        button.disabled=false;
+        if(Notification.permission==='denied'){
+          setStatus('<span class="warn">No se concedió el permiso de notificaciones.</span>');
+        }else{
+          setStatus('<span class="warn">No se pudo completar la suscripción.</span> Intenta nuevamente en unos segundos.');
+        }
+      }
+    });
+
+    deactivate.addEventListener('click', async function(){
+      deactivate.disabled=true;
+      try{
+        registration = registration || await navigator.serviceWorker.getRegistration('/radar-alertas/');
+        const sub = registration ? await registration.pushManager.getSubscription() : null;
+        if(sub){
+          try{
+            await fetch(API + '/unsubscribe', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({endpoint:sub.endpoint})
+            });
+          }catch(_){}
+          await sub.unsubscribe();
+        }
+        setFlag(false);
+      }finally{
+        deactivate.disabled=false;
+        render();
+      }
+    });
+
+    window.addEventListener('beforeinstallprompt', function(event){
+      event.preventDefault();
+      deferredPrompt=event;
+      if(!isIOS) genericInstall.classList.add('show');
+    });
+
+    installButton.addEventListener('click', async function(){
+      if(!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt=null;
+      genericInstall.classList.remove('show');
+    });
+
+    window.addEventListener('appinstalled', function(){
+      genericInstall.classList.remove('show');
       render();
-    })();
+    });
+
+    render();
+  })();
   </script>
 </body>
 </html>

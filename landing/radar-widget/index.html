@@ -131,8 +131,8 @@
       </div>
     </div>
     <div class="notify-row">
-      <button class="notify-button" id="notifyButton" type="button">🔔 Activar alertas del navegador</button>
-      <span class="notify-hint" id="notifyHint">Avisos de nuevas alertas mientras el blog esté abierto.</span>
+      <button class="notify-button" id="notifyButton" type="button">🔔 Activar alertas 24/7</button>
+      <span class="notify-hint" id="notifyHint">Recibe nuevas alertas incluso con el navegador cerrado.</span>
     </div>
     <div class="footer"><span>DR Accesorios RD</span><span id="updated">Actualizando…</span></div>
   </section>
@@ -148,6 +148,7 @@
       const notifyHint = document.getElementById('notifyHint');
       const NOTIFY_PAGE = '/radar-alertas/index.html';
       const SEEN_KEY = 'drRadarSeenAlertKeysV1';
+      const PUSH_FLAG = 'drRadarPushSubscribedV1';
       let swRegistration = null;
 
       const esc = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
@@ -191,26 +192,30 @@
       ].join('|');
 
       const updateNotifyUi = () => {
-        if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-          notifyButton.textContent = '🔕 Notificaciones no compatibles';
-          notifyButton.classList.add('blocked');
-          notifyButton.disabled = true;
-          notifyHint.textContent = 'Este navegador no admite las alertas web necesarias.';
-          return;
-        }
+        const pushActive = (() => {
+          try { return localStorage.getItem(PUSH_FLAG) === '1'; } catch (_) { return false; }
+        })();
+
         notifyButton.disabled = false;
         notifyButton.classList.remove('active', 'blocked');
-        if (Notification.permission === 'granted') {
-          notifyButton.textContent = '🔔 Alertas del navegador activas';
+
+        if (pushActive) {
+          notifyButton.textContent = '🔔 Alertas 24/7 activas';
           notifyButton.classList.add('active');
-          notifyHint.textContent = 'DR Radar comprobará novedades cada 30 segundos.';
+          notifyHint.textContent = 'Recibirás nuevas alertas aunque cierres el navegador.';
+        } else if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+          notifyButton.textContent = '📲 Configurar alertas 24/7';
+          notifyHint.textContent = 'Abre la configuración de DR Radar para comprobar compatibilidad.';
         } else if (Notification.permission === 'denied') {
           notifyButton.textContent = '🔕 Notificaciones bloqueadas';
           notifyButton.classList.add('blocked');
           notifyHint.textContent = 'Pulsa para ver cómo volver a habilitarlas.';
+        } else if (Notification.permission === 'granted') {
+          notifyButton.textContent = '🔔 Completar alertas 24/7';
+          notifyHint.textContent = 'Falta registrar este dispositivo para recibir avisos con el navegador cerrado.';
         } else {
-          notifyButton.textContent = '🔔 Activar alertas del navegador';
-          notifyHint.textContent = 'Avisos de nuevas alertas mientras el blog esté abierto.';
+          notifyButton.textContent = '🔔 Activar alertas 24/7';
+          notifyHint.textContent = 'Recibe nuevas alertas incluso con el navegador cerrado.';
         }
         notifyHeight();
       };
@@ -242,8 +247,14 @@
       };
 
       const notifyNewAlerts = async (alerts) => {
-        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        let pushActive = false;
+        try { pushActive = localStorage.getItem(PUSH_FLAG) === '1'; } catch (_) {}
         const currentKeys = alerts.map(alertKey).filter(Boolean);
+        if (pushActive) {
+          writeSeen(currentKeys);
+          return;
+        }
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
         const hasBaseline = localStorage.getItem(SEEN_KEY) !== null;
         if (!hasBaseline) {
           writeSeen(currentKeys);

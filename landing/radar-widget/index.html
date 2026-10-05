@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>DR Radar</title>
+  <!-- DR_RADAR_BLOGGER_WIDGET_V1 -->
+  <style>
+    :root {
+      --brand: #DA135E;
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --text: #17171a;
+      --muted: #68686f;
+      --border: rgba(23, 23, 26, .10);
+      --shadow: 0 8px 28px rgba(0, 0, 0, .08);
+      --ok: #16854b;
+      --info: #2563eb;
+      --warning: #c88600;
+      --critical: #c62828;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111114;
+        --surface: #19191e;
+        --text: #f5f5f7;
+        --muted: #b2b2ba;
+        --border: rgba(255,255,255,.11);
+        --shadow: 0 8px 28px rgba(0,0,0,.28);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; color: var(--text); font-family: Arial, Helvetica, sans-serif; }
+    body { padding: 4px; }
+    .radar {
+      width: 100%;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, var(--brand), #b90f4e);
+      color: #fff;
+    }
+    .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .brand-icon { font-size: 21px; line-height: 1; }
+    .brand-title { font-size: 16px; font-weight: 800; letter-spacing: .1px; white-space: nowrap; }
+    .live {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .7px;
+      background: rgba(255,255,255,.16);
+      border: 1px solid rgba(255,255,255,.28);
+      border-radius: 999px;
+      padding: 5px 8px;
+    }
+    .pulse { width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 0 rgba(255,255,255,.6); animation: pulse 1.8s infinite; }
+    @keyframes pulse { 70% { box-shadow: 0 0 0 7px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+    .content { padding: 12px; }
+    .state {
+      border-left: 5px solid var(--ok);
+      border-radius: 13px;
+      padding: 12px 12px 11px;
+      background: color-mix(in srgb, var(--ok) 7%, var(--surface));
+    }
+    .state.info { border-left-color: var(--info); background: color-mix(in srgb, var(--info) 7%, var(--surface)); }
+    .state.warning { border-left-color: var(--warning); background: color-mix(in srgb, var(--warning) 8%, var(--surface)); }
+    .state.critical { border-left-color: var(--critical); background: color-mix(in srgb, var(--critical) 7%, var(--surface)); }
+    .state.loading { border-left-color: var(--brand); background: color-mix(in srgb, var(--brand) 6%, var(--surface)); }
+    .state.error { border-left-color: var(--muted); background: color-mix(in srgb, var(--muted) 6%, var(--surface)); }
+    .headline { display: flex; align-items: flex-start; gap: 9px; }
+    .icon { font-size: 22px; line-height: 1.15; flex: 0 0 auto; }
+    .title { margin: 0; font-size: 15px; line-height: 1.25; font-weight: 800; }
+    .description { margin: 6px 0 0; font-size: 13px; line-height: 1.42; color: var(--muted); }
+    .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 9px; font-size: 11px; color: var(--muted); }
+    .badge { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 3px 7px; font-weight: 700; color: var(--text); background: rgba(255,255,255,.08); }
+    .more { margin-top: 8px; font-size: 11px; color: var(--muted); font-weight: 700; }
+    .link { display: inline-flex; margin-top: 9px; color: var(--brand); font-size: 12px; font-weight: 800; text-decoration: none; }
+    .link:hover { text-decoration: underline; }
+    .footer { display: flex; justify-content: space-between; gap: 8px; padding: 0 13px 11px; font-size: 10px; color: var(--muted); }
+    @media (max-width: 420px) {
+      .topbar { padding: 11px 12px; }
+      .content { padding: 10px; }
+      .state { padding: 11px; }
+      .description { font-size: 12.5px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="radar" aria-label="DR Radar" aria-live="polite">
+    <div class="topbar">
+      <div class="brand"><span class="brand-icon" aria-hidden="true">📡</span><span class="brand-title">DR Radar</span></div>
+      <div class="live"><span class="pulse" aria-hidden="true"></span>EN VIVO</div>
+    </div>
+    <div class="content" id="content">
+      <div class="state loading">
+        <div class="headline"><span class="icon">⏳</span><div><p class="title">Consultando DR Radar…</p><p class="description">Cargando el estado más reciente.</p></div></div>
+      </div>
+    </div>
+    <div class="footer"><span>DR Accesorios RD</span><span id="updated">Actualizando…</span></div>
+  </section>
+
+  <script>
+    (() => {
+      const RADAR_URL = '/radar.json';
+      const SEISMIC_URL = '/radar-seismic-v231.json';
+      const REFRESH_MS = 60_000;
+      const content = document.getElementById('content');
+      const updated = document.getElementById('updated');
+
+      const esc = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+      const parseDate = (value) => {
+        const d = new Date(value || '');
+        return Number.isNaN(d.getTime()) ? null : d;
+      };
+      const isCurrent = (alert) => {
+        if (!alert || alert.active === false) return false;
+        const exp = parseDate(alert.expiresAt);
+        return !exp || exp.getTime() > Date.now();
+      };
+      const severityInfo = (alert) => {
+        const raw = String(alert.severity || alert.level || alert.priority || '').toLowerCase();
+        if (/(critical|emergency|danger|severe|red|alta|high)/.test(raw)) return {rank: 4, cls: 'critical', label: 'Crítica'};
+        if (/(warning|alert|amber|yellow|advertencia|medium|media)/.test(raw)) return {rank: 3, cls: 'warning', label: 'Advertencia'};
+        if (/(info|advisory|blue|informativa|low|baja)/.test(raw)) return {rank: 2, cls: 'info', label: 'Informativa'};
+        return {rank: 1, cls: 'info', label: 'Activa'};
+      };
+      const iconFor = (alert) => {
+        const type = String(alert.type || alert.category || '').toLowerCase();
+        if (/(earthquake|seismic|sismo)/.test(type)) return '🌎';
+        if (/(weather|storm|rain|hurri|clima|lluvia)/.test(type)) return '🌧️';
+        if (/(tech|system|service|github|outage)/.test(type)) return '⚙️';
+        return '⚠️';
+      };
+      const fmtTime = (date) => date ? new Intl.DateTimeFormat('es-DO', {
+        timeZone: 'America/Santo_Domingo', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit'
+      }).format(date) : '';
+      const firstText = (obj, keys) => {
+        for (const key of keys) {
+          const value = obj && obj[key];
+          if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+        }
+        return '';
+      };
+      const getAlerts = (feed, origin) => {
+        const rows = Array.isArray(feed?.alerts) ? feed.alerts : [];
+        return rows.filter(isCurrent).map((a, index) => ({...a, _origin: origin, _index: index}));
+      };
+      const dedupe = (alerts) => {
+        const map = new Map();
+        for (const a of alerts) {
+          const key = firstText(a, ['id']) || [firstText(a,['title','name']), firstText(a,['createdAt','publishedAt','updatedAt'])].join('|');
+          if (!map.has(key)) map.set(key, a);
+        }
+        return [...map.values()];
+      };
+      const fetchJson = async (url, allow404 = false) => {
+        const response = await fetch(url + '?widget=' + Date.now(), {cache: 'no-store', headers: {'Cache-Control':'no-cache'}});
+        if (allow404 && response.status === 404) return null;
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
+      };
+      const notifyHeight = () => {
+        requestAnimationFrame(() => parent.postMessage({type:'dr-radar-widget-height', height: document.documentElement.scrollHeight}, '*'));
+      };
+      const renderOk = (feeds) => {
+        content.innerHTML = `
+          <div class="state">
+            <div class="headline"><span class="icon">🟢</span><div>
+              <p class="title">Todo tranquilo</p>
+              <p class="description">No hay alertas activas en DR Radar en este momento.</p>
+            </div></div>
+          </div>`;
+        const dates = feeds.map(f => parseDate(f?.updatedAt)).filter(Boolean).sort((a,b)=>b-a);
+        updated.textContent = dates[0] ? 'Actualizado ' + fmtTime(dates[0]) : 'Estado en vivo';
+        notifyHeight();
+      };
+      const renderAlert = (alerts, feeds) => {
+        alerts.sort((a,b) => {
+          const sr = severityInfo(b).rank - severityInfo(a).rank;
+          if (sr) return sr;
+          const bd = parseDate(firstText(b,['createdAt','publishedAt','updatedAt']))?.getTime() || 0;
+          const ad = parseDate(firstText(a,['createdAt','publishedAt','updatedAt']))?.getTime() || 0;
+          return bd - ad;
+        });
+        const a = alerts[0];
+        const sev = severityInfo(a);
+        const title = firstText(a, ['title','name','headline']) || 'Alerta activa en DR Radar';
+        const description = firstText(a, ['description','message','body','summary']) || 'Consulta la información más reciente de DR Radar.';
+        const stamp = parseDate(firstText(a, ['createdAt','publishedAt','updatedAt','timestamp']));
+        const link = firstText(a, ['url','link']);
+        const type = firstText(a, ['type','category']);
+        const origin = a._origin === 'seismic' ? 'Radar sísmico' : (type ? type : 'DR Radar');
+        content.innerHTML = `
+          <div class="state ${sev.cls}">
+            <div class="headline"><span class="icon">${iconFor(a)}</span><div>
+              <p class="title">${esc(title)}</p>
+              <p class="description">${esc(description)}</p>
+              <div class="meta"><span class="badge">${esc(sev.label)}</span><span>${esc(origin)}</span>${stamp ? `<span>${esc(fmtTime(stamp))}</span>` : ''}</div>
+              ${link ? `<a class="link" href="${esc(link)}" target="_blank" rel="noopener noreferrer">Más información →</a>` : ''}
+              ${alerts.length > 1 ? `<div class="more">+ ${alerts.length - 1} alerta${alerts.length - 1 === 1 ? '' : 's'} activa${alerts.length - 1 === 1 ? '' : 's'}</div>` : ''}
+            </div></div>
+          </div>`;
+        const dates = feeds.map(f => parseDate(f?.updatedAt)).filter(Boolean).sort((a,b)=>b-a);
+        updated.textContent = dates[0] ? 'Actualizado ' + fmtTime(dates[0]) : 'Estado en vivo';
+        notifyHeight();
+      };
+      const renderError = () => {
+        content.innerHTML = `
+          <div class="state error">
+            <div class="headline"><span class="icon">📡</span><div>
+              <p class="title">DR Radar temporalmente no disponible</p>
+              <p class="description">No se pudo consultar el estado en este instante. Se reintentará automáticamente.</p>
+            </div></div>
+          </div>`;
+        updated.textContent = 'Reintentando…';
+        notifyHeight();
+      };
+      const refresh = async () => {
+        const [main, seismic] = await Promise.allSettled([
+          fetchJson(RADAR_URL, false),
+          fetchJson(SEISMIC_URL, true)
+        ]);
+        const mainFeed = main.status === 'fulfilled' ? main.value : null;
+        const seismicFeed = seismic.status === 'fulfilled' ? seismic.value : null;
+        if (!mainFeed && !seismicFeed) {
+          renderError();
+          return;
+        }
+        const alerts = dedupe([
+          ...getAlerts(mainFeed, 'main'),
+          ...getAlerts(seismicFeed, 'seismic')
+        ]);
+        if (alerts.length) renderAlert(alerts, [mainFeed, seismicFeed]);
+        else renderOk([mainFeed, seismicFeed]);
+      };
+
+      refresh();
+      setInterval(refresh, REFRESH_MS);
+      window.addEventListener('load', notifyHeight);
+      window.addEventListener('resize', notifyHeight);
+    })();
+  </script>
+</body>
+</html>

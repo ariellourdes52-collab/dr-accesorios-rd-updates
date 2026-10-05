@@ -3,7 +3,7 @@
   "name": "DR Radar",
   "short_name": "DR Radar",
   "description": "Alertas en tiempo real de DR Radar.",
-  "start_url": "/radar-alertas/index.html",
+  "start_url": "/radar-alertas/index.html?launch=1",
   "scope": "/radar-alertas/",
   "display": "standalone",
   "background_color": "#ffffff",

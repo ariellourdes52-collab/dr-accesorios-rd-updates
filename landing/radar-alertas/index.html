@@ -60,6 +60,7 @@
 
       <div class="actions">
         <button id="activate" type="button">🔔 Activar alertas 24/7</button>
+        <button class="secondary" id="homeButton" type="button" style="display:none">🏠 Ir al inicio de DR Accesorios RD</button>
         <button class="secondary" id="deactivate" type="button" style="display:none">Desactivar alertas en este dispositivo</button>
       </div>
 
@@ -82,6 +83,7 @@
     const FLAG = 'drRadarPushSubscribedV1';
     const button = document.getElementById('activate');
     const deactivate = document.getElementById('deactivate');
+    const homeButton = document.getElementById('homeButton');
     const status = document.getElementById('status');
     const iosInstall = document.getElementById('iosInstall');
     const genericInstall = document.getElementById('genericInstall');
@@ -91,6 +93,14 @@
 
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const settingsMode = new URLSearchParams(location.search).has('settings');
+    const HOME_URL = 'https://draccesoriosrd.blogspot.com/';
+
+    function goHome(){
+      window.location.href = HOME_URL;
+    }
+
+    homeButton.addEventListener('click', goHome);
 
     function b64ToUint8Array(value){
       const padding = '='.repeat((4 - value.length % 4) % 4);
@@ -146,14 +156,20 @@
         if(active){
           button.textContent='✅ Alertas 24/7 activas';
           button.disabled=true;
+          homeButton.style.display='block';
           deactivate.style.display='block';
           setStatus('<span class="ok">Suscripción activa.</span> Este dispositivo puede recibir nuevas alertas aunque cierres el navegador.');
+
+          if(isStandalone && !settingsMode){
+            setTimeout(goHome, 650);
+          }
           return;
         }
       }catch(e){
         setFlag(false);
       }
 
+      homeButton.style.display='none';
       deactivate.style.display='none';
       button.disabled=false;
 
@@ -315,7 +331,10 @@
         socialStatus.textContent="Vinculando tus notificaciones sociales…";
         await linkSocial(user);
         socialButton.textContent="✅ Cuenta social conectada";
-        socialStatus.innerHTML="<span class='ok'>Sociales activas.</span> Recibirás respuestas, likes y actividad asociada a esta cuenta.";
+        socialStatus.innerHTML="<span class='ok'>Sociales activas.</span> Recibirás respuestas, likes y actividad asociada a esta cuenta. Abriendo DR Accesorios RD…";
+        if(isStandalone && !new URLSearchParams(location.search).has("settings")){
+          setTimeout(function(){ window.location.href="https://draccesoriosrd.blogspot.com/"; }, 1200);
+        }
       }catch(e){
         socialButton.disabled=false;
         socialButton.textContent="Vincular cuenta social";

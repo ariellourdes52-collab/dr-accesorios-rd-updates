@@ -63,6 +63,14 @@
       </div>
 
       <div class="status" id="status">Comprobando este dispositivo…</div>
+
+      <div class="box" style="margin-top:16px">
+        <strong>💬 Notificaciones sociales</strong>
+        <p class="copy" style="margin:6px 0 12px">Conecta la misma cuenta de Google que usas para comentar y recibe respuestas, likes y actividad de tus conversaciones.</p>
+        <button class="secondary" id="socialButton" type="button">Continuar con Google</button>
+        <div class="status" id="socialStatus" style="margin-top:10px">Cuenta social no conectada.</div>
+      </div>
+
       <p class="small">DR Radar consulta los feeds cada 30 segundos desde un servicio independiente y envía únicamente alertas nuevas. La alerta que ya estaba activa al iniciar el servicio se usa como referencia y no se reenvía.</p>
     </div>
   </main>
@@ -236,8 +244,101 @@
       render();
     });
 
+    window.DR_RADAR_PUSH = {
+      api: API,
+      getRegistration: async function(){
+        return registration || await navigator.serviceWorker.getRegistration('/radar-alertas/');
+      }
+    };
+
     render();
   })();
+  </script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      onAuthStateChanged,
+      signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6SiJY6hmaYnq7USq3NQzUg1IzicE2djY",
+      authDomain: "dr-accesorios-rd.firebaseapp.com",
+      projectId: "dr-accesorios-rd",
+      storageBucket: "dr-accesorios-rd.firebasestorage.app",
+      messagingSenderId: "469316065505",
+      appId: "1:469316065505:web:323725c0db6e57273effa0",
+      measurementId: "G-NEYZTFR9XK"
+    };
+
+    const fbApp = initializeApp(firebaseConfig, "dr-radar-pwa-social");
+    const auth = getAuth(fbApp);
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({prompt:"select_account"});
+    const socialButton = document.getElementById("socialButton");
+    const socialStatus = document.getElementById("socialStatus");
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+    async function linkSocial(user){
+      const bridge = window.DR_RADAR_PUSH;
+      if(!bridge) throw new Error("push bridge");
+      const registration = await bridge.getRegistration();
+      if(!registration) throw new Error("service worker");
+      const sub = await registration.pushManager.getSubscription();
+      if(!sub) throw new Error("push subscription");
+      const idToken = await user.getIdToken(true);
+      const data = sub.toJSON();
+      data.idToken = idToken;
+      const response = await fetch(bridge.api + "/subscribe", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(data)
+      });
+      if(!response.ok) throw new Error("link " + response.status);
+    }
+
+    async function updateSocial(user){
+      if(!user){
+        socialButton.disabled=false;
+        socialButton.textContent="Continuar con Google";
+        socialStatus.textContent="Cuenta social no conectada.";
+        return;
+      }
+      try{
+        socialButton.disabled=true;
+        socialStatus.textContent="Vinculando tus notificaciones sociales…";
+        await linkSocial(user);
+        socialButton.textContent="✅ Cuenta social conectada";
+        socialStatus.innerHTML="<span class='ok'>Sociales activas.</span> Recibirás respuestas, likes y actividad asociada a esta cuenta.";
+      }catch(e){
+        socialButton.disabled=false;
+        socialButton.textContent="Vincular cuenta social";
+        socialStatus.innerHTML="<span class='warn'>Activa primero las alertas 24/7</span> y luego vuelve a conectar tu cuenta Google.";
+      }
+    }
+
+    socialButton.addEventListener("click", async function(){
+      try{
+        socialButton.disabled=true;
+        if(isIOS){
+          await signInWithRedirect(auth, provider);
+        }else{
+          const result = await signInWithPopup(auth, provider);
+          await updateSocial(result.user);
+        }
+      }catch(e){
+        socialButton.disabled=false;
+        socialStatus.innerHTML="<span class='warn'>No se pudo completar el acceso con Google.</span>";
+      }
+    });
+
+    try{ await getRedirectResult(auth); }catch(_){}
+    onAuthStateChanged(auth, updateSocial);
   </script>
 </body>
 </html>

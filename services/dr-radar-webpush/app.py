@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
+import jwt
+from jwt import PyJWKClient
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from flask import Flask, jsonify, request
@@ -30,6 +32,11 @@ POLL_SECONDS = max(15, int(os.environ.get("POLL_SECONDS", "30")))
 VAPID_PUBLIC_KEY = os.environ["VAPID_PUBLIC_KEY"].strip()
 VAPID_PRIVATE_KEY_B64 = os.environ["VAPID_PRIVATE_KEY"].strip()
 VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "https://draccesoriosrd.blogspot.com/").strip()
+FIREBASE_PROJECT_ID = "dr-accesorios-rd"
+FIREBASE_JWKS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"
+GITHUB_OIDC_JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks"
+GITHUB_OIDC_AUDIENCE = "dr-radar-webpush-social"
+GITHUB_REPOSITORY = "ariellourdes52-collab/dr-accesorios-rd-updates"
 ALLOWED_ORIGINS = {
     "https://dr-accesorios-rd.web.app",
     "https://dr-accesorios-rd.firebaseapp.com",
@@ -38,6 +45,8 @@ ALLOWED_ORIGINS = {
 
 _session = requests.Session()
 _stop = threading.Event()
+_firebase_jwks = PyJWKClient(FIREBASE_JWKS_URL)
+_github_jwks = PyJWKClient(GITHUB_OIDC_JWKS_URL)
 
 
 def _b64url_decode(value: str) -> bytes:
@@ -89,6 +98,18 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS metadata (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
+            )
+            """
+        )
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(subscriptions)").fetchall()}
+        if "firebase_uid" not in columns:
+            conn.execute("ALTER TABLE subscriptions ADD COLUMN firebase_uid TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_uid ON subscriptions(firebase_uid)")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS social_events (
+                event_key TEXT PRIMARY KEY,
+                received_at INTEGER NOT NULL
             )
             """
         )
@@ -232,9 +253,48 @@ def blogger_posts() -> list[dict[str, str]]:
     return posts
 
 
-def list_subscriptions() -> list[dict[str, str]]:
+def verify_firebase_id_token(token: str) -> str:
+    signing_key = _firebase_jwks.get_signing_key_from_jwt(token)
+    claims = jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256"],
+        audience=FIREBASE_PROJECT_ID,
+        issuer=f"https://securetoken.google.com/{FIREBASE_PROJECT_ID}",
+        options={"require": ["exp", "iat", "sub", "aud", "iss"]},
+    )
+    uid = str(claims.get("sub") or "").strip()
+    if not uid or len(uid) > 128:
+        raise ValueError("Firebase UID inválido.")
+    return uid
+
+
+def verify_github_oidc(token: str) -> dict[str, Any]:
+    signing_key = _github_jwks.get_signing_key_from_jwt(token)
+    claims = jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256"],
+        audience=GITHUB_OIDC_AUDIENCE,
+        issuer="https://token.actions.githubusercontent.com",
+        options={"require": ["exp", "iat", "sub", "aud", "iss"]},
+    )
+    if claims.get("repository") != GITHUB_REPOSITORY:
+        raise ValueError("Repositorio OIDC no autorizado.")
+    if claims.get("ref") != "refs/heads/main":
+        raise ValueError("Ref OIDC no autorizado.")
+    return claims
+
+
+def list_subscriptions(firebase_uid: str | None = None) -> list[dict[str, str]]:
     with closing(db()) as conn:
-        rows = conn.execute("SELECT endpoint,p256dh,auth FROM subscriptions").fetchall()
+        if firebase_uid:
+            rows = conn.execute(
+                "SELECT endpoint,p256dh,auth FROM subscriptions WHERE firebase_uid=?",
+                (firebase_uid,),
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT endpoint,p256dh,auth FROM subscriptions").fetchall()
         return [dict(row) for row in rows]
 
 
@@ -258,11 +318,11 @@ def push_payload(alert: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def send_payload(payload_data: dict[str, Any]) -> tuple[int, int]:
+def send_payload(payload_data: dict[str, Any], firebase_uid: str | None = None) -> tuple[int, int]:
     sent = 0
     removed = 0
     payload = json.dumps(payload_data, ensure_ascii=False)
-    for sub in list_subscriptions():
+    for sub in list_subscriptions(firebase_uid):
         info = {
             "endpoint": sub["endpoint"],
             "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]},
@@ -301,6 +361,53 @@ def post_payload(post: dict[str, str]) -> dict[str, str]:
         "tag": ("dr-post-" + post_id)[-180:],
         "category": "post",
     }
+
+
+def social_payload(event: dict[str, Any]) -> dict[str, str]:
+    event_type = str(event.get("type") or "").upper()
+    actor = str(event.get("actorName") or event.get("actorUserName") or "Alguien").strip()
+    article_title = str(event.get("articleTitle") or "").strip()
+    article_url = str(event.get("articleUrl") or "https://draccesoriosrd.blogspot.com/").strip()
+
+    if "REPLY" in event_type:
+        title = "💬 Te respondieron"
+        body = f"{actor} respondió a tu comentario"
+    elif "LIKE" in event_type:
+        title = "❤️ Nueva reacción"
+        body = f"{actor} indicó que le gusta tu comentario"
+    elif "COMMENT" in event_type:
+        title = "💬 Nueva conversación"
+        body = f"{actor} comentó en una conversación que sigues"
+    else:
+        title = "🔔 Nueva actividad social"
+        body = str(event.get("body") or "Tienes nueva actividad en DR Accesorios RD").strip()
+
+    if article_title:
+        body = f"{body} · {article_title}"
+
+    event_key = str(event.get("eventKey") or event.get("eventId") or "")
+    return {
+        "title": title,
+        "body": body[:220],
+        "url": article_url,
+        "tag": ("dr-social-" + event_key)[-180:],
+        "category": "social",
+    }
+
+
+def social_event_seen(event_key: str) -> bool:
+    with closing(db()) as conn:
+        row = conn.execute("SELECT 1 FROM social_events WHERE event_key=?", (event_key,)).fetchone()
+        return row is not None
+
+
+def mark_social_event(event_key: str) -> None:
+    with closing(db()) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO social_events(event_key,received_at) VALUES(?,?)",
+            (event_key, int(time.time())),
+        )
+        conn.commit()
 
 
 def monitor_loop() -> None:
@@ -385,12 +492,17 @@ def cors_headers(response):
 def health():
     with closing(db()) as conn:
         count = conn.execute("SELECT COUNT(*) AS n FROM subscriptions").fetchone()["n"]
+        linked = conn.execute(
+            "SELECT COUNT(*) AS n FROM subscriptions WHERE firebase_uid IS NOT NULL AND firebase_uid != ''"
+        ).fetchone()["n"]
     return jsonify(
         ok=True,
         subscriptions=count,
+        socialLinkedSubscriptions=linked,
         lastPollOk=get_meta("last_poll_ok"),
         lastRadarPollOk=get_meta("last_radar_poll_ok"),
         lastBlogPollOk=get_meta("last_blog_poll_ok"),
+        lastSocialDispatchAt=get_meta("last_social_dispatch_at"),
         pollSeconds=POLL_SECONDS,
         blogFeed=BLOG_FEED_URL,
     )
@@ -414,6 +526,14 @@ def subscribe():
     keys = data.get("keys") or {}
     p256dh = str(keys.get("p256dh") or "").strip()
     auth = str(keys.get("auth") or "").strip()
+    id_token = str(data.get("idToken") or "").strip()
+    firebase_uid = None
+    if id_token:
+        try:
+            firebase_uid = verify_firebase_id_token(id_token)
+        except Exception as exc:
+            print(f"[webpush] invalid Firebase token: {exc}", flush=True)
+            return jsonify(ok=False, error="Token de Firebase inválido."), 401
 
     if not endpoint.startswith("https://") or not p256dh or not auth:
         return jsonify(ok=False, error="Suscripción inválida."), 400
@@ -424,18 +544,71 @@ def subscribe():
     with closing(db()) as conn:
         conn.execute(
             """
-            INSERT INTO subscriptions(endpoint,p256dh,auth,created_at,last_seen_at)
-            VALUES(?,?,?,?,?)
+            INSERT INTO subscriptions(endpoint,p256dh,auth,created_at,last_seen_at,firebase_uid)
+            VALUES(?,?,?,?,?,?)
             ON CONFLICT(endpoint) DO UPDATE SET
               p256dh=excluded.p256dh,
               auth=excluded.auth,
-              last_seen_at=excluded.last_seen_at
+              last_seen_at=excluded.last_seen_at,
+              firebase_uid=COALESCE(excluded.firebase_uid, subscriptions.firebase_uid)
             """,
-            (endpoint, p256dh, auth, now, now),
+            (endpoint, p256dh, auth, now, now, firebase_uid),
         )
         conn.commit()
 
     return jsonify(ok=True)
+
+
+@app.route("/dispatch-social", methods=["POST"])
+def dispatch_social():
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify(ok=False, error="No autorizado."), 401
+    token = auth_header.split(" ", 1)[1].strip()
+    try:
+        verify_github_oidc(token)
+    except Exception as exc:
+        print(f"[webpush] invalid GitHub OIDC: {exc}", flush=True)
+        return jsonify(ok=False, error="OIDC inválido."), 401
+
+    payload = request.get_json(silent=True) or {}
+    events = payload.get("events") or []
+    if not isinstance(events, list) or len(events) > 300:
+        return jsonify(ok=False, error="Lote social inválido."), 400
+
+    baseline = get_meta("social_baseline_initialized") != "1"
+    sent_total = 0
+    removed_total = 0
+    processed = 0
+
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        event_type = str(event.get("type") or "").upper()
+        if "UNLIKE" in event_type:
+            continue
+        recipient_uid = str(event.get("recipientUid") or "").strip()
+        event_key = str(event.get("eventKey") or event.get("eventId") or "").strip()
+        if not recipient_uid or not event_key or social_event_seen(event_key):
+            continue
+
+        if not baseline:
+            sent, removed = send_payload(social_payload(event), recipient_uid)
+            sent_total += sent
+            removed_total += removed
+        mark_social_event(event_key)
+        processed += 1
+
+    if baseline:
+        set_meta("social_baseline_initialized", "1")
+    set_meta("last_social_dispatch_at", str(int(time.time())))
+    return jsonify(
+        ok=True,
+        baseline=baseline,
+        processed=processed,
+        sent=sent_total,
+        removed=removed_total,
+    )
 
 
 @app.route("/unsubscribe", methods=["POST", "DELETE"])

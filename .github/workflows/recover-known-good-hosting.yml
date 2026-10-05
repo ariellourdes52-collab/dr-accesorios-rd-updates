@@ -29,12 +29,13 @@ jobs:
       - name: Install recovery dependencies
         run: python -m pip install --disable-pip-version-check --quiet google-auth requests
 
-      - name: Restore verified Hosting release
+      - name: Clone and restore verified Hosting release
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
         shell: bash
         run: |
           python - <<'PY'
+          import copy
           import json
           import os
           import time
@@ -59,30 +60,42 @@ jobs:
 
           def api(method, path, **kwargs):
               response = session.request(method, BASE + path, timeout=60, **kwargs)
-              response.raise_for_status()
+              if not response.ok:
+                  raise RuntimeError(
+                      f"Firebase API {method} {path} HTTP {response.status_code}: "
+                      + response.text[:1500]
+                  )
               return response.json() if response.content else {}
 
-          source = api("GET", SOURCE_RELEASE)
-          version = source.get("version") or {}
-          version_name = str(version.get("name") or "")
-          if not version_name:
-              raise RuntimeError("El release conocido no contiene versionName.")
+          def list_files(version_name):
+              result = {}
+              token = None
+              while True:
+                  params = {"pageSize": 1000, "status": "ACTIVE"}
+                  if token:
+                      params["pageToken"] = token
+                  page = api("GET", version_name + "/files", params=params)
+                  for item in page.get("files", []):
+                      path = str(item["path"])
+                      if path in result:
+                          raise RuntimeError("Ruta duplicada: " + path)
+                      result[path] = str(item["hash"])
+                  token = page.get("nextPageToken")
+                  if not token:
+                      return result
 
-          files = {}
-          token = None
-          while True:
-              params = {"pageSize": 1000, "status": "ACTIVE"}
-              if token:
-                  params["pageToken"] = token
-              page = api("GET", version_name + "/files", params=params)
-              for item in page.get("files", []):
-                  files[str(item["path"])] = str(item["hash"])
-              token = page.get("nextPageToken")
-              if not token:
-                  break
+          source_release = api("GET", SOURCE_RELEASE)
+          source_version_obj = source_release.get("version") or {}
+          source_version_name = str(source_version_obj.get("name") or "")
+          if not source_version_name:
+              raise RuntimeError("El release fuente no contiene versionName.")
+
+          source_version = api("GET", source_version_name)
+          source_files = list_files(source_version_name)
 
           required = [
               "/radar-widget/index.html",
+              "/radar-widget/sw.js",
               "/radar-alertas/index.html",
               "/radar-alertas/sw.js",
               "/radar-alertas/manifest.webmanifest",
@@ -90,28 +103,67 @@ jobs:
               "/radar.json",
               "/descargar/index.html",
           ]
-          missing = [p for p in required if p not in files]
+          missing = [p for p in required if p not in source_files]
           if missing:
               raise RuntimeError(
-                  "ABORTADO: el release conocido carece de rutas críticas: "
+                  "ABORTADO: el release bueno carece de rutas críticas: "
                   + " | ".join(missing)
               )
 
-          print("Release fuente:", SOURCE_RELEASE)
-          print("Versión fuente:", version_name)
-          print("Archivos preservados:", len(files))
+          if len(source_files) < 20:
+              raise RuntimeError(
+                  f"ABORTADO: inventario fuente sospechosamente pequeño ({len(source_files)})."
+              )
+
+          config = copy.deepcopy(source_version.get("config", {}))
+          created = api("POST", SITE + "/versions", json={"config": config})
+          new_version_name = (
+              SITE + "/versions/" + str(created["name"]).rsplit("/", 1)[1]
+          )
+
+          items = list(source_files.items())
+          for offset in range(0, len(items), 1000):
+              batch = api(
+                  "POST",
+                  new_version_name + ":populateFiles",
+                  json={"files": dict(items[offset:offset + 1000])},
+              )
+              required_hashes = list(batch.get("uploadRequiredHashes", []))
+              if required_hashes:
+                  raise RuntimeError(
+                      "ABORTADO antes de publicar: Firebase pidió re-subir "
+                      f"{len(required_hashes)} blob(s) de la versión histórica."
+                  )
+
+          cloned_files = list_files(new_version_name)
+          if cloned_files != source_files:
+              raise RuntimeError(
+                  "ABORTADO: el inventario clonado no coincide con el release bueno."
+              )
+
+          api(
+              "PATCH",
+              new_version_name,
+              params={"updateMask": "status"},
+              json={"status": "FINALIZED"},
+          )
 
           restored = api(
               "POST",
               SITE + "/releases",
-              params={"versionName": version_name},
+              params={"versionName": new_version_name},
               json={
                   "message":
-                      "RECOVERY: restore verified Hosting release "
+                      "RECOVERY: clone verified Hosting release "
                       "1791240948084000 after accidental global deploy"
               },
           )
-          print("Nuevo release activo:", restored.get("name", ""))
+
+          print("Release fuente:", SOURCE_RELEASE)
+          print("Versión fuente:", source_version_name)
+          print("Archivos clonados:", len(source_files))
+          print("Nueva versión:", new_version_name)
+          print("Nuevo release:", restored.get("name", ""))
 
           checks = [
               ("/radar-widget/index.html", "DR_RADAR_BLOGGER_WIDGET_V1"),
@@ -139,12 +191,12 @@ jobs:
 
               if not ok:
                   raise RuntimeError(
-                      f"Verificación falló para {route}: HTTP {last_status}"
+                      f"Verificación post-recovery falló para {route}: HTTP {last_status}"
                   )
               print("OK:", route)
 
-          print("✅ Firebase Hosting restaurado al release verificado.")
-          print("✅ DR Radar Blogger widget restaurado.")
+          print("✅ Hosting completo restaurado desde el release verificado.")
+          print("✅ Radar Blogger restaurado.")
           print("✅ DR Audio index restaurado.")
           print("✅ radar.json y /descargar/ restaurados.")
           PY

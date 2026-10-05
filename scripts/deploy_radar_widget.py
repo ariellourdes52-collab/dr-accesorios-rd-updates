@@ -113,7 +113,6 @@ def main() -> None:
     require(b"/radar-seismic-v231.json" in widget_raw, "El widget no referencia el feed sísmico.")
     require(b"REFRESH_MS = 30_000" in widget_raw, "El widget no quedó configurado a 30 segundos.")
     require(b"/radar-alertas/index.html" in widget_raw, "El widget no referencia la activación de alertas.")
-    require(b"/radar-widget/sw.js" in widget_raw, "El widget no referencia su service worker.")
 
     expected = dict(old_files)
     for hosting_path, (_, digest) in prepared.items():

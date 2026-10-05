@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Activar alertas · DR Radar</title>
+  <!-- DR_RADAR_BROWSER_ALERTS_V1 -->
+  <style>
+    :root{--brand:#DA135E;--bg:#f6f6f8;--card:#fff;--text:#17171a;--muted:#696971;--border:rgba(23,23,26,.10);--ok:#16854b}
+    @media(prefers-color-scheme:dark){:root{--bg:#111114;--card:#19191e;--text:#f5f5f7;--muted:#b2b2ba;--border:rgba(255,255,255,.11)}}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;padding:22px}
+    .card{max-width:560px;margin:6vh auto;background:var(--card);border:1px solid var(--border);border-radius:22px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.10)}
+    .head{padding:18px 20px;background:linear-gradient(135deg,var(--brand),#b90f4e);color:#fff;font-weight:800;font-size:20px}
+    .body{padding:22px}.lead{font-size:16px;font-weight:700;margin:0 0 9px}.copy{font-size:14px;line-height:1.5;color:var(--muted);margin:0 0 18px}
+    button{width:100%;border:0;border-radius:14px;background:var(--brand);color:#fff;padding:13px 16px;font-size:15px;font-weight:800;cursor:pointer}
+    button:disabled{opacity:.55;cursor:not-allowed}.status{margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:12px;font-size:13px;line-height:1.45}
+    .ok{color:var(--ok);font-weight:700}.small{font-size:11px;line-height:1.45;color:var(--muted);margin:14px 0 0}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="head">📡 DR Radar · Alertas del navegador</div>
+    <div class="body">
+      <p class="lead">Activa los avisos de nuevas alertas</p>
+      <p class="copy">El permiso se solicita aquí porque los navegadores no permiten pedirlo directamente desde el widget integrado en Blogger.</p>
+      <button id="activate" type="button">🔔 Activar notificaciones</button>
+      <div class="status" id="status">Estado: pendiente de autorización.</div>
+      <p class="small">Después de autorizar, vuelve a DR Accesorios RD. El widget revisa DR Radar cada 30 segundos y puede mostrar una notificación del sistema cuando detecta una alerta nueva mientras el blog permanezca abierto en alguna pestaña.</p>
+    </div>
+  </main>
+  <script>
+    (function(){
+      var button=document.getElementById('activate');
+      var status=document.getElementById('status');
+
+      function render(){
+        if(!('Notification' in window)){
+          button.disabled=true;
+          status.textContent='Este navegador no admite la API de notificaciones.';
+          return;
+        }
+        if(Notification.permission==='granted'){
+          button.textContent='✅ Notificaciones activadas';
+          button.disabled=true;
+          status.innerHTML='<span class="ok">Permiso concedido.</span> Ya puedes cerrar esta pestaña y volver al blog.';
+        }else if(Notification.permission==='denied'){
+          button.textContent='🔕 Notificaciones bloqueadas';
+          button.disabled=true;
+          status.textContent='El navegador tiene las notificaciones bloqueadas para este sitio. Debes habilitarlas desde la configuración/permisos del sitio.';
+        }else{
+          button.textContent='🔔 Activar notificaciones';
+          button.disabled=false;
+          status.textContent='Estado: pendiente de autorización.';
+        }
+      }
+
+      button.addEventListener('click', async function(){
+        if(!('Notification' in window)) return;
+        button.disabled=true;
+        try{
+          await Notification.requestPermission();
+        }catch(e){}
+        render();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

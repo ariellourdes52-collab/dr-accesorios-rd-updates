@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy only /radar-widget/index.html while preserving every live Hosting file."""
+"""Deploy DR Radar Blogger web assets while preserving every live Hosting file."""
 from __future__ import annotations
 
 import copy
@@ -17,9 +17,13 @@ from google.oauth2 import service_account
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
-WIDGET_PATH = "/radar-widget/index.html"
-WIDGET_SOURCE = Path("landing/radar-widget/index.html")
-WIDGET_MARKER = b"DR_RADAR_BLOGGER_WIDGET_V1"
+
+ASSETS = {
+    "/radar-widget/index.html": (Path("landing/radar-widget/index.html"), b"DR_RADAR_BLOGGER_WIDGET_V1"),
+    "/radar-widget/sw.js": (Path("landing/radar-alertas/sw.js"), b"DR_RADAR_WIDGET_SW_V1"),
+    "/radar-alertas/index.html": (Path("landing/radar-alertas/index.html"), b"DR_RADAR_BROWSER_ALERTS_V1"),
+}
+
 CRITICAL_PATHS = (
     "/radar.json",
     "/descargar/index.html",
@@ -35,7 +39,9 @@ def require(condition: bool, message: str) -> None:
 def main() -> None:
     secret = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
     require(secret, "FIREBASE_SERVICE_ACCOUNT no está configurado.")
-    require(WIDGET_SOURCE.exists(), f"No existe {WIDGET_SOURCE}.")
+
+    for _, (source, _) in ASSETS.items():
+        require(source.exists(), f"No existe {source}.")
 
     credentials = service_account.Credentials.from_service_account_info(
         json.loads(secret),
@@ -89,33 +95,52 @@ def main() -> None:
         )
         require(response.ok, f"ABORTADO: {route} no responde (HTTP {response.status_code}).")
 
-    html = WIDGET_SOURCE.read_bytes()
-    require(WIDGET_MARKER in html, "Falta el marcador del widget DR Radar.")
-    require(b"/radar.json" in html, "El widget no referencia radar.json.")
-    require(b"/radar-seismic-v231.json" in html, "El widget no referencia el feed sísmico.")
+    prepared: dict[str, tuple[bytes, str]] = {}
+    digest_to_body: dict[str, bytes] = {}
 
-    body = gzip.compress(html, mtime=0)
-    digest = hashlib.sha256(body).hexdigest()
+    for hosting_path, (source, marker) in ASSETS.items():
+        raw = source.read_bytes()
+        require(marker in raw, f"Falta marcador requerido en {source}.")
+        body = gzip.compress(raw, mtime=0)
+        digest = hashlib.sha256(body).hexdigest()
+        prepared[hosting_path] = (body, digest)
+        digest_to_body[digest] = body
+
+    widget_raw = ASSETS["/radar-widget/index.html"][0].read_bytes()
+    require(b"/radar.json" in widget_raw, "El widget no referencia radar.json.")
+    require(b"/radar-seismic-v231.json" in widget_raw, "El widget no referencia el feed sísmico.")
+    require(b"REFRESH_MS = 30_000" in widget_raw, "El widget no quedó configurado a 30 segundos.")
+    require(b"/radar-alertas/index.html" in widget_raw, "El widget no referencia la activación de alertas.")
+    require(b"/radar-widget/sw.js" in widget_raw, "El widget no referencia su service worker.")
 
     expected = dict(old_files)
-    expected[WIDGET_PATH] = digest
+    for hosting_path, (_, digest) in prepared.items():
+        expected[hosting_path] = digest
 
     config = copy.deepcopy(old.get("config", {}))
     headers = config.setdefault("headers", [])
-    widget_header = next(
-        (item for item in reversed(headers) if item.get("glob") == "/radar-widget/**"),
-        None,
-    )
-    if widget_header is None:
-        widget_header = {"glob": "/radar-widget/**", "headers": {}}
-        headers.append(widget_header)
-    widget_header.setdefault("headers", {})["Cache-Control"] = "public, max-age=300"
-    widget_header["headers"]["X-Content-Type-Options"] = "nosniff"
+
+    def set_headers(glob: str, values: dict[str, str]) -> None:
+        item = next((x for x in reversed(headers) if x.get("glob") == glob), None)
+        if item is None:
+            item = {"glob": glob, "headers": {}}
+            headers.append(item)
+        item.setdefault("headers", {}).update(values)
+
+    set_headers("/radar-widget/**", {
+        "Cache-Control": "no-cache",
+        "X-Content-Type-Options": "nosniff",
+    })
+    set_headers("/radar-alertas/**", {
+        "Cache-Control": "no-cache",
+        "X-Content-Type-Options": "nosniff",
+    })
 
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
     items = list(expected.items())
-    uploaded = False
+    uploaded: set[str] = set()
+    allowed_hashes = set(digest_to_body)
 
     for offset in range(0, len(items), 1000):
         batch = api(
@@ -125,18 +150,20 @@ def main() -> None:
         )
         required_hashes = set(batch.get("uploadRequiredHashes", []))
         require(
-            required_hashes <= {digest},
+            required_hashes <= allowed_hashes,
             "Firebase pidió volver a subir un archivo preservado; se aborta.",
         )
-        if digest in required_hashes and not uploaded:
+        for digest in required_hashes:
+            if digest in uploaded:
+                continue
             upload = session.post(
                 batch["uploadUrl"] + "/" + digest,
-                data=body,
+                data=digest_to_body[digest],
                 headers={"Content-Type": "application/octet-stream"},
                 timeout=60,
             )
             upload.raise_for_status()
-            uploaded = True
+            uploaded.add(digest)
 
     require(files(new_version) == expected, "El inventario nuevo no coincide con el preservado.")
     api("PATCH", new_version, params={"updateMask": "status"}, json={"status": "FINALIZED"})
@@ -149,25 +176,31 @@ def main() -> None:
         "POST",
         SITE + "/releases",
         params={"versionName": new_version},
-        json={"message": "DR Radar Blogger widget; preserve all live Hosting files"},
+        json={"message": "DR Radar Blogger widget + browser alerts; preserve all live Hosting files"},
     )
     print("Hosting release:", release.get("name", ""), flush=True)
     require(active()[1] == new_version, "La nueva versión de Hosting no quedó activa.")
     require(files(new_version) == expected, "El inventario publicado no coincide.")
 
-    verified = False
-    for _ in range(18):
-        response = requests.get(
-            PUBLIC_BASE + "/radar-widget/",
-            params={"verify": time.time_ns()},
-            headers={"Cache-Control": "no-cache"},
-            timeout=30,
-        )
-        if response.ok and "DR_RADAR_BLOGGER_WIDGET_V1" in response.text:
-            verified = True
-            break
-        time.sleep(5)
-    require(verified, "El widget no pudo verificarse después del deploy.")
+    checks = (
+        ("/radar-widget/index.html", "DR_RADAR_BLOGGER_WIDGET_V1"),
+        ("/radar-widget/sw.js", "DR_RADAR_WIDGET_SW_V1"),
+        ("/radar-alertas/index.html", "DR_RADAR_BROWSER_ALERTS_V1"),
+    )
+    for route, marker in checks:
+        verified = False
+        for _ in range(18):
+            response = requests.get(
+                PUBLIC_BASE + route,
+                params={"verify": time.time_ns()},
+                headers={"Cache-Control": "no-cache"},
+                timeout=30,
+            )
+            if response.ok and marker in response.text:
+                verified = True
+                break
+            time.sleep(5)
+        require(verified, f"No pudo verificarse {route} después del deploy.")
 
     for route in ("/radar.json", "/descargar/", "/dr-audio/index.json"):
         response = requests.get(
@@ -178,7 +211,9 @@ def main() -> None:
         )
         require(response.ok, f"ALERTA: {route} no sobrevivió al deploy.")
 
-    print("✅ /radar-widget/ publicado.")
+    print("✅ /radar-widget/index.html publicado a 30 s.")
+    print("✅ /radar-widget/sw.js publicado.")
+    print("✅ /radar-alertas/index.html publicado.")
     print("✅ radar.json preservado.")
     print("✅ /descargar/ preservado.")
     print("✅ DR Audio preservado.")

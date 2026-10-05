@@ -72,8 +72,8 @@ def main():
 
     # Short YouTube route: keep the public URL clean (/yt) while setting
     # GA4 campaign attribution before Analytics initializes in the browser.
-    ga4_marker = b"  <!-- Google Analytics 4 Â· DR Accesorios RD -->"
-    ga4_prelude = b"""  <script>
+    ga4_marker = "  <!-- Google Analytics 4 · DR Accesorios RD -->".encode("utf-8")
+    ga4_prelude = """  <script>
     (function () {
       const p = new URLSearchParams(window.location.search);
       if (!p.has('utm_source')) {
@@ -84,7 +84,7 @@ def main():
       }
     })();
   </script>
-  <!-- Google Analytics 4 Â· DR Accesorios RD -->"""
+  <!-- Google Analytics 4 · DR Accesorios RD -->""".encode("utf-8")
     require(ga4_marker in html, "GA4 marker missing")
     yt_html = html.replace(ga4_marker, ga4_prelude, 1)
     require(yt_html != html, "YouTube landing attribution injection failed")

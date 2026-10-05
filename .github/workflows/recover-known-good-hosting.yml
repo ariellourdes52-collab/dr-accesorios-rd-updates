@@ -1,0 +1,150 @@
+name: Recover known-good Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/recover-known-good-hosting.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-firebase-hosting-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install recovery dependencies
+        run: python -m pip install --disable-pip-version-check --quiet google-auth requests
+
+      - name: Restore verified Hosting release
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import requests
+          from google.auth.transport.requests import AuthorizedSession
+          from google.oauth2 import service_account
+
+          SITE = "sites/dr-accesorios-rd"
+          BASE = "https://firebasehosting.googleapis.com/v1beta1/"
+          PUBLIC = "https://dr-accesorios-rd.web.app"
+          SOURCE_RELEASE = SITE + "/releases/1791240948084000"
+
+          raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
+          if not raw:
+              raise RuntimeError("FIREBASE_SERVICE_ACCOUNT no está configurado.")
+
+          credentials = service_account.Credentials.from_service_account_info(
+              json.loads(raw),
+              scopes=["https://www.googleapis.com/auth/firebase.hosting"],
+          )
+          session = AuthorizedSession(credentials)
+
+          def api(method, path, **kwargs):
+              response = session.request(method, BASE + path, timeout=60, **kwargs)
+              response.raise_for_status()
+              return response.json() if response.content else {}
+
+          source = api("GET", SOURCE_RELEASE)
+          version = source.get("version") or {}
+          version_name = str(version.get("name") or "")
+          if not version_name:
+              raise RuntimeError("El release conocido no contiene versionName.")
+
+          files = {}
+          token = None
+          while True:
+              params = {"pageSize": 1000, "status": "ACTIVE"}
+              if token:
+                  params["pageToken"] = token
+              page = api("GET", version_name + "/files", params=params)
+              for item in page.get("files", []):
+                  files[str(item["path"])] = str(item["hash"])
+              token = page.get("nextPageToken")
+              if not token:
+                  break
+
+          required = [
+              "/radar-widget/index.html",
+              "/radar-alertas/index.html",
+              "/radar-alertas/sw.js",
+              "/radar-alertas/manifest.webmanifest",
+              "/dr-audio/index.json",
+              "/radar.json",
+              "/descargar/index.html",
+          ]
+          missing = [p for p in required if p not in files]
+          if missing:
+              raise RuntimeError(
+                  "ABORTADO: el release conocido carece de rutas críticas: "
+                  + " | ".join(missing)
+              )
+
+          print("Release fuente:", SOURCE_RELEASE)
+          print("Versión fuente:", version_name)
+          print("Archivos preservados:", len(files))
+
+          restored = api(
+              "POST",
+              SITE + "/releases",
+              params={"versionName": version_name},
+              json={
+                  "message":
+                      "RECOVERY: restore verified Hosting release "
+                      "1791240948084000 after accidental global deploy"
+              },
+          )
+          print("Nuevo release activo:", restored.get("name", ""))
+
+          checks = [
+              ("/radar-widget/index.html", "DR_RADAR_BLOGGER_WIDGET_V1"),
+              ("/radar-alertas/index.html", "DR_RADAR_BROWSER_ALERTS_V2"),
+              ("/dr-audio/index.json", None),
+              ("/radar.json", None),
+              ("/descargar/", None),
+          ]
+
+          for route, marker in checks:
+              ok = False
+              last_status = None
+              for _ in range(18):
+                  response = requests.get(
+                      PUBLIC + route,
+                      params={"recovery_verify": time.time_ns()},
+                      headers={"Cache-Control": "no-cache"},
+                      timeout=30,
+                  )
+                  last_status = response.status_code
+                  if response.ok and (marker is None or marker in response.text):
+                      ok = True
+                      break
+                  time.sleep(5)
+
+              if not ok:
+                  raise RuntimeError(
+                      f"Verificación falló para {route}: HTTP {last_status}"
+                  )
+              print("OK:", route)
+
+          print("✅ Firebase Hosting restaurado al release verificado.")
+          print("✅ DR Radar Blogger widget restaurado.")
+          print("✅ DR Audio index restaurado.")
+          print("✅ radar.json y /descargar/ restaurados.")
+          PY

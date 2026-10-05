@@ -2,7 +2,9 @@
 """Deploy DR Radar Blogger web assets while preserving every live Hosting file."""
 from __future__ import annotations
 
+import base64
 import copy
+import io
 import gzip
 import hashlib
 import json
@@ -13,6 +15,7 @@ from pathlib import Path
 import requests
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
+from PIL import Image
 
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
@@ -31,6 +34,31 @@ CRITICAL_PATHS = (
     "/descargar/index.html",
     "/dr-audio/index.json",
 )
+
+ICON_SOURCE_PARTS = tuple(
+    Path(f"landing/radar-alertas/icon-source/icon96.b64.{index:02d}")
+    for index in range(1, 12)
+)
+
+
+def build_icon_assets() -> dict[str, bytes]:
+    for part in ICON_SOURCE_PARTS:
+        require(part.exists(), f"No existe la parte del logo oficial: {part}.")
+    encoded = "".join(part.read_text(encoding="utf-8").strip() for part in ICON_SOURCE_PARTS)
+    try:
+        source_bytes = base64.b64decode(encoded, validate=True)
+        source = Image.open(io.BytesIO(source_bytes)).convert("RGBA")
+    except Exception as exc:
+        raise RuntimeError(f"No se pudo reconstruir el logo oficial: {exc}") from exc
+
+    require(source.size == (96, 96), f"Logo fuente inesperado: {source.size}.")
+    assets: dict[str, bytes] = {}
+    for size in (180, 192, 512):
+        output = io.BytesIO()
+        resized = source.resize((size, size), Image.Resampling.LANCZOS)
+        resized.save(output, format="PNG", optimize=True)
+        assets[f"/radar-alertas/icon-{size}.png"] = output.getvalue()
+    return assets
 
 
 def require(condition: bool, message: str) -> None:
@@ -103,6 +131,13 @@ def main() -> None:
     for hosting_path, (source, marker) in ASSETS.items():
         raw = source.read_bytes()
         require(marker in raw, f"Falta marcador requerido en {source}.")
+        body = gzip.compress(raw, mtime=0)
+        digest = hashlib.sha256(body).hexdigest()
+        prepared[hosting_path] = (body, digest)
+        digest_to_body[digest] = body
+
+    for hosting_path, raw in build_icon_assets().items():
+        require(raw.startswith(b"\x89PNG\r\n\x1a\n"), f"Icono PNG inválido: {hosting_path}")
         body = gzip.compress(raw, mtime=0)
         digest = hashlib.sha256(body).hexdigest()
         prepared[hosting_path] = (body, digest)
@@ -205,6 +240,18 @@ def main() -> None:
             time.sleep(5)
         require(verified, f"No pudo verificarse {route} después del deploy.")
 
+    for route in ("/radar-alertas/icon-180.png", "/radar-alertas/icon-192.png", "/radar-alertas/icon-512.png"):
+        response = requests.get(
+            PUBLIC_BASE + route,
+            params={"verify": time.time_ns()},
+            headers={"Cache-Control": "no-cache"},
+            timeout=30,
+        )
+        require(
+            response.ok and response.content.startswith(b"\x89PNG\r\n\x1a\n"),
+            f"No pudo verificarse el icono oficial {route}.",
+        )
+
     for route in ("/radar.json", "/descargar/", "/dr-audio/index.json"):
         response = requests.get(
             PUBLIC_BASE + route,
@@ -219,6 +266,7 @@ def main() -> None:
     print("✅ /radar-alertas/index.html publicado.")
     print("✅ /radar-alertas/sw.js publicado.")
     print("✅ /radar-alertas/manifest.webmanifest publicado.")
+    print("✅ Logo oficial PWA 180/192/512 publicado.")
     print("✅ radar.json preservado.")
     print("✅ /descargar/ preservado.")
     print("✅ DR Audio preservado.")

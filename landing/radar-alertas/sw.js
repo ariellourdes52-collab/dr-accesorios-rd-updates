@@ -18,6 +18,7 @@ self.addEventListener('push', function(event) {
   var title = data.title || 'DR Radar';
   var options = {
     body: data.body || 'Hay una nueva alerta activa en DR Radar.',
+    icon: '/radar-alertas/icon-192.png',
     tag: data.tag || 'dr-radar-alert',
     renotify: false,
     data: {url: data.url || 'https://draccesoriosrd.blogspot.com/'}

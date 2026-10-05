@@ -22,6 +22,10 @@ PORT = int(os.environ.get("PORT", "8080"))
 DB_PATH = Path(os.environ.get("DB_PATH", "/data/webpush.db"))
 RADAR_URL = os.environ.get("RADAR_URL", "https://dr-accesorios-rd.web.app/radar.json")
 SEISMIC_URL = os.environ.get("SEISMIC_URL", "https://dr-accesorios-rd.web.app/radar-seismic-v231.json")
+BLOG_FEED_URL = os.environ.get(
+    "BLOG_FEED_URL",
+    "https://draccesoriosrd.blogspot.com/feeds/posts/default?alt=json&max-results=10",
+)
 POLL_SECONDS = max(15, int(os.environ.get("POLL_SECONDS", "30")))
 VAPID_PUBLIC_KEY = os.environ["VAPID_PUBLIC_KEY"].strip()
 VAPID_PRIVATE_KEY_B64 = os.environ["VAPID_PRIVATE_KEY"].strip()
@@ -191,6 +195,43 @@ def active_alerts() -> list[dict[str, Any]]:
     return list(deduped.values())
 
 
+def blogger_posts() -> list[dict[str, str]]:
+    response = _session.get(
+        BLOG_FEED_URL,
+        params={"webpush": time.time_ns()},
+        headers={"Cache-Control": "no-cache"},
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    feed = payload.get("feed") or {}
+    entries = feed.get("entry") or []
+    posts: list[dict[str, str]] = []
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        post_id = str((entry.get("id") or {}).get("$t") or "").strip()
+        title = str((entry.get("title") or {}).get("$t") or "Nueva publicación").strip()
+        published = str((entry.get("published") or {}).get("$t") or "").strip()
+        url = ""
+        for link in entry.get("link") or []:
+            if isinstance(link, dict) and link.get("rel") == "alternate":
+                url = str(link.get("href") or "").strip()
+                if url:
+                    break
+        if post_id and url:
+            posts.append(
+                {
+                    "id": post_id,
+                    "title": title,
+                    "published": published,
+                    "url": url,
+                }
+            )
+    return posts
+
+
 def list_subscriptions() -> list[dict[str, str]]:
     with closing(db()) as conn:
         rows = conn.execute("SELECT endpoint,p256dh,auth FROM subscriptions").fetchall()
@@ -217,10 +258,10 @@ def push_payload(alert: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def send_alert(alert: dict[str, Any]) -> tuple[int, int]:
+def send_payload(payload_data: dict[str, Any]) -> tuple[int, int]:
     sent = 0
     removed = 0
-    payload = json.dumps(push_payload(alert), ensure_ascii=False)
+    payload = json.dumps(payload_data, ensure_ascii=False)
     for sub in list_subscriptions():
         info = {
             "endpoint": sub["endpoint"],
@@ -247,16 +288,34 @@ def send_alert(alert: dict[str, Any]) -> tuple[int, int]:
     return sent, removed
 
 
+def send_alert(alert: dict[str, Any]) -> tuple[int, int]:
+    return send_payload(push_payload(alert))
+
+
+def post_payload(post: dict[str, str]) -> dict[str, str]:
+    post_id = post["id"]
+    return {
+        "title": "DR Accesorios RD · Nuevo artículo",
+        "body": post["title"][:220],
+        "url": post["url"],
+        "tag": ("dr-post-" + post_id)[-180:],
+        "category": "post",
+    }
+
+
 def monitor_loop() -> None:
     print(f"[webpush] monitor started every {POLL_SECONDS}s", flush=True)
     while not _stop.is_set():
+        radar_ok = False
+        posts_ok = False
+
         try:
             alerts = active_alerts()
             current_keys = [alert_key(a) for a in alerts if alert_key(a)]
             raw_seen = get_meta("seen_alert_keys")
             if raw_seen is None:
                 set_meta("seen_alert_keys", json.dumps(current_keys))
-                print(f"[webpush] baseline initialized with {len(current_keys)} active alerts", flush=True)
+                print(f"[webpush] radar baseline initialized with {len(current_keys)} active alerts", flush=True)
             else:
                 try:
                     seen = set(json.loads(raw_seen))
@@ -269,12 +328,44 @@ def monitor_loop() -> None:
                         f"[webpush] new alert key={alert_key(alert)!r} sent={sent} removed={removed}",
                         flush=True,
                     )
-                # Keep historical keys to avoid re-notifying an old alert after a restart.
                 merged = list(dict.fromkeys(current_keys + list(seen)))[:500]
                 set_meta("seen_alert_keys", json.dumps(merged))
-            set_meta("last_poll_ok", str(int(time.time())))
+            radar_ok = True
+            set_meta("last_radar_poll_ok", str(int(time.time())))
         except Exception as exc:
-            print(f"[webpush] monitor error: {exc}", flush=True)
+            print(f"[webpush] radar monitor error: {exc}", flush=True)
+
+        try:
+            posts = blogger_posts()
+            current_post_ids = [post["id"] for post in posts]
+            raw_seen_posts = get_meta("seen_post_ids")
+            if raw_seen_posts is None:
+                set_meta("seen_post_ids", json.dumps(current_post_ids))
+                print(f"[webpush] blog baseline initialized with {len(current_post_ids)} posts", flush=True)
+            else:
+                try:
+                    seen_posts = set(json.loads(raw_seen_posts))
+                except Exception:
+                    seen_posts = set()
+
+                fresh_posts = [post for post in reversed(posts) if post["id"] not in seen_posts]
+                for post in fresh_posts:
+                    sent, removed = send_payload(post_payload(post))
+                    print(
+                        f"[webpush] new post id={post['id']!r} sent={sent} removed={removed} title={post['title']!r}",
+                        flush=True,
+                    )
+
+                merged_posts = list(dict.fromkeys(current_post_ids + list(seen_posts)))[:500]
+                set_meta("seen_post_ids", json.dumps(merged_posts))
+            posts_ok = True
+            set_meta("last_blog_poll_ok", str(int(time.time())))
+        except Exception as exc:
+            print(f"[webpush] blog monitor error: {exc}", flush=True)
+
+        if radar_ok or posts_ok:
+            set_meta("last_poll_ok", str(int(time.time())))
+
         _stop.wait(POLL_SECONDS)
 
 
@@ -298,7 +389,10 @@ def health():
         ok=True,
         subscriptions=count,
         lastPollOk=get_meta("last_poll_ok"),
+        lastRadarPollOk=get_meta("last_radar_poll_ok"),
+        lastBlogPollOk=get_meta("last_blog_poll_ok"),
         pollSeconds=POLL_SECONDS,
+        blogFeed=BLOG_FEED_URL,
     )
 
 

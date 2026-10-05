@@ -559,6 +559,30 @@ def subscribe():
     return jsonify(ok=True)
 
 
+@app.route("/social-uids", methods=["GET"])
+def social_uids():
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify(ok=False, error="No autorizado."), 401
+    token = auth_header.split(" ", 1)[1].strip()
+    try:
+        verify_github_oidc(token)
+    except Exception as exc:
+        print(f"[webpush] invalid GitHub OIDC for social-uids: {exc}", flush=True)
+        return jsonify(ok=False, error="OIDC inválido."), 401
+
+    with closing(db()) as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT firebase_uid
+            FROM subscriptions
+            WHERE firebase_uid IS NOT NULL AND firebase_uid != ''
+            ORDER BY firebase_uid
+            """
+        ).fetchall()
+    return jsonify(ok=True, uids=[row["firebase_uid"] for row in rows])
+
+
 @app.route("/dispatch-social", methods=["POST"])
 def dispatch_social():
     auth_header = request.headers.get("Authorization", "")

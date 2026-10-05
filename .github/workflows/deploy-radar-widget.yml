@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'landing/radar-widget/**'
+      - 'landing/radar-alertas/**'
       - 'scripts/deploy_radar_widget.py'
       - '.github/workflows/deploy-radar-widget.yml'
   workflow_dispatch:

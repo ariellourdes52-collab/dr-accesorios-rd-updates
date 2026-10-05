@@ -32,51 +32,57 @@ def main() -> None:
     credentials = service_account.Credentials.from_service_account_info(info)
     client = firestore.Client(project=info["project_id"], credentials=credentials)
 
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=20)
-    query = (
-        client.collection_group("events")
-        .where(filter=FieldFilter("createdAt", ">=", cutoff))
-        .order_by("createdAt")
-        .limit(300)
+    headers = {
+        "Authorization": "Bearer " + OIDC_TOKEN,
+        "Content-Type": "application/json",
+    }
+
+    uids_response = requests.get(
+        BACKEND + "/social-uids",
+        headers=headers,
+        timeout=30,
     )
+    uids_response.raise_for_status()
+    uids = list(uids_response.json().get("uids") or [])
 
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=20)
     events = []
-    for doc in query.stream():
-        data = doc.to_dict() or {}
-        event_type = str(data.get("type") or "").upper()
-        if "UNLIKE" in event_type:
-            continue
 
-        parent_doc = doc.reference.parent.parent
-        if parent_doc is None:
-            continue
-        uid = parent_doc.id
-        if not uid:
-            continue
-
-        events.append(
-            {
-                "recipientUid": uid,
-                "eventId": doc.id,
-                "eventKey": f"{uid}:{doc.id}",
-                "type": data.get("type"),
-                "actorUid": data.get("actorUid"),
-                "actorName": data.get("actorName") or data.get("actorUserName"),
-                "articleUrl": data.get("articleUrl"),
-                "articleTitle": data.get("articleTitle"),
-                "commentId": data.get("commentId"),
-                "replyId": data.get("replyId"),
-                "body": data.get("body"),
-                "createdAt": normalize(data.get("createdAt")),
-            }
+    for uid in uids:
+        query = (
+            client.collection("userNotifications")
+            .document(uid)
+            .collection("events")
+            .where(filter=FieldFilter("createdAt", ">=", cutoff))
+            .order_by("createdAt")
+            .limit(100)
         )
+        for doc in query.stream():
+            data = doc.to_dict() or {}
+            event_type = str(data.get("type") or "").upper()
+            if "UNLIKE" in event_type:
+                continue
+
+            events.append(
+                {
+                    "recipientUid": uid,
+                    "eventId": doc.id,
+                    "eventKey": f"{uid}:{doc.id}",
+                    "type": data.get("type"),
+                    "actorUid": data.get("actorUid"),
+                    "actorName": data.get("actorName") or data.get("actorUserName"),
+                    "articleUrl": data.get("articleUrl"),
+                    "articleTitle": data.get("articleTitle"),
+                    "commentId": data.get("commentId"),
+                    "replyId": data.get("replyId"),
+                    "body": data.get("body"),
+                    "createdAt": normalize(data.get("createdAt")),
+                }
+            )
 
     response = requests.post(
         BACKEND + "/dispatch-social",
-        headers={
-            "Authorization": "Bearer " + OIDC_TOKEN,
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         json={"events": events},
         timeout=45,
     )
@@ -86,6 +92,7 @@ def main() -> None:
         "social_webpush",
         json.dumps(
             {
+                "linkedUsers": len(uids),
                 "eventsRead": len(events),
                 "baseline": result.get("baseline"),
                 "processed": result.get("processed"),

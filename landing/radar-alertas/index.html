@@ -300,6 +300,7 @@
     const socialButton = document.getElementById("socialButton");
     const socialStatus = document.getElementById("socialStatus");
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
     async function linkSocial(user){
       const bridge = window.DR_RADAR_PUSH;
@@ -338,7 +339,7 @@
       }catch(e){
         socialButton.disabled=false;
         socialButton.textContent="Vincular cuenta social";
-        socialStatus.innerHTML="<span class='warn'>Activa primero las alertas 24/7</span> y luego vuelve a conectar tu cuenta Google.";
+        socialStatus.innerHTML="<span class='warn'>No se pudo vincular la cuenta social.</span> Comprueba que las alertas 24/7 estén activas y vuelve a intentarlo.";
       }
     }
 

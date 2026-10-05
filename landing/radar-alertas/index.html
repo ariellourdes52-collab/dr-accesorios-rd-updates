@@ -43,19 +43,25 @@
       <p class="copy">Las alertas se envían mediante Web Push estándar. El sistema de detección de DR Radar continúa separado e independiente.</p>
 
       <div class="box install" id="iosInstall">
-        <strong>📱 iPhone / iPad</strong>
+        <strong>📱 Instalar DR Accesorios RD en iPhone / iPad</strong>
         <ol class="steps">
-          <li>En Safari toca <strong>Compartir</strong>.</li>
+          <li>Abre esta página en <strong>Safari</strong>.</li>
+          <li>Toca <strong>Compartir</strong> ⬆️.</li>
           <li>Elige <strong>Añadir a pantalla de inicio</strong>.</li>
-          <li>Abre DR Radar desde el nuevo icono.</li>
-          <li>Dentro de la app web pulsa <strong>Activar alertas 24/7</strong>.</li>
+          <li>Abre <strong>DR Accesorios RD</strong> desde el nuevo icono.</li>
+          <li>Pulsa <strong>Activar alertas 24/7</strong>.</li>
         </ol>
       </div>
 
       <div class="box install" id="genericInstall">
-        <strong>📲 Instalar DR Accesorios RD</strong>
-        <p class="copy" style="margin:6px 0 0">Puedes instalar esta web como aplicación para tener acceso directo a las alertas.</p>
+        <strong id="installTitle">📲 Instalar DR Accesorios RD</strong>
+        <p class="copy" id="installCopy" style="margin:6px 0 0">Instala esta web app para acceder rápidamente a noticias, DR Radar y comunidad.</p>
         <button class="secondary" id="installButton" type="button">Instalar DR Accesorios RD</button>
+      </div>
+
+      <div class="box install" id="installedApp">
+        <strong>✅ DR Accesorios RD ya está instalada</strong>
+        <p class="copy" style="margin:6px 0 0">Puedes usar el icono instalado para entrar a DR Accesorios RD y recibir tus alertas 24/7.</p>
       </div>
 
       <div class="actions">
@@ -87,12 +93,20 @@
     const status = document.getElementById('status');
     const iosInstall = document.getElementById('iosInstall');
     const genericInstall = document.getElementById('genericInstall');
+    const installedApp = document.getElementById('installedApp');
+    const installTitle = document.getElementById('installTitle');
+    const installCopy = document.getElementById('installCopy');
     const installButton = document.getElementById('installButton');
     let deferredPrompt = null;
     let registration = null;
 
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const ua = navigator.userAgent || '';
+    const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    const isIOS = /iphone|ipad|ipod/i.test(ua) || isIPadOS;
+    const isAndroid = /android/i.test(ua);
+    const isWindows = /windows/i.test(ua);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    let appInstalledNow = isStandalone;
     const settingsMode = new URLSearchParams(location.search).has('settings');
     const HOME_URL = 'https://draccesoriosrd.blogspot.com/';
 
@@ -138,12 +152,38 @@
       return false;
     }
 
-    async function render(){
-      if(isIOS && !isStandalone){
-        iosInstall.classList.add('show');
-      } else {
-        iosInstall.classList.remove('show');
+    function renderInstallUI(){
+      iosInstall.classList.remove('show');
+      genericInstall.classList.remove('show');
+      installedApp.classList.remove('show');
+
+      if(appInstalledNow){
+        installedApp.classList.add('show');
+        return;
       }
+
+      if(isIOS){
+        iosInstall.classList.add('show');
+        return;
+      }
+
+      if(!deferredPrompt) return;
+
+      if(isAndroid){
+        installTitle.textContent='📲 Instalar DR Accesorios RD en Android';
+        installCopy.textContent='Instala la web app para acceder rápidamente a noticias, DR Radar y comunidad.';
+      }else if(isWindows){
+        installTitle.textContent='💻 Instalar DR Accesorios RD en Windows';
+        installCopy.textContent='Instala la web app en tu PC para tener acceso directo a noticias, DR Radar y comunidad.';
+      }else{
+        installTitle.textContent='📲 Instalar DR Accesorios RD';
+        installCopy.textContent='Instala esta web app para acceder rápidamente a noticias, DR Radar y comunidad.';
+      }
+      genericInstall.classList.add('show');
+    }
+
+    async function render(){
+      renderInstallUI();
 
       if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
         button.disabled = true;
@@ -177,9 +217,9 @@
         button.textContent='🔕 Notificaciones bloqueadas';
         setStatus('<span class="warn">El permiso está bloqueado.</span> Habilita las notificaciones desde los permisos del sitio y vuelve a intentarlo.');
       }else if(isIOS && !isStandalone){
-        button.textContent='📲 Añade DR Radar a inicio primero';
+        button.textContent='📲 Añade DR Accesorios RD a inicio primero';
         button.disabled=true;
-        setStatus('En iPhone/iPad, Web Push requiere abrir DR Radar desde la pantalla de inicio.');
+        setStatus('En iPhone/iPad, Web Push requiere abrir DR Accesorios RD desde la pantalla de inicio.');
       }else{
         button.textContent='🔔 Activar alertas 24/7';
         setStatus('Listo para activar Web Push en este dispositivo.');
@@ -245,7 +285,7 @@
     window.addEventListener('beforeinstallprompt', function(event){
       event.preventDefault();
       deferredPrompt=event;
-      if(!isIOS) genericInstall.classList.add('show');
+      renderInstallUI();
     });
 
     installButton.addEventListener('click', async function(){
@@ -253,11 +293,13 @@
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;
       deferredPrompt=null;
-      genericInstall.classList.remove('show');
+      renderInstallUI();
     });
 
     window.addEventListener('appinstalled', function(){
-      genericInstall.classList.remove('show');
+      deferredPrompt=null;
+      appInstalledNow=true;
+      renderInstallUI();
       render();
     });
 

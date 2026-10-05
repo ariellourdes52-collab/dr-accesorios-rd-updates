@@ -133,6 +133,8 @@
       const pathSource =
         path.startsWith('/whatsapp') ? 'whatsapp' :
         path.startsWith('/facebook') ? 'facebook' :
+        path.startsWith('/instagram') ? 'instagram' :
+        path.startsWith('/tiktok') ? 'tiktok' :
         '';
       const source = params.get('utm_source') || pathSource || 'direct';
       document.querySelectorAll('a.download-v24').forEach(function (link) {

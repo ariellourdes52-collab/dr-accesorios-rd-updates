@@ -53,11 +53,28 @@ def build_icon_assets() -> dict[str, bytes]:
 
     require(source.size == (96, 96), f"Logo fuente inesperado: {source.size}.")
     assets: dict[str, bytes] = {}
+    rendered: dict[int, bytes] = {}
+
     for size in (180, 192, 512):
         output = io.BytesIO()
         resized = source.resize((size, size), Image.Resampling.LANCZOS)
         resized.save(output, format="PNG", optimize=True)
-        assets[f"/radar-alertas/icon-{size}.png"] = output.getvalue()
+        rendered[size] = output.getvalue()
+
+        # Legacy routes are preserved so already-installed clients never break.
+        assets[f"/radar-alertas/icon-{size}.png"] = rendered[size]
+
+    # Fresh filenames avoid stale launcher caches.
+    assets["/radar-alertas/apple-touch-icon-180.png"] = rendered[180]
+    assets["/radar-alertas/icon-app-192.png"] = rendered[192]
+    assets["/radar-alertas/icon-app-512.png"] = rendered[512]
+
+    # The exact official logo is also published as a maskable/adaptive icon.
+    # Android can crop it to the launcher shape instead of shrinking the whole
+    # square inside an extra white circle.
+    assets["/radar-alertas/icon-maskable-192.png"] = rendered[192]
+    assets["/radar-alertas/icon-maskable-512.png"] = rendered[512]
+
     return assets
 
 
@@ -240,7 +257,16 @@ def main() -> None:
             time.sleep(5)
         require(verified, f"No pudo verificarse {route} después del deploy.")
 
-    for route in ("/radar-alertas/icon-180.png", "/radar-alertas/icon-192.png", "/radar-alertas/icon-512.png"):
+    for route in (
+        "/radar-alertas/icon-180.png",
+        "/radar-alertas/icon-192.png",
+        "/radar-alertas/icon-512.png",
+        "/radar-alertas/apple-touch-icon-180.png",
+        "/radar-alertas/icon-app-192.png",
+        "/radar-alertas/icon-app-512.png",
+        "/radar-alertas/icon-maskable-192.png",
+        "/radar-alertas/icon-maskable-512.png",
+    ):
         response = requests.get(
             PUBLIC_BASE + route,
             params={"verify": time.time_ns()},
@@ -266,7 +292,7 @@ def main() -> None:
     print("✅ /radar-alertas/index.html publicado.")
     print("✅ /radar-alertas/sw.js publicado.")
     print("✅ /radar-alertas/manifest.webmanifest publicado.")
-    print("✅ Logo oficial PWA 180/192/512 publicado.")
+    print("✅ Logo oficial PWA + iconos adaptativos/maskable publicados.")
     print("✅ radar.json preservado.")
     print("✅ /descargar/ preservado.")
     print("✅ DR Audio preservado.")

@@ -21,6 +21,31 @@
       if(isApple) document.title = 'DR Accesorios RD iOS';
     })();
   </script>
+  <!-- GA4: mide aperturas de la Web App aunque todavía esté en Firebase Hosting -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-NEYZTFR9XK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-NEYZTFR9XK', {
+      send_page_view: true,
+      page_title: document.title,
+      page_location: window.location.href,
+      page_path: window.location.pathname
+    });
+    (function(){
+      const ua = navigator.userAgent || '';
+      const isApple = /iPhone|iPad|iPod|Macintosh|Mac OS X/i.test(ua) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+      gtag('event', 'web_app_open', {
+        app_surface: 'firebase_web_app',
+        launch_mode: standalone ? 'standalone' : 'browser',
+        device_family: isApple ? 'ios' : 'other'
+      });
+    })();
+  </script>
   <script>
     (function(){
       const standalone = window.matchMedia('(display-mode: standalone)').matches ||

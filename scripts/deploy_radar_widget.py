@@ -24,6 +24,7 @@ ASSETS = {
     "/radar-widget/index.html": (Path("landing/radar-widget/index.html"), b"DR_RADAR_BLOGGER_WIDGET_V1"),
     "/radar-widget/sw.js": (Path("landing/radar-alertas/sw.js"), b"DR_RADAR_WEBPUSH_SW_V2"),
     "/radar-alertas/index.html": (Path("landing/radar-alertas/index.html"), b"DR_RADAR_BROWSER_ALERTS_V2"),
+    "/dr-accesorios-rd-ios/index.html": (Path("landing/radar-alertas/index.html"), b"DR_RADAR_BROWSER_ALERTS_V2"),
     "/radar-alertas/sw.js": (Path("landing/radar-alertas/sw.js"), b"DR_RADAR_WEBPUSH_SW_V2"),
     "/radar-alertas/manifest.webmanifest": (Path("landing/radar-alertas/manifest.webmanifest"), b"\"name\": \"DR Accesorios RD iOS\""),
 }
@@ -211,6 +212,10 @@ def main() -> None:
         "Cache-Control": "no-cache",
         "X-Content-Type-Options": "nosniff",
     })
+    set_headers("/dr-accesorios-rd-ios/**", {
+        "Cache-Control": "no-cache",
+        "X-Content-Type-Options": "nosniff",
+    })
 
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
@@ -262,6 +267,7 @@ def main() -> None:
         ("/radar-widget/index.html", "DR_RADAR_BLOGGER_WIDGET_V1"),
         ("/radar-widget/sw.js", "DR_RADAR_WEBPUSH_SW_V2"),
         ("/radar-alertas/index.html", "DR_RADAR_BROWSER_ALERTS_V2"),
+        ("/dr-accesorios-rd-ios/index.html", "DR_RADAR_BROWSER_ALERTS_V2"),
         ("/radar-alertas/sw.js", "DR_RADAR_WEBPUSH_SW_V2"),
         ("/radar-alertas/manifest.webmanifest", "\"name\": \"DR Accesorios RD iOS\""),
     )
@@ -313,6 +319,7 @@ def main() -> None:
     print("✅ /radar-widget/index.html publicado a 30 s.")
     print("✅ /radar-widget/sw.js publicado.")
     print("✅ /radar-alertas/index.html publicado.")
+    print("✅ /dr-accesorios-rd-ios/index.html publicado como enlace público iOS.")
     print("✅ /radar-alertas/sw.js publicado.")
     print("✅ /radar-alertas/manifest.webmanifest publicado.")
     print("✅ Logo oficial PWA + iconos adaptativos/maskable publicados.")

@@ -1,0 +1,40 @@
+# ===== Credenciales locales =====
+.env
+.env.*
+!.env.example
+secrets.properties
+keystore.properties
+
+# ===== Claves privadas / firma =====
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+
+# ===== Firebase Admin / Service Accounts privados =====
+service-account*.json
+service_account*.json
+firebase-service-account*.json
+firebase_service_account*.json
+.firebase-*-sa.json
+
+# ===== Android / Gradle local =====
+local.properties
+.gradle/
+**/build/
+
+# ===== Android Studio / IntelliJ =====
+.idea/
+*.iml
+
+# ===== Python generado localmente =====
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ===== Sistema operativo =====
+.DS_Store
+Thumbs.db

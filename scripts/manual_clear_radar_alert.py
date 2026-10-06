@@ -46,23 +46,45 @@ def now_iso() -> str:
     )
 
 
+def parse_iso(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+def alert_time(alert):
+    for key in ("createdAt", "publishedAt", "updatedAt", "timestamp"):
+        parsed = parse_iso(alert.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--alert-id", required=True)
+    parser.add_argument("--latest-active", action="store_true")
+    parser.add_argument("--alert-id", default="")
     parser.add_argument(
         "--action",
         choices=("deactivate", "delete"),
         default="deactivate",
     )
-    parser.add_argument("--confirm", required=True)
+    parser.add_argument("--confirm", default="")
     args = parser.parse_args()
 
-    alert_id = args.alert_id.strip()
-    require(alert_id, "El ID de la alerta está vacío.")
-    require(
-        args.confirm.strip().upper() == "BORRAR",
-        "Confirmación inválida. Debes escribir exactamente BORRAR.",
-    )
+    if not args.latest_active:
+        alert_id = args.alert_id.strip()
+        require(alert_id, "El ID de la alerta está vacío.")
+        require(
+            args.confirm.strip().upper() == "BORRAR",
+            "Confirmación inválida. Debes escribir exactamente BORRAR.",
+        )
+    else:
+        alert_id = ""
 
     secret = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
     require(secret, "FIREBASE_SERVICE_ACCOUNT no está configurado.")
@@ -124,20 +146,50 @@ def main() -> None:
     alerts = radar.get("alerts")
     require(isinstance(alerts, list), "radar.json no contiene una lista alerts válida.")
 
-    matches = [
-        (index, alert)
-        for index, alert in enumerate(alerts)
-        if str(alert.get("id", "")).strip() == alert_id
-    ]
-    require(
-        len(matches) == 1,
-        (
-            f"Se esperaba exactamente una alerta con id={alert_id!r}; "
-            f"se encontraron {len(matches)}. No se modificó nada."
-        ),
-    )
+    if args.latest_active:
+        active_candidates = [
+            (index, alert)
+            for index, alert in enumerate(alerts)
+            if isinstance(alert, dict) and alert.get("active", False) is not False
+        ]
+        if not active_candidates:
+            print("OK: no hay alertas activas. No se publica nada.")
+            return
 
-    index, alert = matches[0]
+        dated = [
+            (alert_time(alert), index, alert)
+            for index, alert in active_candidates
+            if alert_time(alert) is not None
+        ]
+
+        if dated:
+            _, index, alert = max(dated, key=lambda row: row[0])
+        else:
+            # Mismo criterio estable de presentación si un feed antiguo
+            # no trae fecha: toma la primera alerta activa del JSON vivo.
+            index, alert = active_candidates[0]
+
+        alert_id = str(alert.get("id") or "").strip()
+        require(
+            alert_id,
+            "ABORTADO: la última alerta activa no tiene ID; no se modificó nada.",
+        )
+        args.action = "deactivate"
+    else:
+        matches = [
+            (index, alert)
+            for index, alert in enumerate(alerts)
+            if str(alert.get("id", "")).strip() == alert_id
+        ]
+        require(
+            len(matches) == 1,
+            (
+                f"Se esperaba exactamente una alerta con id={alert_id!r}; "
+                f"se encontraron {len(matches)}. No se modificó nada."
+            ),
+        )
+        index, alert = matches[0]
+
     title = str(alert.get("title") or "").strip()
 
     if args.action == "deactivate":
@@ -153,7 +205,10 @@ def main() -> None:
 
     radar["updatedAt"] = now_iso()
 
-    print(f"Objetivo: {alert_id} | {title}")
+    if args.latest_active:
+        print(f"Última alerta activa: {alert_id} | {title}")
+    else:
+        print(f"Objetivo: {alert_id} | {title}")
     print(f"Acción: {args.action}")
     print("Preparando deploy quirúrgico de /radar.json...")
 

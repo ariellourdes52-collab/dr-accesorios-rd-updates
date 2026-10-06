@@ -1,24 +1,7 @@
-name: Safely clear DR Radar alert
+name: Quitar última alerta DR Radar
 
 on:
   workflow_dispatch:
-    inputs:
-      alert_id:
-        description: 'ID exacto de la alerta de radar.json'
-        required: true
-        type: string
-      action:
-        description: 'Desactivar = recomendado; Delete = borrar físicamente'
-        required: true
-        default: deactivate
-        type: choice
-        options:
-          - deactivate
-          - delete
-      confirm:
-        description: 'Escribe BORRAR para confirmar'
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -28,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  clear:
+  clear-latest:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -44,14 +27,7 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check --quiet google-auth requests
 
-      - name: Safely clear one Radar alert
+      - name: Quitar última alerta activa de DR Radar
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-          ALERT_ID: '${{ inputs.alert_id }}'
-          CLEAR_ACTION: '${{ inputs.action }}'
-          CLEAR_CONFIRM: '${{ inputs.confirm }}'
-        run: |
-          python scripts/manual_clear_radar_alert.py \
-            --alert-id "$ALERT_ID" \
-            --action "$CLEAR_ACTION" \
-            --confirm "$CLEAR_CONFIRM"
+        run: python scripts/manual_clear_radar_alert.py --latest-active

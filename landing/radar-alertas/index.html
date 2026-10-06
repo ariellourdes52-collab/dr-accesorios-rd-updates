@@ -371,6 +371,10 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
     import {
+      initializeAppCheck,
+      ReCaptchaEnterpriseProvider
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
+    import {
       getAuth,
       GoogleAuthProvider,
       onAuthStateChanged,
@@ -390,6 +394,12 @@
     };
 
     const fbApp = initializeApp(firebaseConfig, "dr-radar-pwa-social");
+    const appCheck = initializeAppCheck(fbApp, {
+      provider: new ReCaptchaEnterpriseProvider(
+        "6Ld0WeItAAAAAG4a1m54Xrb4day5zD74jXi1mdBz"
+      ),
+      isTokenAutoRefreshEnabled: true
+    });
     const auth = getAuth(fbApp);
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({prompt:"select_account"});

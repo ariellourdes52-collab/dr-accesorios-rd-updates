@@ -181,8 +181,8 @@
       </div>
     </div>
     <div class="notify-row">
-      <button class="notify-button" id="notifyButton" type="button">🔔 Alertas y Web App</button>
-      <span class="notify-hint" id="notifyHint">Configura notificaciones 24/7 y acceso a DR Accesorios RD.</span>
+      <button class="notify-button" id="notifyButton" type="button">🔔 Comprobar alertas esenciales</button>
+      <span class="notify-hint" id="notifyHint">Comprobando Radar y nuevas publicaciones...</span>
     </div>
     <div class="footer"><span>DR Accesorios RD</span><span id="updated">Actualizando…</span></div>
   </section>
@@ -253,30 +253,55 @@
         return 'Abre la Web App y administra tus notificaciones 24/7.';
       };
 
-      const updateNotifyUi = () => {
+      const getEssentialPushState = async () => {
+        if (!('Notification' in window)) return 'unsupported';
+        if (Notification.permission === 'denied') return 'denied';
+        if (Notification.permission !== 'granted') return 'inactive';
+
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+          return 'unknown';
+        }
+
+        try {
+          const registration = await navigator.serviceWorker.getRegistration('/radar-alertas/');
+          if (!registration) return 'unknown';
+          const subscription = await registration.pushManager.getSubscription();
+          return subscription ? 'active' : 'inactive';
+        } catch (_) {
+          return 'unknown';
+        }
+      };
+
+      const updateNotifyUi = async () => {
         notifyButton.disabled = false;
         notifyButton.classList.remove('active', 'blocked');
 
-        if (!('Notification' in window)) {
-          notifyButton.textContent = '📱 Alertas y Web App';
+        const state = await getEssentialPushState();
+
+        if (state === 'unsupported') {
+          notifyButton.textContent = '📱 Configurar alertas y Web App';
           notifyHint.textContent = deviceHint();
-        } else if (Notification.permission === 'denied') {
-          notifyButton.textContent = '⚙️ Abrir configuración';
+        } else if (state === 'denied') {
+          notifyButton.textContent = '⚠️ Alertas esenciales desactivadas';
           notifyButton.classList.add('blocked');
-          notifyHint.textContent = 'Las notificaciones están bloqueadas. Pulsa aquí para administrarlas.';
-        } else if (Notification.permission === 'granted') {
-          notifyButton.textContent = '⚙️ Administrar alertas y Web App';
+          notifyHint.textContent = 'Radar y nuevas publicaciones no están activas. Pulsa para configurarlas.';
+        } else if (state === 'inactive') {
+          notifyButton.textContent = '🔔 Activar alertas esenciales';
+          notifyHint.textContent = 'Falta activar Radar, sismos y nuevas publicaciones. Las sociales son opcionales.';
+        } else if (state === 'active') {
+          notifyButton.textContent = '✅ Alertas esenciales activas';
           notifyButton.classList.add('active');
-          notifyHint.textContent = 'Administra tus alertas 24/7 y el acceso a DR Accesorios RD.';
+          notifyHint.textContent = 'Radar, sismos y nuevas publicaciones están activas. Las sociales son opcionales.';
         } else {
-          notifyButton.textContent = '🔔 Alertas y Web App';
-          notifyHint.textContent = deviceHint();
+          notifyButton.textContent = '⚙️ Verificar alertas esenciales';
+          notifyHint.textContent = 'Abre la configuración para comprobar Radar y nuevas publicaciones.';
         }
+
         notifyHeight();
       };
 
       const prepareNotifications = async () => {
-        updateNotifyUi();
+        await updateNotifyUi();
       };
 
       const readSeen = () => {
@@ -301,9 +326,9 @@
       notifyButton.addEventListener('click', () => {
         window.open(NOTIFY_PAGE, '_blank', 'noopener,noreferrer');
       });
-      window.addEventListener('focus', updateNotifyUi);
+      window.addEventListener('focus', () => { updateNotifyUi().catch(() => {}); });
       document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) updateNotifyUi();
+        if (!document.hidden) updateNotifyUi().catch(() => {});
       });
 
       const getAlerts = (feed, origin) => {

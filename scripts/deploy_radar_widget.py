@@ -2,7 +2,6 @@
 """Deploy DR Radar Blogger web assets while preserving every live Hosting file."""
 from __future__ import annotations
 
-import base64
 import copy
 import io
 import gzip
@@ -35,45 +34,69 @@ CRITICAL_PATHS = (
     "/dr-audio/index.json",
 )
 
-ICON_SOURCE_PARTS = tuple(
-    Path(f"landing/radar-alertas/icon-source/icon96.b64.{index:02d}")
-    for index in range(1, 12)
-)
+ICON_MASTER = Path("landing/radar-alertas/icon-source/app-logo-master.webp")
 
 
 def build_icon_assets() -> dict[str, bytes]:
-    for part in ICON_SOURCE_PARTS:
-        require(part.exists(), f"No existe la parte del logo oficial: {part}.")
-    encoded = "".join(part.read_text(encoding="utf-8").strip() for part in ICON_SOURCE_PARTS)
+    require(ICON_MASTER.exists(), f"No existe el logo maestro oficial: {ICON_MASTER}.")
+
     try:
-        source_bytes = base64.b64decode(encoded, validate=True)
-        source = Image.open(io.BytesIO(source_bytes)).convert("RGBA")
+        source = Image.open(ICON_MASTER).convert("RGBA")
     except Exception as exc:
-        raise RuntimeError(f"No se pudo reconstruir el logo oficial: {exc}") from exc
+        raise RuntimeError(f"No se pudo abrir el logo maestro oficial: {exc}") from exc
 
-    require(source.size == (96, 96), f"Logo fuente inesperado: {source.size}.")
-    assets: dict[str, bytes] = {}
-    rendered: dict[int, bytes] = {}
+    require(
+        source.width >= 1000 and source.height >= 1000,
+        f"Logo maestro con resolución insuficiente: {source.size}.",
+    )
 
-    for size in (180, 192, 512):
+    alpha_bbox = source.getchannel("A").getbbox()
+    require(alpha_bbox is not None, "El logo maestro no contiene área visible.")
+    logo = source.crop(alpha_bbox)
+
+    def render(
+        size: int,
+        scale: float,
+        background: tuple[int, int, int, int],
+    ) -> bytes:
+        canvas = Image.new("RGBA", (size, size), background)
+        target = max(1, int(round(size * scale)))
+
+        fitted = logo.copy()
+        fitted.thumbnail((target, target), Image.Resampling.LANCZOS)
+
+        x = (size - fitted.width) // 2
+        y = (size - fitted.height) // 2
+        canvas.alpha_composite(fitted, (x, y))
+
         output = io.BytesIO()
-        resized = source.resize((size, size), Image.Resampling.LANCZOS)
-        resized.save(output, format="PNG", optimize=True)
-        rendered[size] = output.getvalue()
+        canvas.save(output, format="PNG", optimize=True)
+        return output.getvalue()
 
-        # Legacy routes are preserved so already-installed clients never break.
-        assets[f"/radar-alertas/icon-{size}.png"] = rendered[size]
+    # Normal launcher icon: maximum clarity and full circular logo.
+    app_192 = render(192, 0.96, (0, 0, 0, 0))
+    app_512 = render(512, 0.96, (0, 0, 0, 0))
 
-    # Fresh filenames avoid stale launcher caches.
-    assets["/radar-alertas/apple-touch-icon-180.png"] = rendered[180]
-    assets["/radar-alertas/icon-app-192.png"] = rendered[192]
-    assets["/radar-alertas/icon-app-512.png"] = rendered[512]
+    # iPhone/iPad: opaque light background avoids dark/transparent halos.
+    apple_180 = render(180, 0.92, (245, 245, 243, 255))
 
-    # The exact official logo is also published as a maskable/adaptive icon.
-    # Android can crop it to the launcher shape instead of shrinking the whole
-    # square inside an extra white circle.
-    assets["/radar-alertas/icon-maskable-192.png"] = rendered[192]
-    assets["/radar-alertas/icon-maskable-512.png"] = rendered[512]
+    # Android adaptive/maskable: full background plus a large, safe logo.
+    mask_192 = render(192, 0.88, (245, 245, 243, 255))
+    mask_512 = render(512, 0.88, (245, 245, 243, 255))
+
+    assets: dict[str, bytes] = {
+        # Legacy routes remain valid for already-installed clients.
+        "/radar-alertas/icon-180.png": apple_180,
+        "/radar-alertas/icon-192.png": app_192,
+        "/radar-alertas/icon-512.png": app_512,
+
+        # Current Web App routes.
+        "/radar-alertas/apple-touch-icon-180.png": apple_180,
+        "/radar-alertas/icon-app-192.png": app_192,
+        "/radar-alertas/icon-app-512.png": app_512,
+        "/radar-alertas/icon-maskable-192.png": mask_192,
+        "/radar-alertas/icon-maskable-512.png": mask_512,
+    }
 
     return assets
 

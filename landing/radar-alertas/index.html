@@ -59,8 +59,8 @@
       <p>Web Push para recibir alertas aunque cierres el navegador.</p>
     </div>
     <div class="body">
-      <p class="lead">Activa DR Radar en este dispositivo</p>
-      <p class="copy">Las alertas se envían mediante Web Push estándar. El sistema de detección de DR Radar continúa separado e independiente.</p>
+      <p class="lead">Activa las alertas esenciales de DR Accesorios RD</p>
+      <p class="copy">Para completar la configuración necesitas activar Web Push para DR Radar, sismos y nuevas publicaciones. Las notificaciones sociales son opcionales.</p>
 
       <div class="box install" id="iosInstall">
         <strong>📱 Instalar DR Accesorios RD en iPhone / iPad</strong>
@@ -85,7 +85,7 @@
       </div>
 
       <div class="actions">
-        <button id="activate" type="button">🔔 Activar alertas 24/7</button>
+        <button id="activate" type="button">🔔 Activar alertas esenciales</button>
         <button class="secondary" id="homeButton" type="button" style="display:none">🏠 Ir al inicio de DR Accesorios RD</button>
         <button class="secondary" id="deactivate" type="button" style="display:none">Desactivar alertas en este dispositivo</button>
       </div>
@@ -93,8 +93,8 @@
       <div class="status" id="status">Comprobando este dispositivo…</div>
 
       <div class="box" style="margin-top:16px">
-        <strong>💬 Notificaciones sociales</strong>
-        <p class="copy" style="margin:6px 0 12px">Conecta la misma cuenta de Google que usas para comentar y recibe respuestas, likes y actividad de tus conversaciones.</p>
+        <strong>💬 Notificaciones sociales (opcional)</strong>
+        <p class="copy" style="margin:6px 0 12px">Si quieres, conecta la misma cuenta de Google que usas para comentar y recibe respuestas, likes y actividad de tus conversaciones. No es necesario para usar Radar ni recibir nuevas publicaciones.</p>
         <button class="secondary" id="socialButton" type="button">Continuar con Google</button>
         <div class="status" id="socialStatus" style="margin-top:10px">Cuenta social no conectada.</div>
       </div>
@@ -226,11 +226,11 @@
 
         if(active){
           revealLaunchUi();
-          button.textContent='✅ Alertas 24/7 activas';
+          button.textContent='✅ Alertas esenciales activas';
           button.disabled=true;
           homeButton.style.display='block';
           deactivate.style.display='block';
-          setStatus('<span class="ok">Suscripción activa.</span> Este dispositivo puede recibir nuevas alertas aunque cierres el navegador.');
+          setStatus('<span class="ok">Configuración mínima completa.</span> Radar, sismos y nuevas publicaciones pueden llegar aunque cierres el navegador. Las notificaciones sociales siguen siendo opcionales.');
           return;
         }
       }catch(e){
@@ -244,14 +244,14 @@
 
       if(Notification.permission==='denied'){
         button.textContent='🔕 Notificaciones bloqueadas';
-        setStatus('<span class="warn">El permiso está bloqueado.</span> Habilita las notificaciones desde los permisos del sitio y vuelve a intentarlo.');
+        setStatus('<span class="warn">Las alertas esenciales no están activas.</span> Habilita las notificaciones desde los permisos del sitio para recibir Radar, sismos y nuevas publicaciones.');
       }else if(isIOS && !isStandalone){
         button.textContent='📲 Añade DR Accesorios RD a inicio primero';
         button.disabled=true;
-        setStatus('En iPhone/iPad, Web Push requiere abrir DR Accesorios RD desde la pantalla de inicio.');
+        setStatus('Para completar el mínimo requerido en iPhone/iPad, añade DR Accesorios RD a la pantalla de inicio y ábrela desde su icono.');
       }else{
-        button.textContent='🔔 Activar alertas 24/7';
-        setStatus('Listo para activar Web Push en este dispositivo.');
+        button.textContent='🔔 Activar alertas esenciales';
+        setStatus('Falta activar el mínimo requerido: DR Radar, sismos y nuevas publicaciones.');
       }
     }
 

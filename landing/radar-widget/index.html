@@ -181,8 +181,8 @@
       </div>
     </div>
     <div class="notify-row">
-      <button class="notify-button" id="notifyButton" type="button">🔔 Comprobar alertas esenciales</button>
-      <span class="notify-hint" id="notifyHint">Comprobando Radar y nuevas publicaciones...</span>
+      <button class="notify-button" id="notifyButton" type="button">🔔 Alertas esenciales</button>
+      <span class="notify-hint" id="notifyHint">Radar, sismos y nuevas publicaciones.</span>
     </div>
     <div class="footer"><span>DR Accesorios RD</span><span id="updated">Actualizando…</span></div>
   </section>
@@ -253,55 +253,31 @@
         return 'Abre la Web App y administra tus notificaciones 24/7.';
       };
 
-      const getEssentialPushState = async () => {
-        if (!('Notification' in window)) return 'unsupported';
-        if (Notification.permission === 'denied') return 'denied';
-        if (Notification.permission !== 'granted') return 'inactive';
-
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-          return 'unknown';
-        }
-
-        try {
-          const registration = await navigator.serviceWorker.getRegistration('/radar-alertas/');
-          if (!registration) return 'unknown';
-          const subscription = await registration.pushManager.getSubscription();
-          return subscription ? 'active' : 'inactive';
-        } catch (_) {
-          return 'unknown';
-        }
-      };
-
-      const updateNotifyUi = async () => {
+      const updateNotifyUi = () => {
         notifyButton.disabled = false;
         notifyButton.classList.remove('active', 'blocked');
 
-        const state = await getEssentialPushState();
-
-        if (state === 'unsupported') {
+        if (!('Notification' in window)) {
           notifyButton.textContent = '📱 Configurar alertas y Web App';
           notifyHint.textContent = deviceHint();
-        } else if (state === 'denied') {
+        } else if (Notification.permission === 'denied') {
           notifyButton.textContent = '⚠️ Alertas esenciales desactivadas';
           notifyButton.classList.add('blocked');
-          notifyHint.textContent = 'Radar y nuevas publicaciones no están activas. Pulsa para configurarlas.';
-        } else if (state === 'inactive') {
+          notifyHint.textContent = 'Radar, sismos y nuevas publicaciones están bloqueadas. Pulsa para configurarlas.';
+        } else if (Notification.permission === 'granted') {
+          notifyButton.textContent = '⚙️ Administrar alertas y Web App';
+          notifyButton.classList.add('active');
+          notifyHint.textContent = 'Permiso concedido. Abre para confirmar o administrar Radar, sismos y nuevas publicaciones.';
+        } else {
           notifyButton.textContent = '🔔 Activar alertas esenciales';
           notifyHint.textContent = 'Falta activar Radar, sismos y nuevas publicaciones. Las sociales son opcionales.';
-        } else if (state === 'active') {
-          notifyButton.textContent = '✅ Alertas esenciales activas';
-          notifyButton.classList.add('active');
-          notifyHint.textContent = 'Radar, sismos y nuevas publicaciones están activas. Las sociales son opcionales.';
-        } else {
-          notifyButton.textContent = '⚙️ Verificar alertas esenciales';
-          notifyHint.textContent = 'Abre la configuración para comprobar Radar y nuevas publicaciones.';
         }
 
         notifyHeight();
       };
 
       const prepareNotifications = async () => {
-        await updateNotifyUi();
+        updateNotifyUi();
       };
 
       const readSeen = () => {
@@ -326,9 +302,9 @@
       notifyButton.addEventListener('click', () => {
         window.open(NOTIFY_PAGE, '_blank', 'noopener,noreferrer');
       });
-      window.addEventListener('focus', () => { updateNotifyUi().catch(() => {}); });
+      window.addEventListener('focus', updateNotifyUi);
       document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) updateNotifyUi().catch(() => {});
+        if (!document.hidden) updateNotifyUi();
       });
 
       const getAlerts = (feed, origin) => {

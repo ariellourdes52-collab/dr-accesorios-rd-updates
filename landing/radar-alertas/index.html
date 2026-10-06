@@ -439,9 +439,6 @@
         await linkSocial(user);
         socialButton.textContent="✅ Cuenta social conectada";
         socialStatus.innerHTML="<span class='ok'>Sociales activas.</span> Recibirás respuestas, likes y actividad asociada a esta cuenta. Abriendo DR Accesorios RD…";
-        if(isStandalone && !new URLSearchParams(location.search).has("settings")){
-          setTimeout(function(){ window.location.href="https://draccesoriosrd.blogspot.com/"; }, 1200);
-        }
       }catch(e){
         socialButton.disabled=false;
         socialButton.textContent="Vincular cuenta social";

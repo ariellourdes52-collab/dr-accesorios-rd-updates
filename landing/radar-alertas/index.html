@@ -21,11 +21,21 @@
       if(isApple) document.title = 'DR Accesorios RD iOS';
     })();
   </script>
+  <script>
+    (function(){
+      const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+      const settings = new URLSearchParams(window.location.search).has('settings');
+      if(standalone && !settings){
+        document.documentElement.classList.add('dr-launch-check');
+      }
+    })();
+  </script>
   <!-- DR_RADAR_BROWSER_ALERTS_V2 -->
   <style>
     :root{--brand:#DA135E;--bg:#f6f6f8;--card:#fff;--text:#17171a;--muted:#696971;--border:rgba(23,23,26,.10);--ok:#16854b;--warn:#b46a00}
     @media(prefers-color-scheme:dark){:root{--bg:#111114;--card:#19191e;--text:#f5f5f7;--muted:#b2b2ba;--border:rgba(255,255,255,.11);--ok:#4bd18b;--warn:#ffbd59}}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;padding:18px}
+    *{box-sizing:border-box} .dr-launch-check body{visibility:hidden} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;padding:18px}
     .card{max-width:620px;margin:4vh auto;background:var(--card);border:1px solid var(--border);border-radius:24px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.10)}
     .head{padding:20px;background:linear-gradient(135deg,var(--brand),#b90f4e);color:#fff}
     .head h1{margin:0;font-size:21px;display:flex;align-items:center;gap:10px}.brand-logo{width:42px;height:42px;border-radius:12px;object-fit:cover;background:#fff}.head p{margin:6px 0 0;font-size:13px;opacity:.9}
@@ -121,7 +131,11 @@
     const HOME_URL = 'https://draccesoriosrd.blogspot.com/';
 
     function goHome(){
-      window.location.href = HOME_URL;
+      window.location.replace(HOME_URL);
+    }
+
+    function revealLaunchUi(){
+      document.documentElement.classList.remove('dr-launch-check');
     }
 
     homeButton.addEventListener('click', goHome);
@@ -196,6 +210,7 @@
       renderInstallUI();
 
       if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+        revealLaunchUi();
         button.disabled = true;
         setStatus('<span class="warn">Este navegador no admite Web Push.</span>');
         return;
@@ -203,22 +218,26 @@
 
       try{
         const active = await syncExisting();
+
+        if(active && isStandalone && !settingsMode){
+          goHome();
+          return;
+        }
+
         if(active){
+          revealLaunchUi();
           button.textContent='✅ Alertas 24/7 activas';
           button.disabled=true;
           homeButton.style.display='block';
           deactivate.style.display='block';
           setStatus('<span class="ok">Suscripción activa.</span> Este dispositivo puede recibir nuevas alertas aunque cierres el navegador.');
-
-          if(isStandalone && !settingsMode){
-            setTimeout(goHome, 650);
-          }
           return;
         }
       }catch(e){
         setFlag(false);
       }
 
+      revealLaunchUi();
       homeButton.style.display='none';
       deactivate.style.display='none';
       button.disabled=false;

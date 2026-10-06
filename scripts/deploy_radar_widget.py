@@ -25,7 +25,7 @@ ASSETS = {
     "/radar-widget/sw.js": (Path("landing/radar-alertas/sw.js"), b"DR_RADAR_WEBPUSH_SW_V2"),
     "/radar-alertas/index.html": (Path("landing/radar-alertas/index.html"), b"DR_RADAR_BROWSER_ALERTS_V2"),
     "/radar-alertas/sw.js": (Path("landing/radar-alertas/sw.js"), b"DR_RADAR_WEBPUSH_SW_V2"),
-    "/radar-alertas/manifest.webmanifest": (Path("landing/radar-alertas/manifest.webmanifest"), b"\"name\": \"DR Accesorios RD\""),
+    "/radar-alertas/manifest.webmanifest": (Path("landing/radar-alertas/manifest.webmanifest"), b"\"name\": \"DR Accesorios RD iOS\""),
 }
 
 CRITICAL_PATHS = (
@@ -263,7 +263,7 @@ def main() -> None:
         ("/radar-widget/sw.js", "DR_RADAR_WEBPUSH_SW_V2"),
         ("/radar-alertas/index.html", "DR_RADAR_BROWSER_ALERTS_V2"),
         ("/radar-alertas/sw.js", "DR_RADAR_WEBPUSH_SW_V2"),
-        ("/radar-alertas/manifest.webmanifest", "\"name\": \"DR Accesorios RD\""),
+        ("/radar-alertas/manifest.webmanifest", "\"name\": \"DR Accesorios RD iOS\""),
     )
     for route, marker in checks:
         verified = False

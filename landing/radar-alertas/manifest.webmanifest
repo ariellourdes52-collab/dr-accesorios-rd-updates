@@ -1,7 +1,7 @@
 {
   "id": "/radar-alertas/",
-  "name": "DR Accesorios RD",
-  "short_name": "DR Accesorios RD",
+  "name": "DR Accesorios RD iOS",
+  "short_name": "DR Accesorios RD iOS",
   "description": "DR Accesorios RD: noticias, DR Radar, alertas y comunidad.",
   "start_url": "/radar-alertas/index.html?launch=1",
   "scope": "/radar-alertas/",

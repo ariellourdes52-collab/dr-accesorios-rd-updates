@@ -95,22 +95,23 @@
       gap: 10px;
       margin: 0 12px 11px;
       padding: 10px;
-      border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--border));
-      border-radius: 13px;
-      background: color-mix(in srgb, var(--brand) 5%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--brand) 20%, var(--border));
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--brand) 4%, var(--surface));
+      box-shadow: 0 8px 20px rgba(15,23,42,.08);
     }
     .notify-button {
       appearance: none;
       flex: 0 0 auto;
       border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border));
-      border-radius: 999px;
+      border-radius: 14px;
       background: var(--brand);
       color: #fff;
       padding: 8px 12px;
       font-size: 11px;
       font-weight: 800;
       cursor: pointer;
-      box-shadow: 0 5px 14px rgba(218,19,94,.16);
+      box-shadow: 0 8px 18px rgba(218,19,94,.18);
     }
     .notify-button:hover { opacity: .92; }
     .notify-button.active { color: #fff; border-color: var(--brand); background: var(--brand); }
@@ -221,9 +222,9 @@
           notifyButton.classList.add('blocked');
           notifyHint.textContent = 'Las notificaciones están bloqueadas. Pulsa aquí para administrarlas.';
         } else if (Notification.permission === 'granted') {
-          notifyButton.textContent = '⚙️ Alertas y Web App';
+          notifyButton.textContent = '⚙️ Administrar alertas y Web App';
           notifyButton.classList.add('active');
-          notifyHint.textContent = deviceHint();
+          notifyHint.textContent = 'Administra tus alertas 24/7 y el acceso a DR Accesorios RD.';
         } else {
           notifyButton.textContent = '🔔 Alertas y Web App';
           notifyHint.textContent = deviceHint();

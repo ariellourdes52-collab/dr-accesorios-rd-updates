@@ -405,6 +405,14 @@
     provider.setCustomParameters({prompt:"select_account"});
     const socialButton = document.getElementById("socialButton");
     const socialStatus = document.getElementById("socialStatus");
+    let authErrorCode = "";
+
+    function showAuthError(e){
+      authErrorCode = (e && e.code) ? e.code : "auth/unknown-error";
+      socialButton.disabled=false;
+      socialButton.textContent="Continuar con Google";
+      socialStatus.innerHTML="<span class='warn'>No se pudo completar el acceso con Google.</span> Error: " + authErrorCode;
+    }
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
@@ -430,9 +438,14 @@
       if(!user){
         socialButton.disabled=false;
         socialButton.textContent="Continuar con Google";
-        socialStatus.textContent="Cuenta social no conectada.";
+        if(authErrorCode){
+          socialStatus.innerHTML="<span class='warn'>No se pudo completar el acceso con Google.</span> Error: " + authErrorCode;
+        }else{
+          socialStatus.textContent="Cuenta social no conectada.";
+        }
         return;
       }
+      authErrorCode = "";
       try{
         socialButton.disabled=true;
         socialStatus.textContent="Vinculando tus notificaciones sociales…";
@@ -456,16 +469,14 @@
           await updateSocial(result.user);
         }
       }catch(e){
-        socialButton.disabled=false;
-        socialStatus.innerHTML="<span class='warn'>No se pudo completar el acceso con Google.</span>";
+        showAuthError(e);
       }
     });
 
     try{
       await getRedirectResult(auth);
     }catch(e){
-      const code = (e && e.code) ? e.code : "auth/unknown-error";
-      socialStatus.innerHTML="<span class='warn'>No se pudo completar el acceso con Google.</span> Error: " + code;
+      showAuthError(e);
     }
     onAuthStateChanged(auth, updateSocial);
   </script>

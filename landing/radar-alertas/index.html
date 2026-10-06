@@ -10,7 +10,17 @@
   <meta name="apple-mobile-web-app-title" content="DR Accesorios RD">
   <link rel="manifest" href="/radar-alertas/manifest.webmanifest">
   <link rel="apple-touch-icon" sizes="180x180" href="/radar-alertas/icon-180.png">
-  <title>DR Radar · Alertas 24/7</title>
+  <meta property="og:title" content="DR Accesorios Web App">
+  <meta name="twitter:title" content="DR Accesorios Web App">
+  <title>DR Accesorios Web App</title>
+  <script>
+    (function(){
+      const ua = navigator.userAgent || '';
+      const isApple = /iPhone|iPad|iPod|Macintosh|Mac OS X/i.test(ua) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if(isApple) document.title = 'DR Accesorios iOS';
+    })();
+  </script>
   <!-- DR_RADAR_BROWSER_ALERTS_V2 -->
   <style>
     :root{--brand:#DA135E;--bg:#f6f6f8;--card:#fff;--text:#17171a;--muted:#696971;--border:rgba(23,23,26,.10);--ok:#16854b;--warn:#b46a00}

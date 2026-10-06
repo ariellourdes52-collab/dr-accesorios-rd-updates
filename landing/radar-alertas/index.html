@@ -461,7 +461,12 @@
       }
     });
 
-    try{ await getRedirectResult(auth); }catch(_){}
+    try{
+      await getRedirectResult(auth);
+    }catch(e){
+      const code = (e && e.code) ? e.code : "auth/unknown-error";
+      socialStatus.innerHTML="<span class='warn'>No se pudo completar el acceso con Google.</span> Error: " + code;
+    }
     onAuthStateChanged(auth, updateSocial);
   </script>
 </body>

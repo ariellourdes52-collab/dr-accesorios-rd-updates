@@ -1,11 +1,19 @@
-name: Desactivar alerta DR Radar por ID
+name: Consultar o desactivar alerta DR Radar
 
 on:
   workflow_dispatch:
     inputs:
-      alert_id:
-        description: 'ID exacto de la alerta que deseas desactivar'
+      mode:
+        description: 'Elige consultar (sin cambios) o desactivar por ID'
         required: true
+        type: choice
+        default: consultar
+        options:
+          - consultar
+          - desactivar
+      alert_id:
+        description: 'Solo para desactivar: ID exacto de la alerta anterior'
+        required: false
         type: string
 
 permissions:
@@ -16,7 +24,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  clear-latest:
+  manage-radar:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -32,8 +40,55 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check --quiet google-auth requests
 
+      - name: Consultar alertas activas (solo lectura)
+        if: ${{ inputs.mode == 'consultar' }}
+        run: |
+          python - <<'PY'
+          import os
+          import time
+          import requests
+
+          url = "https://dr-accesorios-rd.web.app/radar.json"
+          response = requests.get(
+              url,
+              params={"consultar_radar": time.time_ns()},
+              headers={"Cache-Control": "no-cache"},
+              timeout=30,
+          )
+          response.raise_for_status()
+          data = response.json()
+          alerts = data.get("alerts")
+          if not isinstance(alerts, list):
+              raise RuntimeError("El Radar público no contiene una lista de alertas válida.")
+
+          active = [a for a in alerts if isinstance(a, dict) and a.get("active") is not False]
+          active.sort(key=lambda a: str(a.get("createdAt") or ""), reverse=True)
+          print("CONSULTA EN MODO SOLO LECTURA - NO SE REALIZA NINGÚN CAMBIO", flush=True)
+          summary = ["## Alertas activas DR Radar", "", "Solo lectura. No se publicó ni notificó.", ""]
+          if not active:
+              print("Sin alertas activas.")
+              summary.append("No hay alertas activas.")
+          else:
+              summary.extend(["| Título | ID | Fecha |", "|---|---|---|"])
+              for i, a in enumerate(active, 1):
+                  title = str(a.get("title") or "(sin título)").replace("|", " ").replace("\n", " ")
+                  alert_id = str(a.get("id") or "").replace("|", " ").replace("\n", " ")
+                  created = str(a.get("createdAt") or "").replace("|", " ")
+                  print(f"{i}. {title}\n    ID: {alert_id}\n    Fecha: {created}\n")
+                  summary.append(f"| {title} | `{alert_id}` | {created} |")
+          if os.environ.get("GITHUB_STEP_SUMMARY"):
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+                  f.write("\n".join(summary) + "\n")
+          PY
+
       - name: Desactivar exclusivamente la alerta indicada, sin FCM
+        if: ${{ inputs.mode == 'desactivar' }}
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
           RADAR_ALERT_ID: '${{ inputs.alert_id }}'
-        run: python scripts/manual_clear_radar_alert.py --alert-id "$RADAR_ALERT_ID" --action deactivate --confirm BORRAR --no-fcm
+        run: |
+          if [ -z "$RADAR_ALERT_ID" ]; then
+            echo "ERROR: escribe el ID de la alerta que deseas desactivar." >&2
+            exit 1
+          fi
+          python scripts/manual_clear_radar_alert.py --alert-id "$RADAR_ALERT_ID" --action deactivate --confirm BORRAR --no-fcm

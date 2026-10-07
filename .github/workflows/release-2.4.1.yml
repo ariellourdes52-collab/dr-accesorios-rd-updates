@@ -103,7 +103,7 @@ jobs:
             gh api --method POST "/repos/${GITHUB_REPOSITORY}/releases" \
               -f tag_name="2.4.1" \
               -f target_commitish="main" \
-              -f name="DR Accesorios RD v2.4.1 — DR Ahora, una experiencia más completa y cohesionada ✨" \
+              -f name="DR Accesorios RD v2.4.1 — Seguridad App Check reforzada 🛡️" \
               -F draft=true \
               -F prerelease=false \
               --raw-field body="$(cat /tmp/v241-body.md)"
@@ -120,7 +120,7 @@ jobs:
 
           gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             --raw-field tag_name="2.4.1" \
-            --raw-field name="DR Accesorios RD v2.4.1 — DR Ahora, una experiencia más completa y cohesionada ✨" \
+            --raw-field name="DR Accesorios RD v2.4.1 — Seguridad App Check reforzada 🛡️" \
             --raw-field body="$(cat /tmp/v241-body.md)"
 
           echo "Draft 2.4.1 metadata synchronized."

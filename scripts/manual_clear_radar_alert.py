@@ -68,6 +68,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--latest-active", action="store_true")
     parser.add_argument("--alert-id", default="")
+    parser.add_argument("--no-fcm", action="store_true", help="Desactivar sin enviar radar_refresh a Android.")
     parser.add_argument(
         "--action",
         choices=("deactivate", "delete"),
@@ -389,8 +390,14 @@ def main() -> None:
     print("✅ Widget Radar preservado.")
     print("✅ Web app DR Accesorios RD preservada.")
 
-    # 8) Best-effort Android refresh. A notification refresh failure must not
-    #    turn a successful safe Hosting operation into a destructive retry.
+    # 8) Para desactivación silenciosa, no emitir nuevos FCM.
+    # Android recibirá la lista actualizada con su sincronización habitual.
+    if args.no_fcm:
+        print("✅ Desactivación silenciosa: no se envió ningún FCM.")
+        return
+
+    # Mantener el comportamiento antiguo fuera del modo --no-fcm.
+    # Un fallo de notificación no debe forzar un segundo despliegue.
     try:
         fcm = session.post(
             FCM_URL,

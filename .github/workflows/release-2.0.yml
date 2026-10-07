@@ -1,9 +1,8 @@
 name: Release DR Accesorios RD 2.0
 
+# Automatic publication schedule cancelled on 2026-10-06.
+# The existing draft release is intentionally retained as development history.
 on:
-  schedule:
-    # 2026-10-15 00:00 UTC = 2026-10-14 20:00 America/Santo_Domingo
-    - cron: '0 0 15 10 *'
   workflow_dispatch:
     inputs:
       confirm:

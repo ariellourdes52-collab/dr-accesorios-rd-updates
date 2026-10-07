@@ -1,0 +1,40 @@
+name: Publish preserved release history
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/publish-release-history.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Publish historical drafts as pre-releases without changing Latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for TAG in 1.9 2.0 2.1.1 2.2 2.3 2.3.1 2.4 2.5; do
+            RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq ".[] | select(.tag_name==\"$TAG\") | .id" | head -n 1)"
+            if [ -z "$RELEASE_ID" ]; then
+              echo "Release $TAG not found; skipping."
+              continue
+            fi
+
+            IS_DRAFT="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/$RELEASE_ID" --jq '.draft')"
+            if [ "$IS_DRAFT" = "true" ]; then
+              gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/$RELEASE_ID"                 -F draft=false                 -F prerelease=true                 -f make_latest=false >/dev/null
+              echo "Published $TAG as visible pre-release."
+            else
+              echo "$TAG is already published; left unchanged."
+            fi
+          done

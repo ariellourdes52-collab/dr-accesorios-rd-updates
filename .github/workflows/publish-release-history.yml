@@ -1,11 +1,7 @@
 name: Publish preserved release history
 
+# One-time historical publication completed successfully on 2026-10-06.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/publish-release-history.yml'
   workflow_dispatch:
 
 permissions:

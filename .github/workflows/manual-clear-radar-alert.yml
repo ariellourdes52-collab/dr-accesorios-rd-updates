@@ -1,7 +1,12 @@
-name: Quitar última alerta DR Radar
+name: Desactivar alerta DR Radar por ID
 
 on:
   workflow_dispatch:
+    inputs:
+      alert_id:
+        description: 'ID exacto de la alerta que deseas desactivar'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -27,7 +32,8 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check --quiet google-auth requests
 
-      - name: Quitar última alerta activa de DR Radar
+      - name: Desactivar exclusivamente la alerta indicada, sin FCM
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/manual_clear_radar_alert.py --latest-active
+          RADAR_ALERT_ID: '${{ inputs.alert_id }}'
+        run: python scripts/manual_clear_radar_alert.py --alert-id "$RADAR_ALERT_ID" --action deactivate --confirm BORRAR --no-fcm

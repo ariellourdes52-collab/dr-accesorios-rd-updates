@@ -68,9 +68,9 @@ jobs:
           cat > /tmp/v241-body.md <<'BODY'
           DR Accesorios RD v2.4.1 — Seguridad App Check reforzada 🛡️
 
-          La versión 2.4.1 consolida la evolución de DR Accesorios RD y reúne Noticias, DR Audio, DR Radar, notificaciones y herramientas de uso diario dentro de una experiencia más coherente, rápida y moderna.
+          La versión 2.4.1 es una actualización de mantenimiento y seguridad basada en la v2.4 estable. Corrige la validación de Firebase App Check en la instancia social de comentarios sin alterar la experiencia principal de la aplicación.
 
-          • 🏠 DR Ahora: nueva experiencia central en Home con acceso inmediato a la última noticia, DR Audio, estado de DR Radar y actualización.
+          • 🛡️ Firebase App Check reforzado en la instancia social `dr_comments`, validada con Play Integrity para comentarios, respuestas, likes y sincronización social.\n\n          • 🏠 DR Ahora: nueva experiencia central en Home con acceso inmediato a la última noticia, DR Audio, estado de DR Radar y actualización.
 
           • 🎨 Identidad visual más unificada con Jetpack Compose + Material 3.
 

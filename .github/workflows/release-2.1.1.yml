@@ -1,15 +1,8 @@
 name: Release DR Accesorios RD 2.1.1
 
+# Automatic publication schedule cancelled on 2026-10-06.
+# The existing draft release is intentionally retained as development history.
 on:
-  # Self-check only: editing this workflow runs the safety gate, but never publishes.
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/release-2.1.1.yml'
-  schedule:
-    # 2026-10-22 00:00 UTC = 2026-10-21 20:00 America/Santo_Domingo
-    - cron: '0 0 22 10 *'
   workflow_dispatch:
     inputs:
       confirm:

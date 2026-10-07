@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dr-radar-manual-clear
+  group: dr-radar-manual-write
   cancel-in-progress: false
 
 jobs:

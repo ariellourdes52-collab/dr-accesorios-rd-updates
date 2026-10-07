@@ -46,6 +46,7 @@ MAX_TRANSIENT_RETRIES = 4
 
 @dataclass(frozen=True)
 class Device:
+    document_name: str
     installed_version_code: int
     installed_version_name: str
     fid: str
@@ -78,6 +79,7 @@ def parse_device(document: dict[str, Any]) -> Device | None:
         return None
 
     return Device(
+        document_name=str(document.get("name") or ""),
         installed_version_code=version_code,
         installed_version_name=str(_field_value(fields, "appVersionName") or ""),
         fid=str(_field_value(fields, "fcmInstallationId") or "").strip(),
@@ -135,6 +137,20 @@ def load_devices(credentials) -> list[Device]:
             break
 
     return devices
+
+
+def delete_device_document(credentials, device: Device) -> None:
+    if not device.document_name:
+        raise RuntimeError("Device document name is missing")
+
+    response = requests.delete(
+        "https://firestore.googleapis.com/v1/" + device.document_name,
+        headers=auth_headers(credentials),
+        timeout=30,
+    )
+
+    if response.status_code not in (200, 204, 404):
+        response.raise_for_status()
 
 
 def build_message(
@@ -242,6 +258,14 @@ def main() -> None:
     )
     parser.add_argument("--ttl-seconds", type=int, default=DEFAULT_TTL_SECONDS)
     parser.add_argument("--preflight", action="store_true")
+    parser.add_argument(
+        "--prune-not-registered",
+        action="store_true",
+        help=(
+            "Delete /devices documents only when FCM confirms the "
+            "registration is no longer registered (HTTP 404 / NotRegistered)."
+        ),
+    )
     args = parser.parse_args()
 
     if args.version_code <= 0:
@@ -294,7 +318,7 @@ def main() -> None:
     results = collections.Counter()
     error_samples: list[str] = []
 
-    def task(device: Device) -> tuple[str, str, str]:
+    def task(device: Device) -> tuple[str, str, str, Device]:
         payload, mode = build_message(
             device,
             target_version_code=args.version_code,
@@ -315,19 +339,34 @@ def main() -> None:
             fallback["message"]["token"] = device.token
             result, detail = send_one(credentials, fallback)
 
-        return result, mode, detail
+        return result, mode, detail, device
+
+    pruned_not_registered = 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [executor.submit(task, device) for device in eligible]
         for future in concurrent.futures.as_completed(futures):
-            result, mode, detail = future.result()
+            result, mode, detail, device = future.result()
             results[f"{mode}:{result}"] += 1
+
+            confirmed_not_registered = (
+                result == "invalid_registration"
+                and "NotRegistered" in detail
+            )
+
+            if args.prune_not_registered and confirmed_not_registered:
+                delete_device_document(credentials, device)
+                pruned_not_registered += 1
+
             if detail and len(error_samples) < 5:
                 error_samples.append(detail)
 
     print("Send summary:")
     for key, value in sorted(results.items()):
         print(f"  {key}: {value}")
+
+    if args.prune_not_registered:
+        print("Pruned NotRegistered Firestore device records:", pruned_not_registered)
 
     if error_samples:
         print("Sanitized error samples (registration IDs omitted):")
@@ -347,7 +386,11 @@ def main() -> None:
             f"FCM send incomplete: fatal={fatal}, transient_failed={transient_failed}"
         )
 
-    if invalid >= 5 and invalid * 2 >= len(eligible):
+    if (
+        invalid >= 5
+        and invalid * 2 >= len(eligible)
+        and not args.prune_not_registered
+    ):
         raise SystemExit(
             "Too many registrations were rejected; inspect FCM registration data before continuing."
         )

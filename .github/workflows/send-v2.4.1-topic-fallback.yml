@@ -1,0 +1,75 @@
+name: Send v2.4.1 topic fallback
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/send-v2.4.1-topic-fallback.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet google-auth requests
+
+      - name: Send data-only update fallback to blog_updates
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, requests
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import Request
+
+          project_id = "dr-accesorios-rd"
+          info = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
+          creds = service_account.Credentials.from_service_account_info(
+              info,
+              scopes=["https://www.googleapis.com/auth/firebase.messaging"],
+          )
+          creds.refresh(Request())
+
+          payload = {
+              "message": {
+                  "topic": "blog_updates",
+                  "android": {
+                      "priority": "high",
+                      "ttl": "86400s",
+                      "collapse_key": "dr_app_update",
+                  },
+                  "data": {
+                      "type": "app_update",
+                      "versionCode": "20",
+                      "versionName": "2.4.1",
+                  },
+                  "fcm_options": {
+                      "analytics_label": "app_update",
+                  },
+              }
+          }
+
+          response = requests.post(
+              f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send",
+              headers={
+                  "Authorization": f"Bearer {creds.token}",
+                  "Content-Type": "application/json; charset=UTF-8",
+              },
+              json=payload,
+              timeout=30,
+          )
+          response.raise_for_status()
+          print("Topic fallback accepted by FCM:", response.json().get("name", "OK"))
+          PY

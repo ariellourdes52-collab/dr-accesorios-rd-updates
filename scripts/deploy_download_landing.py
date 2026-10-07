@@ -65,7 +65,7 @@ def main():
 
     with open("landing/descargar/index.html", "rb") as stream:
         html = stream.read()
-    require(b"DR_DOWNLOAD_V24" in html, "Landing marker missing")
+    require(b"DR_DOWNLOAD_V241" in html, "Landing marker missing")
 
     body = gzip.compress(html, mtime=0)
     digest = hashlib.sha256(body).hexdigest()
@@ -79,7 +79,7 @@ def main():
       if (!p.has('utm_source')) {
         p.set('utm_source', 'youtube');
         p.set('utm_medium', 'shorts');
-        p.set('utm_campaign', 'v24');
+        p.set('utm_campaign', 'v241');
         history.replaceState(null, '', window.location.pathname + '?' + p.toString() + window.location.hash);
       }
     })();
@@ -145,7 +145,7 @@ def main():
         "POST",
         SITE + "/releases",
         params={"versionName": new_version},
-        json={"message": "Update branded DR Accesorios RD v2.4 social download routes; preserve all live files"})
+        json={"message": "Update branded DR Accesorios RD v2.4.1 social download routes; preserve all live files"})
     print("Hosting release:", release["name"], flush=True)
     require(active()[1] == new_version, "Unexpected active Hosting version")
     require(files(new_version) == expected, "Released inventory mismatch")
@@ -158,7 +158,7 @@ def main():
                 params={"verify": time.time_ns()},
                 timeout=30,
             )
-            if response.ok and "DR_DOWNLOAD_V24" in response.text:
+            if response.ok and "DR_DOWNLOAD_V241" in response.text:
                 print("VERIFIED:", page_url, flush=True)
                 verified = True
                 break

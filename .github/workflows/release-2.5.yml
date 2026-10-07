@@ -2,9 +2,16 @@ name: Release DR Accesorios RD 2.5
 # v2.5 must use versionCode 21 because v2.4.1 is versionCode 20.
 # Final publication remains blocked until the rebuilt APK SHA-256 is locked below.
 
-# Automatic publication schedule cancelled on 2026-10-06.
-# The existing draft release is intentionally retained as development history.
+# Official v2.5 publication: 2026-12-02 20:00 America/Santo_Domingo
+# GitHub Actions cron is UTC, so that is 2026-12-03 00:00 UTC.
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/release-2.5.yml'
+  schedule:
+    - cron: '0 0 3 12 *'
   workflow_dispatch:
     inputs:
       confirm:
@@ -33,7 +40,7 @@ jobs:
         run: |
           proceed=false
 
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y-%m-%d)" = "2026-12-31" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y-%m-%d)" = "2026-12-03" ]; then
             proceed=true
           fi
 
@@ -61,9 +68,9 @@ jobs:
           RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.tag_name=="2.5") | .id' | head -n 1)"
 
           cat > /tmp/v25-body.md <<'BODY'
-          DR Accesorios RD v2.5 — Nuestro regalo de Año Nuevo 🎁✨
+          DR Accesorios RD v2.5 — Más Compose, más seguridad y una experiencia más pulida ✨
 
-          Para cerrar 2026 y recibir el nuevo año, queremos compartir contigo nuestro regalo de Año Nuevo de parte de DR Accesorios RD: una versión enfocada en hacer que leer, escuchar e interactuar con nuestras noticias se sienta más moderno, rápido y coherente.
+          La versión 2.5 continúa la evolución de DR Accesorios RD con una experiencia más moderna, segura y coherente, enfocada especialmente en el lector nativo, la comunidad y el sistema de actualización.
 
           • 📰 Nuevo lector nativo evolucionado con Jetpack Compose + Material 3.
 
@@ -85,11 +92,15 @@ jobs:
 
           • 🔔 Centro de Notificaciones ajustado para respetar correctamente el tema elegido dentro de la app.
 
+          • 🛡️ Firebase App Check reforzado también en la instancia social `dr_comments`, con Play Integrity en Release.
+
+          • 📲 Pantalla de actualización completamente nativa: durante la descarga ya no se muestra el HTML/WebView detrás del flujo de actualización.
+
           • 🧹 Limpieza interna del proyecto, eliminación de componentes heredados sin uso y mantenimiento de las dependencias realmente necesarias.
 
-          La v2.5 no busca llenar la app de funciones nuevas por llenar. Es una evolución de calidad: más Compose, más coherencia, más fluidez y una base más preparada para lo que viene en 2027.
+          La v2.5 no busca llenar la app de funciones nuevas por llenar. Es una evolución de calidad: más Compose, más coherencia, más seguridad, más fluidez y una base más preparada para lo que viene después.
 
-          🎁 **Nuestro regalo de Año Nuevo para ti, de parte de DR Accesorios RD.**
+          **Lanzamiento programado:** 2 de diciembre de 2026, 8:00 p. m. (República Dominicana).
 
           ---
 
@@ -102,7 +113,7 @@ jobs:
             gh api --method POST "/repos/${GITHUB_REPOSITORY}/releases" \
               -f tag_name="2.5" \
               -f target_commitish="main" \
-              -f name="DR Accesorios RD v2.5 — Nuestro regalo de Año Nuevo 🎁✨" \
+              -f name="DR Accesorios RD v2.5 — Más Compose, más seguridad y una experiencia más pulida ✨" \
               -F draft=true \
               -F prerelease=false \
               --raw-field body="$(cat /tmp/v25-body.md)"
@@ -119,7 +130,7 @@ jobs:
 
           gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             --raw-field tag_name="2.5" \
-            --raw-field name="DR Accesorios RD v2.5 — Nuestro regalo de Año Nuevo 🎁✨" \
+            --raw-field name="DR Accesorios RD v2.5 — Más Compose, más seguridad y una experiencia más pulida ✨" \
             --raw-field body="$(cat /tmp/v25-body.md)"
 
           echo "Draft 2.5 metadata synchronized."
@@ -141,7 +152,7 @@ jobs:
             "versionName": "2.5",
             "forceUpdate": false,
             "downloadUrl": "https://github.com/ariellourdes52-collab/dr-accesorios-rd-updates/releases/latest/download/dr-accesorios-rd.apk",
-            "changelog": "🎁 Nuestro regalo de Año Nuevo de parte de DR Accesorios RD\n📰 Lector nativo evolucionado con Jetpack Compose + Material 3\n🎧 DR Audio minimizable e integrado al lector\n💬 Comentarios, respuestas y controles renovados con Compose\n📴 Nuevo diálogo Compose para artículos guardados\n⚡ Rendimiento del lector profundamente optimizado\n📰 Artículos relacionados con imágenes 16:9 mejoradas\n🌙 Mejor soporte de temas claro, oscuro y sistema\n📖 Continuar leyendo y lectura offline preservados\n🧹 Limpieza interna y mayor estabilidad"
+            "changelog": "📰 Lector nativo evolucionado con Jetpack Compose + Material 3\n🎧 DR Audio minimizable e integrado al lector\n💬 Comentarios, respuestas y controles renovados con Compose\n🛡️ App Check reforzado en la capa social\n📲 Actualización con interfaz completamente nativa\n📴 Nuevo diálogo Compose para artículos guardados\n⚡ Rendimiento del lector profundamente optimizado\n📰 Artículos relacionados con imágenes 16:9 mejoradas\n🌙 Mejor soporte de temas claro, oscuro y sistema\n📖 Continuar leyendo y lectura offline preservados\n🧹 Limpieza interna y mayor estabilidad"
           }
           JSON
 

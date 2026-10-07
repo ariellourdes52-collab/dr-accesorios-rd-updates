@@ -1,4 +1,6 @@
 name: Release DR Accesorios RD 2.5
+# v2.5 must use versionCode 21 because v2.4.1 is versionCode 20.
+# Final publication remains blocked until the rebuilt APK SHA-256 is locked below.
 
 # Automatic publication schedule cancelled on 2026-10-06.
 # The existing draft release is intentionally retained as development history.
@@ -93,7 +95,7 @@ jobs:
 
           **Archivo:** `dr-accesorios-rd.apk`
 
-          **SHA-256:** `1a68d5a5d9f8dac4a0febd8a50f2a5a933de24c56dc5358027b5a19cb53dbb95`
+          **SHA-256:** `PENDING_V2_5_CODE21_SHA256`
           BODY
 
           if [ -z "$RELEASE_ID" ]; then
@@ -135,7 +137,7 @@ jobs:
           mkdir -p public
           cat > public/version.json <<'JSON'
           {
-            "versionCode": 19,
+            "versionCode": 21,
             "versionName": "2.5",
             "forceUpdate": false,
             "downloadUrl": "https://github.com/ariellourdes52-collab/dr-accesorios-rd-updates/releases/latest/download/dr-accesorios-rd.apk",
@@ -154,7 +156,7 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/send_update_notifications.py --version-code 19 --version-name 2.5 --legacy-max-version-code 14 --preflight
+        run: python scripts/send_update_notifications.py --version-code 21 --version-name 2.5 --legacy-max-version-code 14 --preflight
 
       - name: Verify release and APK (draft or resumed publication)
         if: steps.gate.outputs.proceed == 'true'
@@ -180,7 +182,7 @@ jobs:
           fi
 
           APK_DIGEST="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '.[] | select(.name=="dr-accesorios-rd.apk") | .digest')"
-          EXPECTED_DIGEST="sha256:1a68d5a5d9f8dac4a0febd8a50f2a5a933de24c56dc5358027b5a19cb53dbb95"
+          EXPECTED_DIGEST="sha256:PENDING_V2_5_CODE21_SHA256"
 
           if [[ "$EXPECTED_DIGEST" != sha256:* ]]; then
             echo "Final v2.5 APK SHA-256 is locked in release-2.5.yml."
@@ -237,7 +239,7 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/send_update_notifications.py --version-code 19 --version-name 2.5 --legacy-max-version-code 14
+        run: python scripts/send_update_notifications.py --version-code 21 --version-name 2.5 --legacy-max-version-code 14
 
       - name: Legacy 1.6/1.7 delivery reminder
         if: steps.gate.outputs.proceed == 'true'

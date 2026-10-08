@@ -190,6 +190,26 @@ def main() -> None:
         "ABORTADO: faltan rutas críticas antes del deploy: " + " | ".join(missing),
     )
 
+    # Prevent resurrecting a previously deactivated alert from stale CDN data.
+    # Every DR Radar Hosting publisher uploads deterministic gzip(mtime=0).
+    # Match the public bytes against the *current live release's* file hash
+    # before making any change; Python 3.11/3.12 may differ in gzip OS byte.
+    public_gzip = gzip.compress(response.content, mtime=0)
+    possible_hashes = {hashlib.sha256(public_gzip).hexdigest()}
+    if len(public_gzip) > 9 and public_gzip[9] in (3, 255):
+        alternative_gzip = bytearray(public_gzip)
+        alternative_gzip[9] = 255 if public_gzip[9] == 3 else 3
+        possible_hashes.add(hashlib.sha256(alternative_gzip).hexdigest())
+
+    require(
+        old_files[RADAR_PATH] in possible_hashes,
+        (
+            "ABORTADO: radar.json devolvió una copia distinta de la versión "
+            "activa de Firebase Hosting (posible caché atrasada). "
+            "No se publicó nada para evitar reactivar alertas eliminadas."
+        ),
+    )
+
     # 3) HTTP preflight on critical public surfaces before any release.
     for route in ("/radar.json",) + PUBLIC_CHECKS:
         check = requests.get(

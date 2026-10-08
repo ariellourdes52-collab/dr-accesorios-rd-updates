@@ -81,7 +81,7 @@ jobs:
                   f.write("\n".join(summary) + "\n")
           PY
 
-      - name: Desactivar exclusivamente la alerta indicada, sin FCM
+      - name: Desactivar alerta y sincronizar Radar Android
         if: ${{ inputs.mode == 'desactivar' }}
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
@@ -91,4 +91,4 @@ jobs:
             echo "ERROR: escribe el ID de la alerta que deseas desactivar." >&2
             exit 1
           fi
-          python scripts/manual_clear_radar_alert.py --alert-id "$RADAR_ALERT_ID" --action deactivate --confirm BORRAR --no-fcm
+          python scripts/manual_clear_radar_alert.py --alert-id "$RADAR_ALERT_ID" --action deactivate --confirm BORRAR

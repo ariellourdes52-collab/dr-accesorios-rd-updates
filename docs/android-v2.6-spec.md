@@ -218,3 +218,24 @@
 6. No publicar esta fase hasta aprobar pruebas anteriores y tener copia de seguridad del tema Blogger.
 
 **Estado:** fase documentada y pendiente; todavía no existe `/agenda/index.html` desplegada ni la página Blogger enlazada.
+
+## 11. Telegram también recibe, consulta y guarda DR Agenda
+**Requisito funcional:** El mismo bot oficial `@draccesoriosrd_bot` se usa para **administración privada de eventos** y para **consumo por suscriptores**. No incorporar nuevos servicios Railway ni habilitar Firebase Blaze.
+
+### 11.1. Experiencia del suscriptor
+- Tras un evento `confirmed` realmente publicado y una acción de aviso confirmada, el bot envía a los usuarios **suscritos a avisos de Agenda** una tarjeta Telegram con imagen (si existe), nombre, categoría, fecha/hora RD, sede o «en línea», y botones: «Ver evento», «Guardar evento» y «Cómo llegar» cuando corresponda.
+- `/agenda` lista **próximos eventos** disponibles, con paginación o filtros si hay muchos; `/mis_eventos` o «Guardados» muestra los eventos que ese suscriptor decidió guardar. Los guardados son referencias a IDs, NO duplicados de imágenes.
+- «Guardar evento» añade un registro persistente idempotente por `telegram_user_id` + `event_id` usando el almacenamiento de usuarios **ya existente** del bot (revisar esquema y migrar sin romper notificaciones existentes). «Quitar de guardados» elimina esa relación sin alterar el catálogo global.
+- Solo notificar a quienes hayan optado explícitamente por recibir eventos de Agenda; permitir activar/desactivar esa categoría sin desuscribir noticias, DR Radar o otros avisos; respetar bloqueos y bajas existentes.
+- El historial de mensajes de Telegram permanece sujeto a las funciones de Telegram: **borrar una imagen del Hosting no retira automáticamente mensajes/fotos ya enviados**. Para evitar imágenes residuales, preferir envío de fotografía como URL solo si la retención de Telegram se acepta; si se requiere revocación de imágenes de avisos antiguos, enviar enlace y vista previa en lugar de foto binaria, o intentar editar/eliminar mensajes bajo límites de Telegram sin garantía. Nunca prometer eliminar caché de Telegram.
+- Al vencer o cancelar, `/mis_eventos` puede conservar una referencia en estado «finalizado/cancelado» sin intentar volver a descargar su imagen; alternativamente ofrecer «Quitar guardado». No reactivar ni reenviar automáticamente.
+- `/evento <id>` o callback abre la ficha del evento desde un ID validado (no abrir URLs no confiables recibidas por Telegram). No exponer acciones de administrador a suscriptores.
+
+### 11.2. Arquitectura y fiabilidad
+- Fuente única: catálogo de Agenda administrado por bot y publicado en Firebase Hosting Spark. El bot consulta el catálogo y sus estados; la base de datos del bot guarda **solo IDs por usuario**, preferencia de alertas, estado de entrega y deduplicación.
+- Envíos Telegram y avisos Android FCM se desacoplan de la publicación Hosting; solo enviar tras verificar que `/agenda/events.json` y portada pública estén disponibles y corresponden a la revisión esperada.
+- Prevenir publicaciones repetidas: clave única `event_id` + `revision` + `notice_kind`, y control de envíos/recibos que aproveche la cola actual del bot sin interferir con Radar/Noticias/Audio; límite de tasa y reintentos.
+- Cancelación/vencimiento retira el evento activo y la imagen de Hosting; los guardados de Telegram pueden permanecer como **marcadores textuales de estado** hasta que el usuario los quite. Limpiar del catálogo no significa que mensajes previos desaparezcan del historial de Telegram.
+- Aislar comandos administrativos mediante IDs de administrador autorizados en servidor; nunca permitir que un suscriptor altere, elimine o publique eventos. No solicitar credenciales personales en el chat.
+- Verificar disponibilidad real de tablas, comandos y preferencias del bot existente antes de escribir migraciones; preservar los datos actuales mediante cambios aditivos.
+- **Estado:** requisito definido pero aún no implementado ni desplegado. No se han enviado eventos reales ni creado nuevos registros de usuario.

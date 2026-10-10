@@ -1,0 +1,39 @@
+name: DR Agenda - Publicar desde Telegram
+
+run-name: DR Agenda publicar evento privado
+
+on:
+  workflow_dispatch:
+    inputs:
+      payload_json:
+        description: 'Solicitud JSON enviada por el bot admin. Nunca introducir tokens.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-agenda-hosting-writes
+  cancel-in-progress: false
+
+jobs:
+  publish-agenda:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Obtener scripts aprobados
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependencias
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3' 'Pillow>=10,<13'
+      - name: Validar, publicar y comprobar Agenda sin tocar otros servicios
+        env:
+          DR_AGENDA_PAYLOAD_JSON: ${{ inputs.payload_json }}
+          DR_AGENDA_CI_APPROVED: TELEGRAM_ADMIN_CONFIRMED
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.DR_AGENDA_TELEGRAM_BOT_TOKEN }}
+        run: python scripts/publish_dr_agenda_telegram.py

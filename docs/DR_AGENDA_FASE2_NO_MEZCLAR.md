@@ -1,50 +1,51 @@
-# DR Agenda Fase 2 — Auditoría de seguridad y aislamiento (10 de octubre de 2026)
+# DR Agenda Fase 2 — Implementación QUIRÚRGICA y AISLADA (10 octubre 2026)
 
-## Dictamen
+## Dictamen técnico tras investigación oficial
 
-**No existe garantía de riesgo cero. No activar la publicación LIVE todavía.** Los cambios permanecen en el PR #3, aislados de `main`, y ninguna prueba modificó Firebase Hosting.
+Firebase Hosting REST publica cada versión como manifiesto completo; compartir el **mismo sitio LIVE** entre Radar, Audio y Agenda genera competencia entre despliegues que no puede eliminarse solo modificando el workflow de Agenda. **Solución elegida: un segundo sitio Firebase Hosting en el mismo proyecto Spark**, exclusivo de Agenda y con versión/release independiente. Es una capacidad oficial de Firebase Hosting disponible en Spark.
 
-### Comprobaciones verificadas
+- Sitio actual **PROHIBIDO para Agenda**: `sites/dr-accesorios-rd`; `https://dr-accesorios-rd.web.app`. No tocarlo.
+- Sitio nuevo previsto, **todavía no creado ni reservado**: `sites/dr-accesorios-rd-agenda`; `https://dr-accesorios-rd-agenda.web.app`.
+- Ruta de catálogo: `https://dr-accesorios-rd-agenda.web.app/agenda/events.json`.
+- Rutas de imágenes: `https://dr-accesorios-rd-agenda.web.app/agenda/images/<id>.webp`.
 
-- PR #3 cambia únicamente código nuevo de DR Agenda, workflow, pruebas y esta documentación. No edita workflows, datos, scripts ni configuración de DR Radar, DR Audio, APK o Blogger.
-- GitHub Actions utiliza `workflow_dispatch` solamente, no `push`, `schedule` ni disparadores automáticos.
-- El workflow otorga al `GITHUB_TOKEN` solo `contents: read`; acceso a Hosting mediante `FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD`, reutilizado sin modificarlo.
-- El publicador comprueba versiones y rutas críticas e intenta conservar íntegramente archivos y configuración de Firebase Hosting; compara el manifiesto con la versión activa antes de liberar.
-- Imagen comprimida a WebP con límites, validación de id/fechas y duplicados. Sin FCM ni envíos masivos.
-- La API oficial Hosting exige un manifiesto **completo** por despliegue, no parches independientes de directorio.
+El subdominio necesita disponibilidad global y su sitio debe crearse **en el mismo proyecto Firebase**, sin cambiar facturación ni crear recursos de Blaze. Las cuotas Spark de Hosting se comparten a nivel del proyecto.
 
-### Riesgos detectados y mitigación
+## ÚNICOS archivos alterados en rama Agenda
 
-**1. CRÍTICO — despliegues simultáneos de Radar/Audio y Agenda.** Los publicadores mantienen diferentes grupos de concurrencia y Hosting sustituye toda la versión LIVE. Si uno prepara su manifiesto justo antes de que otro libere una versión, un despliegue posterior podría revertir cambios del primero; las verificaciones antes de publicar reducen, pero no eliminan, ese riesgo entre lectura y escritura. **Pendiente:** acordar mecanismo común de exclusión/serialización entre todos los procesos que escriben al mismo sitio (GitHub y cualquier publicador externo), o reservar una ventana de mantenimiento y verificar después. **Hasta entonces NO habilitar publicación LIVE de Agenda**.
+1. `scripts/dr_agenda_publisher_core.py`: sitio fijo de Agenda, distinta URL e imágenes, verificación `sites.get`, soporte de sitio recién creado sin release, rechaza usar Hosting principal en todo despliegue.
+2. `.github/workflows/publish-dr-agenda-telegram.yml`: se agrega prueba de aislamiento, `run_mode=auditar` predeterminado, `DR_AGENDA_PUBLISH_ENABLED=true` obligatorio para LIVE, respaldo exportado como artefacto.
+3. `tests/test_agenda_hosting_isolation.py`: verifica aislamiento, no configuración mutable del sitio, fallar cerrado si el sitio no existe, first release y URL de imágenes externas.
+4. Esta documentación. El script `scripts/publish_dr_agenda_telegram.py` conserva su lógica y permisos, obtiene las URL del core aislado.
 
-**2. ALTO — respaldo temporal no recuperable.** El respaldo anterior se guardaba dentro de `TemporaryDirectory`, que se eliminaba al terminar el workflow. **Corregido:** usar `DR_AGENDA_BACKUP_DIR` externo y subir `firebase-manifest.json` junto a `local.json` como artefacto de GitHub con retención de 7 días. No es copia integral de los archivos; la recuperación efectiva depende de la versión anterior conservada por Hosting y exige procedimiento de rollback verificado.
+**No modificar** scripts, workflows, publicadores ni agrupaciones de concurrencia de Radar/Audio, versión APK, configuración actual Hosting, Cloudflare, Blogger, PWA o Firebase Rules.
 
-**3. ALTO — publicación habilitada por defecto.** Originalmente, un `workflow_dispatch` podía iniciar escrituras inmediatamente con el JSON introducido. **Corregido:** selector `run_mode` con valor por defecto `auditar`; el modo `publicar` solo procede cuando la variable GitHub `DR_AGENDA_PUBLISH_ENABLED` sea exactamente `true`. En ausencia de la variable, falla *antes de abrir una sesión de escritura*. Así, fusionar el PR no activa publicaciones.
+## Integración prevista cuando se apruebe
 
-**4. MEDIO — control de origen de la solicitud.** La comprobación de administrador y doble confirmación reside en el Worker; el workflow solo ve un JSON autenticado a través de los permisos de GitHub y una constante de CI. No verifica criptográficamente que la orden surgió de Telegram. **Pendiente:** evaluar firma HMAC con secreto independiente y permisos mínimos de GitHub, sobre todo si más personas adquieren capacidad de ejecutar workflows.
+- El Worker Telegram v2.6.1 de la futura fase se cambiará **solo en dos constantes nuevas de Agenda**: `DR_AGENDA_CATALOG_URL` y `DR_AGENDA_ORIGIN`; conservar Worker v2.6.0 desplegado hasta realizar pruebas.
+- Android v2.6 Fase 3 requiere dos cambios exclusivos de Agenda: `AgendaRepository.kt` URL de catálogo y `AgendaModels.kt` hosts permitidos para imágenes.
+- Blogger y WebView se integrarán en la última fase desde el sitio secundario; no insertar widgets ahora.
 
-**5. MEDIO — falta prueba en Hosting real.** Las pruebas son locales/simuladas; todavía no se ha comparado un inventario real, permisos de cuenta de servicio, disponibilidad de la URL ni ejecución GitHub bajo secretos. **Pendiente:** ejecutar `auditar` sobre un evento ficticio válido, comprobando que no crea versiones/release.
+## Pruebas locales realizadas
 
-**6. MEDIO — compatibilidad del bot.** El Worker v2.6.1 empaquetado antes de esta auditoría debe enviar `run_mode: publicar`; sin este campo el workflow funciona por defecto en modo **auditar**, y no crea el evento aunque Telegram diga solicitud enviada. **No desplegar Worker v2.6.1 hasta actualizarlo y probarlo**. Esto no afecta al Worker v2.6.0 actualmente en Cloudflare.
+- Suite del publicador: **20 pruebas Python** incluidas verificaciones de seguridad y aislamiento, todas superadas con datos simulados. No se envió nada a Firebase.
+- Se preparó Worker v2.6.1 con solo dos constantes nuevas modificadas; **no desplegado**.
+- Debe ejecutarse posteriormente una auditoría real de solo lectura en la nueva URL una vez creado el sitio.
+- La existencia real del nuevo sitio, sus permisos IAM, disponibilidad del subdominio y resultado de primer deploy **no están verificadas**. No declarar producción lista.
 
-**7. BAJO — imágenes históricas y expiración.** La eliminación automática de eventos/imágenes no pertenece a esta fase; retirar archivos de Hosting LIVE no purga versiones antiguas, clientes ni fotos enviadas por Telegram. No prometer eliminación definitiva.
+## Activación — orden obligatorio
 
-### Pruebas
+1. Confirmar autorización para crear segundo sitio Firebase Hosting sin cambiar Spark. En Firebase Console > Hosting > Add another site, elegir `dr-accesorios-rd-agenda` si está disponible. **No desplegar contenido en sitio principal**.
+2. Verificar el sitio en consola y que la URL nueva pertenece al proyecto esperado.
+3. Revisar PR #3 y fusionar solamente después de autorización expresa; no ejecutar hasta site creado.
+4. Ejecutar en modo `auditar` con payload de evento ficticio y revisar el manifiesto sin escrituras.
+5. Verificar el secreto `DR_AGENDA_TELEGRAM_BOT_TOKEN` y credenciales de servicio. Mantener `DR_AGENDA_PUBLISH_ENABLED` ausente, no habilitar LIVE todavía.
+6. Una vez aprobado el preflight, respaldos y despliegues de prueba, publicar 1 solo evento sin FCM ni mensajes masivos y verificar HTTPS público, imagen, Radar y Audio.
+7. Actualizar las **dos constantes de Agenda** del Worker y **dos archivos Agenda** de Android v2.6; no sobreescribir cambios posteriores de esos archivos, fusionar quirúrgicamente.
+8. Activar avisos y expiración SOLO en fases posteriores, con pruebas y consentimiento independiente.
 
-- Suite previa: **9 pruebas Python** del publicador + **22 verificaciones JS** + pruebas de integración simuladas con el bot.
-- Nueva suite: **3 pruebas específicas de seguridad** en `tests/test_dr_agenda_guardrails.py`: modo auditoría sin publicación, rechazo de LIVE sin variable y respaldo persistente. Probadas localmente y añadidas al workflow antes de cualquier acceso a Hosting.
+## Estado
 
-### Antes de permitir publicación LIVE
+**Código aislado listo en rama de desarrollo, PR #3 NO fusionado.** La publicación LIVE sigue desactivada por defecto. **No se ha creado un segundo sitio, desplegado un evento, modificado el Hosting principal, Cloudflare ni la APK.**
 
-1. Revisar coordinación de los escritores Firebase existentes sin romper Radar ni Audio.
-2. Mantener `DR_AGENDA_PUBLISH_ENABLED` **sin definir**, y fusionar PR #3 solo con autorización explícita (por defecto publicación bloqueada).
-3. Ejecutar una auditoría remota real en modo `auditar`, sin crear versiones ni releases.
-4. Revisar los artefactos de respaldo y ruta de rollback a versión anterior de Hosting.
-5. Verificar que Cloudflare conserva la versión estable del bot hasta tener su actualización compatible.
-6. Solo tras cumplir lo anterior, autorizar `DR_AGENDA_PUBLISH_ENABLED=true`, publicar un evento de prueba controlado, y comprobar Radar, Audio, descarga APK, PWA y Blogger.
-
-### Costos y alcance
-
-No introduce Cloud Functions, Cloud Storage ni Blaze; usa Firebase Hosting Spark, GitHub Actions y Telegram existentes. Se mantienen cuotas y límites gratuitos. No se han activado notificaciones masivas, limpieza automática de vencidos ni edición de Blogger.
-
-**ESTADO FINAL:** revisión de código con dos mejoras preventivas implementadas. Riesgo de concurrencia **todavía sin resolver**: NO dar por segura la publicación real ni fusionar sin consentimiento.
+Documentación oficial: https://firebase.google.com/docs/hosting/multisites ; https://firebase.google.com/pricing ; https://firebase.google.com/docs/hosting/api-deploy .

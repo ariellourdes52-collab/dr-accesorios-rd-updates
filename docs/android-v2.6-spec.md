@@ -188,3 +188,33 @@
 - **Caché Android:** la app borra caché de imágenes al detectar `cancelled`, `expired` o ausencia del ID tras sincronizar, sin borrar caché de otras funciones.
 - **No hacer:** Blaze, Cloud Functions, Cloud Storage for Firebase, nuevos servicios Railway, exponer tokens en chat/GitHub; no ejecutar deploy parcial de Firebase Hosting.
 - **Estado:** solo contrato de implementación: NO se ha desplegado el bot, ni el publicador remoto, ni el job de expiración, ni los cambios Kotlin de caché automática.
+
+## 10. Fase final — Blogger y WebView para DR Agenda
+**Prioridad:** ejecutar esta fase **al final**, después de completar y verificar la publicación de eventos e imágenes desde Telegram y de conectar la APK nativa al catálogo. **Sin Blaze ni nuevos servicios Railway.**
+
+### 10.1. Fuente única y vistas
+- El bot publica un único catálogo `https://dr-accesorios-rd.web.app/agenda/events.json`, con imágenes optimizadas en `/agenda/images/`, preservando el resto de Firebase Hosting. No administrar ni duplicar eventos en Blogger.
+- La APK Android nativa usa su pantalla DR Agenda y el JSON. Blogger, el WebView del blog y la PWA iOS muestran una interfaz web ligera y responsive servida por Hosting en `/agenda/index.html`, que consume el **mismo catálogo**. No añadir otro backend ni base de datos.
+- Para evitar problemas CORS, alojar HTML y JSON en el **mismo origen** Firebase Hosting; Blogger solo incrusta la interfaz mediante iframe desde su página DR Agenda. Verificar `Content-Security-Policy frame-ancestors` y `X-Frame-Options` en la respuesta de Hosting antes de incrustar; ajustar exclusivamente cabeceras de `/agenda/` si hiciera falta, sin debilitar otras rutas.
+
+### 10.2. Blogger
+- Crear una página estática *DR Agenda* (ruta que realmente asigne Blogger; p. ej. `/p/dr-agenda.html`) con texto introductorio SEO, un iframe responsive dirigido a `https://dr-accesorios-rd.web.app/agenda/`, y enlace de fallback a abrir la agenda web directamente. No usar JavaScript remoto en el tema global para este propósito.
+- En Menú/Páginas de Blogger añadir navegación «DR Agenda», y opcionalmente una tarjeta de «Próximos eventos» en portada, solo después de verificar móvil, modo oscuro y tiempos de carga. Evitar duplicar un iframe completo en todas las entradas.
+- **No desplazar ni modificar** el widget crítico `footer-1` posición 1 (Radar, comentarios y verificación social), ni tocar GA4, Search Console, robots.txt, widgets de notificaciones existentes o scripts de Blogger durante esta fase. Respaldar tema antes de insertar.
+- El texto del evento dentro del iframe no equivale a contenido HTML indexable en Blogger; si se desea posicionamiento orgánico por evento, generar en Hosting fichas HTML públicas con metadatos propios y/o publicar notas Blogger relevantes, evitando duplicados SEO y URLs falsas.
+
+### 10.3. WebView Android / iOS
+- El WebView que abre páginas Blogger renderiza la página DR Agenda y su iframe, siempre que permita JavaScript y navegación HTTPS; verificar pruebas en Android 7+, Android recientes y iPhone/iPad PWA. Mantener navegación interna y botón Atrás sin abrir un navegador externo inesperadamente.
+- La interfaz web ofrece listado, filtros, imagen, hora RD, estado, lugar, mapa, botón «Añadir al calendario» y detalle accesible. Abrir enlaces de Google Maps externos según comportamiento seguro actual del WebView; no solicitar permisos nuevos de ubicación ni calendario.
+- Al cancelar/vencer, catálogo deja de mostrarlo activo y la web devuelve tarjeta de finalizado/cancelado si alguien abre un enlace antiguo. Firebase Hosting retira la imagen de la versión activa y Android limpia su caché mediante el mecanismo propio pendiente.
+- La página carga el JSON con cache control breve o revalidación; refresh on focus; caché de imágenes con duración prudente y contenido vacío amigable en error/404. No bloquear el resto del blog si Agenda no responde.
+
+### 10.4. Checklist de aceptación
+1. Publicar evento desde Telegram: aparece en APK, página Blogger dentro del WebView y, si se incluye, PWA iOS.
+2. Ver imagen correcta, fecha/hora RD, lugar y Google Maps; modo oscuro y responsive.
+3. Evento cancelado o vencido: no aparece activo y desaparece imagen pública del Hosting LIVE; comprobar efectos de caché.
+4. Probar apertura desde aviso Agenda en Android: ir directamente al detalle nativo. En Blogger/WebView, enlace a ficha web específica.
+5. Confirmar que Radar, Audio, descarga/actualizaciones, Social/comentarios, widgets de Blogger y SEO básico están intactos.
+6. No publicar esta fase hasta aprobar pruebas anteriores y tener copia de seguridad del tema Blogger.
+
+**Estado:** fase documentada y pendiente; todavía no existe `/agenda/index.html` desplegada ni la página Blogger enlazada.

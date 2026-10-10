@@ -149,6 +149,13 @@ def build_workspace(payload_json: str, workspace: Path, *, image_fetch=download_
 def main():
     require(os.environ.get('DR_AGENDA_CI_APPROVED') == 'TELEGRAM_ADMIN_CONFIRMED',
             'La publicación remota requiere autorización desde Telegram')
+    mode = os.environ.get('DR_AGENDA_RUN_MODE', 'auditar')
+    require(mode in ('auditar', 'publicar'), 'Modo Agenda desconocido: no se permitio publicar')
+    # Barrera independiente del clic en Telegram: por defecto el workflow
+    # nunca escribe en Hosting, incluso si es ejecutado manualmente.
+    if mode == 'publicar':
+        require(os.environ.get('DR_AGENDA_PUBLISH_ENABLED') == 'true',
+                'Publicacion LIVE DESACTIVADA. Falta variable del repositorio DR_AGENDA_PUBLISH_ENABLED=true')
     payload = os.environ.get('DR_AGENDA_PAYLOAD_JSON', '')
     require(bool(payload), 'Falta solicitud del bot')
     with tempfile.TemporaryDirectory(prefix='dr-agenda-') as dirname:
@@ -156,6 +163,9 @@ def main():
         state, event = build_workspace(payload, root)
         print('DR Agenda: preflight obligatorio para', event['id'], flush=True)
         publish(root, state, preflight=True)
+        if mode == 'auditar':
+            print('✅ MODO AUDITORÍA: solo lectura; Firebase Hosting sigue intacto.', flush=True)
+            return
         print('DR Agenda: publicando SOLO rutas /agenda/', flush=True)
         publish(root, state, preflight=False,
                 confirm='PUBLICAR-AGENDA', non_interactive=True)

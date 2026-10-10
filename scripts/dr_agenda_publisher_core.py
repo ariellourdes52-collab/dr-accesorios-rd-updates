@@ -23,9 +23,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
-SITE = "sites/dr-accesorios-rd"
+# Sitio secundario EXCLUSIVO de DR Agenda. No admite override por env ni JSON.
+# Debe crearse dentro del proyecto Firebase actual ANTES de cualquier publicación.
+SITE_ID = "dr-accesorios-rd-agenda"
+PRIMARY_SITE_ID = "dr-accesorios-rd"
+SITE = "sites/" + SITE_ID
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
-PUBLIC = "https://dr-accesorios-rd.web.app"
+PUBLIC = "https://" + SITE_ID + ".web.app"
+assert SITE_ID != PRIMARY_SITE_ID, "DR Agenda NO debe desplegarse al Hosting principal"
 CATALOG_PATH = "/agenda/events.json"
 CATALOG_URL = PUBLIC + CATALOG_PATH
 CATEGORIES = ("tech", "cine", "gaming", "local", "promocion", "lanzamiento", "conferencia", "streaming", "otros")
@@ -33,12 +38,9 @@ STATES = ("draft", "confirmed", "postponed", "cancelled")
 VALID_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{2,95}\Z")
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})\Z")
 RD_ZONE = timezone(timedelta(hours=-4))
-# Completa el inventario existente: jamás crear una versión de Hosting con solo /agenda/.
-CRITICAL = (
-    "/version.json", "/radar.json", "/dr-audio/index.json",
-    "/descargar/index.html", "/radar-widget/index.html",
-    "/radar-alertas/index.html", "/radar-alertas/manifest.webmanifest",
-)
+# No existen rutas del proyecto principal en este sitio nuevo, independiente.
+# Cada release contiene únicamente el inventario de este segundo Hosting.
+CRITICAL = ()
 MAX_PUBLIC = 600_000  # Misma cota que AgendaRepository de Android.
 MAX_EVENTS = 250
 MAX_IMAGE = 1_500_000
@@ -313,7 +315,7 @@ def validate(state: dict, root: Path) -> list[dict]:
         if url:
             confirm_https(url, f"{eid}/imageUrl")
             parsed = urlparse(url)
-            require(parsed.hostname in ("dr-accesorios-rd.web.app", "dr-accesorios-rd.firebaseapp.com") and
+            require(parsed.hostname in (SITE_ID + ".web.app", SITE_ID + ".firebaseapp.com") and
                     parsed.path == f"/agenda/images/{eid}.webp" and not parsed.query and not parsed.fragment,
                     f"{eid}: imageUrl debe apuntar a imagen propia, sin parámetros")
         if event["status"] != "draft":
@@ -377,7 +379,12 @@ def make_auth_session():
 
 class Hosting:
     def __init__(self):
+        require(SITE_ID != PRIMARY_SITE_ID, "Hosting principal prohibido")
         self.session = make_auth_session()
+        # Fallar cerrado si el sitio aislado aún no existe o no tenemos permiso.
+        info = self.api("GET", SITE)
+        require(info.get("name") == SITE,
+                "Firebase respondió con otro sitio: se aborta antes de crear versiones")
 
     def api(self, method, path, **kw):
         response = self.session.request(method, BASE + path, timeout=90, **kw)
@@ -386,7 +393,15 @@ class Hosting:
         return response.json() if response.content else {}
 
     def active(self):
-        release = self.api("GET", SITE + "/channels/live")["release"]
+        response = self.session.get(BASE + SITE + "/channels/live", timeout=40)
+        if response.status_code == 404:
+            # Un sitio recién creado puede no tener todavía ninguna release LIVE.
+            return None, None
+        require(response.ok, "Error al consultar LIVE del sitio EXCLUSIVO Agenda: HTTP " + str(response.status_code))
+        body = response.json()
+        release = body.get("release")
+        if not release or not release.get("version"):
+            return None, None
         version = SITE + "/versions/" + release["version"]["name"].rsplit("/", 1)[1]
         return release["name"], version
 
@@ -450,19 +465,15 @@ def publish(root: Path, state: dict, *, preflight: bool, confirm: str = "", non_
     remote_raw = read_remote()
     api = Hosting()
     previous_release, previous_version = api.active()
-    old_version = api.api("GET", previous_version)
-    old_files = api.files(previous_version)
-    require(bool(old_files), "Hosting no tiene inventario de archivos")
+    old_version = api.api("GET", previous_version) if previous_version else {"config": {}, "fileCount": 0}
+    old_files = api.files(previous_version) if previous_version else {}
+    # A diferencia del sitio principal, el sitio secundario comienza vacío.
+    # Nunca se lee ni publica el inventario del sitio principal.
     if "fileCount" in old_version:
         require(len(old_files) == int(old_version["fileCount"]), "Inventario activo incompleto")
     missing = [p for p in CRITICAL if p not in old_files]
     require(not missing, "Faltan rutas críticas; NO publicar: " + ", ".join(missing))
     verify_remote_against_live(remote_raw, old_files, state)
-    for critical in ("/version.json", "/radar.json", "/dr-audio/index.json", "/descargar/", "/radar-alertas/index.html"):
-        import requests
-        r = requests.get(PUBLIC + critical, timeout=20, headers={"Cache-Control": "no-cache"},
-                         params={"precheck": time.time_ns()}, allow_redirects=False)
-        require(r.status_code == 200, f"Ruta crítica no responde con 200: {critical}: {r.status_code}")
 
     for event in payload["events"]:
         if event.get("imageUrl"):
@@ -480,7 +491,7 @@ def publish(root: Path, state: dict, *, preflight: bool, confirm: str = "", non_
             "Cambios no autorizados fuera de /agenda/")
     changed = [p for p, (_b, d) in blobs.items() if old_files.get(p) != d]
     print("\n--- PREFLIGHT DR AGENDA ---")
-    print("Hosting original:", previous_version)
+    print("Hosting aislado de Agenda:", SITE, "versión anterior:", previous_version)
     print("Revisión remota:", state["baseRevision"], "→", payload["revision"])
     print("Eventos públicos:", len(payload["events"]), "| Borradores privados:", len(state["events"]) - len(payload["events"]))
     print("Rutas actuales:", len(old_files), "| Rutas después:", len(expected))
@@ -509,6 +520,9 @@ def publish(root: Path, state: dict, *, preflight: bool, confirm: str = "", non_
     require(api.active() == (previous_release, previous_version), "Cambió Hosting antes de publicar")
     require(fingerprint(read_remote()) == fingerprint(remote_raw), "Cambió el catálogo antes de publicar")
 
+    # Guardia adicional justo antes de hacer cualquier POST.
+    require(SITE == "sites/dr-accesorios-rd-agenda" and SITE != "sites/dr-accesorios-rd",
+            "Objetivo de Hosting no autorizado")
     config = copy.deepcopy(old_version.get("config", {}))
     headers = config.setdefault("headers", [])
     for path in (CATALOG_PATH,):

@@ -106,3 +106,33 @@
 - Asegurar click desde notificación del sistema tanto con app abierta como cerrada, Android 7+, y Android 13+ con permiso de avisos denegado (el Centro debe seguir pudiendo recibir eventos cuando corresponda).
 - Pruebas: noticia, social, radar y OTA siguen abriendo correctamente; duplicado FCM no crea duplicados; evento eliminado y evento pospuesto abren un estado válido; leído/guardado persisten; links no válidos no redirigen a pantallas externas; permisos de agenda desactivados no afectan Radar.
 - **Estado actual**: requisito documentado, todavía no implementado ni publicado; no hay APK de Agenda lista ni alertas enviadas.
+
+## 7. Alimentación desde terminal Firebase — especificación de implementación pendiente
+**Estado:** no existe aún `scripts/dr_agenda_admin.py` ni están publicados los endpoints; los comandos siguientes representan la interfaz que se implementará, NO comandos disponibles.
+
+### 7.1 Datos obligatorios y ficha
+- Los eventos tendrán `id`, `title`, `description`, `category`, `startAt` con zona inequívoca, `endAt` opcional, `timezone` y `status`.
+- Se admitirán `imageUrl` (HTTPS propia, JPG/WebP optimizada), `venueName`, `address`, `city`, `province`, `country`, `lat`, `lng`, `mapsUrl`, `officialUrl` y `articleUrl`.
+- Listado y detalle: portada, fecha, hora en `America/Santo_Domingo` y localización explícitas; si el evento es online, indicar «En línea» en vez de mapa. Si no hay imagen, placeholder con marca sin recrear el logo.
+- Centro de Notificaciones: para avisos de Agenda, mostrar **fecha/hora y sede/ciudad** en el resumen cuando existan; miniatura opcional de caché, sin bloquear listado ni descargar imágenes desde FCM; imagen grande se carga en detalle.
+- La notificación del sistema abre detalle por `event_id` seguro; no depender de `imageUrl` del mensaje como URL a abrir.
+
+### 7.2 Interfaz de publicación prevista en Windows/Firebase
+- Ejecutar desde raíz del proyecto que contenga `scripts/dr_agenda_admin.py`, sin cambiar a ciegas el proyecto activo.
+- Flujo previsto:
+  - `python scripts/dr_agenda_admin.py nuevo` → formulario interactivo que solicita título, categoría, fecha-hora, localidad o online, imagen local, enlaces y detalles.
+  - `python scripts/dr_agenda_admin.py listar` → resumen del catálogo.
+  - `python scripts/dr_agenda_admin.py editar ID`, `cancelar ID`, `posponer ID` → modificaciones versionadas.
+  - `python scripts/dr_agenda_admin.py validar` → valida esquema/fechas/enlaces, duplicados, rutas de imagen, ancho/alto, peso y estado.
+  - `python scripts/dr_agenda_admin.py publicar --preflight` → simula cambios e inventario activo.
+  - `python scripts/dr_agenda_admin.py publicar` → requiere confirmación expresa; publica exclusivamente `/agenda/events.json` y `/agenda/images/<id>.webp` o `.jpg` en Hosting.
+  - `python scripts/dr_agenda_admin.py avisar ID --confirm` → segunda acción independiente **solo cuando v2.6 maneje avisos Agenda**, con FCM tipado y deduplicado.
+- Guardar localmente catálogo, imágenes optimizadas y un respaldo de cada versión; registrar `updatedAt` y revisión por evento. No almacenar secretos dentro del repositorio.
+
+### 7.3 Despliegue sin impacto en Firebase
+- Utilizar la API REST de Firebase Hosting y el mismo patrón de preservación de inventario activo que `scripts/deploy_radar_preserving_hosting.py` y `scripts/deploy_version_preserving_hosting.py`.
+- Antes de publicar: obtener release activo, comprobar integridad de todos los hashes, rutas críticas (Radar, DR Audio, `version.json`, PWA y landing), y verificar que el catálogo remoto no cambió desde el inicio de edición.
+- Construir nueva versión incluyendo **todas** las rutas actuales y solo nuevos hashes bajo `/agenda/`; detectar despliegues concurrentes y abortar en caso de conflicto; verificar URLs e inventario después del release.
+- NO ejecutar `firebase deploy --only hosting` sobre un directorio parcial: una versión de Hosting describe el conjunto completo de archivos activos.
+- Notificaciones Agenda deben permanecer desacopladas de la publicación de eventos; no emitir FCM por defecto.
+- El publicador y sus comandos son una **especificación**: requieren implementación y pruebas en entorno aislado antes de usarlos con el Hosting real.

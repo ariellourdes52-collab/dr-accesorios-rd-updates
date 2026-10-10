@@ -429,7 +429,9 @@ def verify_remote_against_live(remote_raw, live_files, state):
 
 
 def snapshot(root, state, live_version, existing, remote_raw):
-    base = root / "backups"
+    # En CI, guardarlo fuera del TemporaryDirectory del evento para que Actions
+    # pueda subirlo como artefacto aun si la publicacion falla despues del snapshot.
+    base = Path(os.environ["DR_AGENDA_BACKUP_DIR"]) if os.environ.get("DR_AGENDA_BACKUP_DIR") else root / "backups"
     base.mkdir(parents=True, exist_ok=True)
     suffix = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     directory = base / suffix

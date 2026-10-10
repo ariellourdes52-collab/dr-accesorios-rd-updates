@@ -75,3 +75,34 @@
 - No crear cron de publicación v2.6 por defecto; ninguna fecha inventada.
 - No tocar `main` antes de revisar diferencias y aprobar integración.
 - Mantener una única etiqueta/versionName 2.6 al publicar y bloquear con digest del APK.
+
+## 6. Requisito ampliado — DR Agenda + Centro de Notificaciones
+**Acordado:** DR Agenda abarcará eventos tecnológicos, cine, gaming y eventos locales, con imágenes, ubicación/mapas, enlaces oficiales y opción de añadir al calendario.
+
+### 6.1. Navegación y presentación
+- Nueva pestaña **Agenda** junto a Todo, Noticias, Radar y Social dentro de `NotificationCenterChrome`, con filtros generales «No leídas» y «Guardadas» que también funcionan con la categoría Agenda.
+- Cada aviso debe mostrar distintivo claro **DR AGENDA**, título, descripción, fecha local y, cuando aplique, ubicación. La imagen del evento se muestra dentro de la pantalla de detalle, sin exigir descargarla para renderizar el Centro de Notificaciones.
+- Al tocar una tarjeta: marcar como leída y abrir directamente el **detalle de ese evento** (`eventId`), no la lista general ni un artículo.
+- Al tocar la notificación del sistema Android: misma apertura directa a ese evento; si fue borrado o cancelado, mostrar una explicación accesible y permitir volver a Agenda.
+- No alterar vistas y rutas de Noticias, Radar, Social, favoritos ni edición de notificaciones existentes.
+
+### 6.2. Identidad del mensaje y deduplicación
+- Mensaje FCM **solo datos** con `type=agenda_event`, `event_id`, `event_revision`, `notice_kind` (published/updated/reminder/cancelled), `title`, `body`.
+- Tipo local de centro: `AGENDA_EVENT`, categoría `DR Agenda`, clave de origen determinista `agenda:<event_id>:<revision>:<notice_kind>`. Deduplicar vía `NotificationStore.addNotification(sourceKey=...)`; conservar leída/guardada frente a reintentos. El identificador debe validarse antes de usarse y resolver el evento solo en nuestro catálogo HTTPS, nunca abrir URLs arbitrarias suministradas por push.
+- La actualización de fecha debe alterar el evento de origen; notificación nueva solo si hay cambio significativo y versión nueva, no por cada refresco de caché.
+- Guardar primero en el centro local; después crear la notificación del sistema únicamente si los permisos y preferencias lo permiten.
+- La versión inicial no debe generar automáticamente alertas para eventos de demostración o no confirmados.
+
+### 6.3. Canales, privacidad y autonomía
+- **Canal Android exclusivo para Agenda**, p. ej. `dr_agenda_channel_v1`, importancia normal (no alta por defecto). Jamás reutilizar o modificar el canal urgente de sismos y DR Radar.
+- Tópico FCM opcional `dr_agenda_updates` con preferencia propia habilitable/deshabilitable por el usuario; no suscribirlo desde `subscribeToRequiredTopics()` ni alterar `blog_updates` o `radar_seismic_v231`.
+- Activar solo los avisos pertinentes (nuevo evento destacado, cambio significativo, cancelación); recordatorios opcionales y sin aumentar la carga de WorkManager. Al añadir al calendario Android, los recordatorios los gestiona el calendario del usuario.
+- No solicitar localización ni permisos de calendario. Abrir Google Maps/navegador mediante intent público tras pulsación voluntaria.
+- Confirmar expiración/estado antes de abrir y mantener fallback offline con caché de la ficha.
+
+### 6.4. Integración técnica y pruebas
+- Crear `AgendaActivity`/detalle antes de habilitar `onMessageReceived` para `agenda_event`; si no existe pantalla destino, NO activar envío.
+- Extender **sin reemplazar** `NotificationCenterChrome` y `NotificationCenterActivity`: clasificación Agenda excluida de «Noticias», pestaña seleccionable, icono propio, etiqueta DR AGENDA, color diferenciado y navegación a detalle.
+- Asegurar click desde notificación del sistema tanto con app abierta como cerrada, Android 7+, y Android 13+ con permiso de avisos denegado (el Centro debe seguir pudiendo recibir eventos cuando corresponda).
+- Pruebas: noticia, social, radar y OTA siguen abriendo correctamente; duplicado FCM no crea duplicados; evento eliminado y evento pospuesto abren un estado válido; leído/guardado persisten; links no válidos no redirigen a pantallas externas; permisos de agenda desactivados no afectan Radar.
+- **Estado actual**: requisito documentado, todavía no implementado ni publicado; no hay APK de Agenda lista ni alertas enviadas.

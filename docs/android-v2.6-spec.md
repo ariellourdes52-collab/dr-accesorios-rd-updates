@@ -136,3 +136,35 @@
 - NO ejecutar `firebase deploy --only hosting` sobre un directorio parcial: una versión de Hosting describe el conjunto completo de archivos activos.
 - Notificaciones Agenda deben permanecer desacopladas de la publicación de eventos; no emitir FCM por defecto.
 - El publicador y sus comandos son una **especificación**: requieren implementación y pruebas en entorno aislado antes de usarlos con el Hosting real.
+
+## 8. Retención y eliminación automática de imágenes de DR Agenda
+
+**Requisito (10 oct. 2026):** administrar DR Agenda desde el bot oficial de Telegram, con Firebase como motor de publicación y eliminación. No añadir servicios a Railway. Toda imagen de evento se despublica y se elimina del inventario activo cuando se cancela o cuando el evento expira por fecha/hora; no eliminar contenido de Blogger, DR Audio, DR Radar, Telegram ni imágenes ajenas a Agenda.
+
+### 8.1. Estados y reglas de tiempo
+- Cada evento tiene `startAt` y un `endAt` **obligatorio para activar la expiración automática por horario**; el formulario del bot no permitirá confirmar un evento sin un `endAt` válido y posterior a `startAt`. Para eventos sin fin conocido, exigir decisión explícita sobre fecha/hora de caducidad `expiresAt` en lugar de asumir que expiran al empezar.
+- Un evento `cancelled`: retirar del listado público y despublicar su imagen inmediatamente después de confirmar la cancelación del administrador; mantener un registro textual mínimo con ID, estado y fecha para abrir una notificación previa sin error.
+- Un evento `confirmed` que alcance `expiresAt` (o `endAt` definido como caducidad): retirar del catálogo público y despublicar imagen. `postponed` conserva su imagen hasta reprogramación, cancelación o caducidad explícita; no borrar por fecha antigua mientras esté pospuesto.
+- Repetir tareas de limpieza debe ser idempotente. No borrar imágenes si son utilizadas por otro evento, aunque en principio el nombre de archivo use el identificador exclusivo.
+- Los avisos ya registrados mantienen título y estado en el Centro de Notificaciones; una ficha que fue eliminada muestra «Evento finalizado» o «Evento cancelado» sin descargar imagen inexistente.
+- Guardar `deletedAt`, `deletionReason` y auditoría mínima sin conservar binarios de imagen.
+
+### 8.2. Almacenamiento y eliminación real
+- **Compatibilidad actual:** la APK Fase 3 consulta `/agenda/events.json` e imágenes `/agenda/images/<id>.webp` bajo Firebase **Hosting**, por lo que quitar un enlace JSON **no** borra el archivo.
+- Para una imagen alojada en Hosting, el publicador/backend debe crear una nueva versión **completa** del sitio que preserve todas las rutas ajenas a `/agenda/` y omita específicamente las imágenes huérfanas, sin reintroducirlas en despliegues posteriores; comparar manifiesto antes/después y abortar ante concurrencia. Nunca borrar `/agenda/events.json`, otros activos ni rutas críticas.
+- Hosting puede retener copias en releases anteriores y cachés. La eliminación de la **versión activa** no equivale a destrucción inmediata de todas las copias históricas. Auditar políticas de caché y retención; nunca prometer borrado global instantáneo.
+- Si en una implementación futura se migra a Cloud Storage, debe actualizarse primero el contrato de URL de la APK y protegerse el borrado con reglas por ID de evento; **no** cambiar silenciosamente URLs que Fase 3 restringe al Hosting propio.
+
+### 8.3. Ejecución automática y publicación desde Telegram
+- Las cancelaciones iniciadas por administrador en el bot disparan una actualización transaccional del catálogo y limpieza del archivo (tras confirmación), **no** una operación manual de PowerShell.
+- Un job programado en **Firebase Cloud Functions v2 + Cloud Scheduler** revisará eventos expirados, como mínimo cada 15 minutos (ventana de ejecución; no garantía de segundo exacto), con control de concurrencia, firma/permiso de servicio e idempotencia. El job nunca envía FCM por borrar imágenes.
+- Cloud Functions requiere plan de facturación **Blaze**. Antes de habilitarlo verificar plan y costos con aprobación expresa; si no está habilitado Blaze, ofrecer alternativa compatible con el requisito de no usar Railway sin declarar la limpieza activada.
+- Solo habilitar limpieza automática después de implementar y probar el backend, incluida prueba de eliminación real de ruta `/agenda/images/...` en la versión LIVE, sin afectar el manifiesto de DR Radar, DR Audio, la PWA y `version.json`.
+
+### 8.4. Pruebas obligatorias
+- Cancelar evento: desaparece de listado y su imagen devuelve 404 desde la URL activa (teniendo en cuenta caché); sus notificaciones antiguas siguen abriendo estado «Cancelado».
+- Expirar evento con hora final explícita: mismo comportamiento; evento futuro no se borra y evento pospuesto no se borra por su fecha anterior.
+- Dos eventos y dos imágenes: solo se elimina la imagen del evento caducado. Repetición de job no elimina nada adicional.
+- Condición de carrera: si Hosting cambió, operación aborta y reintenta sin volver a publicar imágenes huérfanas ni revivir eventos.
+- Verificación de imágenes y hashes de todos los archivos **fuera de /agenda/**, incluido DR Radar, DR Audio, actualizador y Web App iOS.
+- Estado actual: **especificado pero no implementado ni activado**; ni bot ni Firebase borran imágenes automáticamente aún.

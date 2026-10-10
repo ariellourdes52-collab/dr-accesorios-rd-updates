@@ -9,6 +9,14 @@ on:
         description: 'Solicitud JSON enviada por el bot admin. Nunca introducir tokens.'
         required: true
         type: string
+      run_mode:
+        description: 'auditar = lectura sin despliegue; publicar requiere activar variable protegida.'
+        required: true
+        type: choice
+        default: auditar
+        options:
+          - auditar
+          - publicar
 
 permissions:
   contents: read
@@ -33,7 +41,19 @@ jobs:
       - name: Validar, publicar y comprobar Agenda sin tocar otros servicios
         env:
           DR_AGENDA_PAYLOAD_JSON: ${{ inputs.payload_json }}
+          DR_AGENDA_RUN_MODE: ${{ inputs.run_mode || 'auditar' }}
+          DR_AGENDA_PUBLISH_ENABLED: ${{ vars.DR_AGENDA_PUBLISH_ENABLED }}
+          DR_AGENDA_BACKUP_DIR: ${{ runner.temp }}/dr-agenda-backups
           DR_AGENDA_CI_APPROVED: TELEGRAM_ADMIN_CONFIRMED
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.DR_AGENDA_TELEGRAM_BOT_TOKEN }}
         run: python scripts/publish_dr_agenda_telegram.py
+
+      - name: Guardar manifiesto de respaldo (sin credenciales)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-agenda-hosting-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/dr-agenda-backups
+          if-no-files-found: ignore
+          retention-days: 7

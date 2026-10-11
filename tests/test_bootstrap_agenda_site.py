@@ -42,7 +42,10 @@ class BootstrapTests(unittest.TestCase):
                   "/__/firebase/init.js": "firebase-generated-hash-a",
                   "/__/firebase/init.json": "firebase-generated-hash-b"}
         self.assertTrue(boot.verify_hosting_manifest(active, expected))
-        self.assertTrue(boot.verify_hosting_manifest(
+        # Un inventario parcial y válido NO equivale a una carga completa.
+        # allow_incomplete permite inspeccionarlo sin excepción, pero devuelve False
+        # hasta que ambos archivos propios aparezcan como ACTIVE.
+        self.assertFalse(boot.verify_hosting_manifest(
             {"/agenda/events.json": "safe-json", "/__/firebase/init.js": "hash"},
             expected, allow_incomplete=True))
 

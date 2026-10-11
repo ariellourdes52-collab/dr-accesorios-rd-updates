@@ -25,8 +25,8 @@ from dr_agenda_publisher_core import (
 EXPECTED_SITE = "sites/dr-accesorios-rd-agenda"
 REPOSITORY = "ariellourdes52-collab/dr-accesorios-rd-updates"
 CONFIRM = "EXPIRAR-EVENTOS-AGENDA"
-EVENT_ID = re.compile(r"evt-[a-z0-9][a-z0-9-]{1,42}\Z", re.I)
-IMAGE_PATH = re.compile(r"/agenda/images/evt-[a-z0-9][a-z0-9-]{1,42}\.webp\Z", re.I)
+EVENT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{2,95}\Z")
+IMAGE_PATH = re.compile(r"/agenda/images/[A-Za-z0-9][A-Za-z0-9_-]{2,95}\.webp\Z")
 BASE_FILES = frozenset({
     "/index.html", "/robots.txt", "/sitemap.xml",
     "/agenda/index.html", "/agenda/app.js", "/agenda/styles.css",

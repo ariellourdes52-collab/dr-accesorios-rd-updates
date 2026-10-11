@@ -49,6 +49,49 @@ class IsolationTests(unittest.TestCase):
                 core.Hosting()
         self.assertEqual(session.request.call_args.args[:2], ("GET", core.BASE + core.SITE_LOOKUP))
 
+    def test_firebase_reserved_files_do_not_break_agenda_manifest(self):
+        expected = {"/agenda/index.html": "hash-html", "/agenda/events.json": "hash-json"}
+        actual = {**expected, "/__/firebase/init.js": "reserved-js",
+                  "/__/firebase/init.json": "reserved-json"}
+        self.assertTrue(core.verify_agenda_inventory(actual, expected))
+
+    def test_firebase_unknown_file_is_rejected(self):
+        expected = {"/agenda/events.json": "safe"}
+        with self.assertRaisesRegex(core.AgendaError, "no autorizado"):
+            core.verify_agenda_inventory({**expected, "/radar.json": "other"}, expected)
+
+    def test_firebase_changed_agenda_hash_is_rejected(self):
+        expected = {"/agenda/events.json": "safe"}
+        with self.assertRaisesRegex(core.AgendaError, "Hash incorrecto"):
+            core.verify_agenda_inventory({
+                "/agenda/events.json": "tampered", "/__/firebase/init.js": "auto"}, expected)
+
+    def test_manifest_pending_does_not_allow_finalize(self):
+        expected = {"/agenda/events.json": "safe"}
+        api = Mock()
+        api.files.side_effect = [
+            {}, {"/agenda/events.json": "safe"},
+            {}, {"/agenda/events.json": "safe"}
+        ]
+        with patch.object(core.time, "sleep") as sleep:
+            with self.assertRaisesRegex(core.AgendaError, "Inventario incompleto"):
+                core.wait_for_agenda_inventory(
+                    api, core.SITE + "/versions/draft", expected,
+                    max_checks=2, pause_seconds=0)
+        sleep.assert_called_once()
+        self.assertEqual(api.files.call_count, 4)
+
+    def test_manifest_complete_allows_reserved_files(self):
+        expected = {"/agenda/events.json": "safe"}
+        api = Mock()
+        api.files.side_effect = [
+            {"/agenda/events.json": "safe", "/__/firebase/init.js": "auto"},
+            {}
+        ]
+        core.wait_for_agenda_inventory(api, core.SITE + "/versions/draft", expected,
+                                       max_checks=1, pause_seconds=0)
+        self.assertEqual(api.files.call_count, 2)
+
     def test_image_must_not_point_to_main_site(self):
         from datetime import datetime, timezone, timedelta
         now = datetime.now(timezone.utc) + timedelta(days=2)

@@ -94,8 +94,10 @@ def prepare_plan(hosting: Hosting, *, css_file: Path = CSS_FILE):
 def save_backup(plan) -> Path:
     root = os.environ.get("DR_AGENDA_BACKUP_DIR")
     require(bool(root), "Falta directorio externo para respaldo; abortado")
-    folder = Path(root) / ("agenda-css-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S"))
-    folder.mkdir(parents=True, exist_ok=False)
+    backup_root = Path(root)
+    backup_root.mkdir(parents=True, exist_ok=True)
+    folder = backup_root / ("agenda-css-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S"))
+    folder.mkdir(exist_ok=False)
     info = {
         "site": SITE,
         "previousRelease": plan["release"],

@@ -83,6 +83,32 @@ class BootstrapTests(unittest.TestCase):
         sleep.assert_called_once()
         fake.session.post.assert_not_called()
 
+    def test_auditar_identifica_rutas_extras_sin_escribir(self):
+        import contextlib
+        import io
+        fake = MagicMock()
+        version = boot.SITE + "/versions/inspectonly"
+        authorized = "/agenda/events.json"
+        extra = "/extra-que-no-debemos-publicar.txt"
+
+        def respond(method, path, **kwargs):
+            self.assertEqual(method, "GET")
+            if path == boot.SITE + "/versions":
+                return {"versions": [{"name": version, "status": "CREATED"}]}
+            self.assertEqual(path, version + "/files")
+            if kwargs["params"]["status"] == "ACTIVE":
+                return {"files": [{"path": authorized, "hash": "hash-good"},
+                                  {"path": extra, "hash": "hash-other"}]}
+            return {"files": []}
+
+        fake.api.side_effect = respond
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            boot.inspect_created_versions(fake)
+        self.assertIn(extra, output.getvalue())
+        self.assertIn("Rutas no previstas en el paquete:", output.getvalue())
+        fake.session.post.assert_not_called()
+
     def test_auditar_reads_existing_drafts_without_writing(self):
         fake = MagicMock()
         name = boot.SITE + "/versions/draft1"

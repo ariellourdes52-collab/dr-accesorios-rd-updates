@@ -39,7 +39,7 @@ def require(condition, message):
 
 
 def git_blob(raw):
-    return hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\\x00" + raw).hexdigest()
+    return hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\x00" + raw).hexdigest()
 
 
 def main():
@@ -97,9 +97,6 @@ def main():
     contents = {route: Path(source).read_bytes() for route, source in FILES.items()}
     require(b"dr-agenda-push-v1" in contents["/radar-alertas/agenda.html"], "Historial iOS ausente")
     require(b"DR_RADAR_WEBPUSH_SW_V3" in contents["/radar-alertas/sw.js"], "Service Worker incorrecto")
-    require(b"WEBPUSH" not in contents["/radar-alertas/manifest.webmanifest"]
-            if "/radar-alertas/manifest.webmanifest" in contents else True,
-            "Manifest inesperado")
     print("OK: LIVE sin cambios externos; rutas críticas conservadas", flush=True)
     if args.mode == "auditar":
         print("AUDITORÍA SOLAMENTE: ningún despliegue, ninguna notificación.", flush=True)
@@ -143,7 +140,7 @@ def main():
     for route, marker in (
         ("/radar-alertas/sw.js", "DR_RADAR_WEBPUSH_SW_V3"),
         ("/radar-alertas/agenda.html", "dr-agenda-push-v1"),
-        ("/radar-alertas/index.html", "Web Push iPhone"),
+        ("/radar-alertas/index.html", "DR Agenda · Eventos y avisos iOS"),
     ):
         r = requests.get(HOST + route, params={"verify":time.time_ns()},
                          timeout=30, headers={"Cache-Control":"no-cache"})

@@ -70,6 +70,83 @@ def audit_environment(hosting: Hosting, *, require_empty: bool = True):
     return {"site": SITE, "release": None, "version": None}
 
 
+
+def read_version_files(hosting: Hosting, version: str, status: str) -> dict[str, str]:
+    """Listar solo archivos EXPECTED/ACTIVE de una versión secundaria."""
+    require(status in ("EXPECTED", "ACTIVE"), "Estado de archivo desconocido")
+    require(version.startswith(SITE + "/versions/"), "Versión ajena a DR Agenda")
+    files = {}
+    token = None
+    while True:
+        params = {"status": status, "pageSize": 1000}
+        if token:
+            params["pageToken"] = token
+        page = hosting.api("GET", version + "/files", params=params)
+        for row in page.get("files", []):
+            path, digest = row.get("path"), row.get("hash")
+            require(isinstance(path, str) and isinstance(digest, str)
+                    and path not in files and bool(digest),
+                    "Respuesta inválida o duplicada de archivos Hosting")
+            files[path] = digest
+        token = page.get("nextPageToken")
+        if not token:
+            return files
+
+
+def inspect_created_versions(hosting: Hosting):
+    """Diagnóstico sin escrituras para versiones no publicadas por intentos previos."""
+    response = hosting.api("GET", SITE + "/versions", params={"pageSize": 20})
+    count = 0
+    for entry in response.get("versions", []):
+        if entry.get("status") != "CREATED":
+            continue
+        name = entry.get("name", "")
+        # Firebase a veces devuelve el nombre con projects/<numero>/... .
+        if not isinstance(name, str) or "/sites/" + SITE_ID + "/versions/" not in "/" + name:
+            if not name.startswith(SITE + "/versions/"):
+                continue
+        version = SITE + "/versions/" + name.rsplit("/", 1)[-1]
+        active = read_version_files(hosting, version, "ACTIVE")
+        pending = read_version_files(hosting, version, "EXPECTED")
+        print("Diagnóstico SOLO LECTURA: borrador", version.rsplit("/", 1)[-1],
+              "| archivos activos:", len(active), "| pendientes:", len(pending), flush=True)
+        if pending:
+            print("Pendientes:", ", ".join(sorted(pending)[:20]), flush=True)
+        count += 1
+        if count >= 5:
+            break
+    if not count:
+        print("Diagnóstico SOLO LECTURA: no se encontraron versiones CREATED recientes.", flush=True)
+
+
+def wait_for_uploaded_files(hosting: Hosting, version: str, expected: dict[str, str],
+                            *, max_checks: int = 10, pause_seconds: float = 3):
+    """No finalizar ni publicar hasta ver los ocho hashes ACTIVE y ninguno EXPECTED."""
+    require(max_checks >= 1 and max_checks <= 20, "Número de reintentos inseguro")
+    for attempt in range(max_checks):
+        active = read_version_files(hosting, version, "ACTIVE")
+        pending = read_version_files(hosting, version, "EXPECTED")
+        for label, values in (("ACTIVE", active), ("EXPECTED", pending)):
+            require(set(values) <= set(expected),
+                    label + ": Firebase devolvió una ruta fuera del paquete DR Agenda")
+            require(all(expected[path] == digest for path, digest in values.items()),
+                    label + ": hash inesperado, publicación abortada")
+        if active == expected and not pending:
+            print("✅ Inventario verificado: todos los", len(expected),
+                  "archivos están ACTIVE y ninguno EXPECTED.", flush=True)
+            return
+        print("Esperando archivos de Firebase: ACTIVE", len(active), "/", len(expected),
+              "| EXPECTED", len(pending), "| comprobación", attempt + 1,
+              "/", max_checks, flush=True)
+        if pending:
+            print("Pendientes:", ", ".join(sorted(pending)), flush=True)
+        if attempt + 1 < max_checks:
+            time.sleep(pause_seconds)
+    raise AgendaError("Firebase no confirmó el inventario tras los reintentos. "
+                      "La versión queda sin publicar; ejecutar AUDITAR y revisar los pendientes.")
+
+
+
 def initialize(*, mode: str, confirm: str = "", root: Path | None = None):
     require(mode in ("auditar", "instalar"), "Modo de inicio no permitido")
     assert_isolated()
@@ -81,6 +158,7 @@ def initialize(*, mode: str, confirm: str = "", root: Path | None = None):
     print("Los servicios del sitio principal NO se consultarán ni modificarán.", flush=True)
     print("Archivos preparados:", ", ".join(FILES), flush=True)
     if mode == "auditar":
+        inspect_created_versions(hosting)
         print("✅ AUDITORÍA SOLO LECTURA: no se crearon versiones ni releases.", flush=True)
         return {"mode": "auditar", "site": SITE, "files": len(assets)}
     require(confirm == "INSTALAR-DR-AGENDA-V1", "Falta confirmación exacta del administrador")
@@ -113,7 +191,7 @@ def initialize(*, mode: str, confirm: str = "", root: Path | None = None):
         response = hosting.session.post(uri + "/" + digest, data=upload_by_hash[digest],
                                         headers={"Content-Type": "application/octet-stream"}, timeout=90)
         require(response.ok, "Fallo de carga del paquete Agenda (HTTP " + str(response.status_code) + ")")
-    require(hosting.files(name) == expected, "Inventario inicial difiere de los archivos autorizados")
+    wait_for_uploaded_files(hosting, name, expected)
     hosting.api("PATCH", name, params={"updateMask": "status"}, json={"status": "FINALIZED"})
     audit_environment(hosting)
     hosting.api("POST", SITE + "/releases", params={"versionName": name},

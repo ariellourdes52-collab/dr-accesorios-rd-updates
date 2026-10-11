@@ -13,6 +13,7 @@ class IsolationTests(unittest.TestCase):
         self.assertEqual(core.SITE, "sites/dr-accesorios-rd-agenda")
         self.assertNotEqual(core.SITE_ID, core.PRIMARY_SITE_ID)
         self.assertEqual(core.CATALOG_URL, "https://dr-accesorios-rd-agenda.web.app/agenda/events.json")
+        self.assertEqual(core.SITE_LOOKUP, "projects/dr-accesorios-rd/sites/dr-accesorios-rd-agenda")
         self.assertEqual(core.CRITICAL, ())
 
     def test_no_environment_override_to_main(self):
@@ -26,17 +27,27 @@ class IsolationTests(unittest.TestCase):
         with patch.object(core, "make_auth_session", return_value=session):
             with self.assertRaises(core.AgendaError):
                 core.Hosting()
-        self.assertEqual(session.request.call_args.args[:2], ("GET", core.BASE + core.SITE))
+        self.assertEqual(session.request.call_args.args[:2], ("GET", core.BASE + core.SITE_LOOKUP))
 
     def test_fresh_site_without_live_release(self):
         session = Mock()
         found = Mock(status_code=200, ok=True, content=b"{}")
-        found.json.return_value = {"name": core.SITE}
+        found.json.return_value = {"name": core.SITE_LOOKUP, "defaultUrl": core.PUBLIC}
         session.request.return_value = found
         session.get.return_value = Mock(status_code=404, ok=False)
         with patch.object(core, "make_auth_session", return_value=session):
             self.assertEqual(core.Hosting().active(), (None, None))
         self.assertEqual(session.get.call_args.args[0], core.BASE + core.SITE + "/channels/live")
+
+    def test_wrong_domain_is_rejected_before_deploy(self):
+        session = Mock()
+        found = Mock(status_code=200, ok=True, content=b"{}")
+        found.json.return_value = {"name": core.SITE_LOOKUP, "defaultUrl": "https://dr-accesorios-rd.web.app"}
+        session.request.return_value = found
+        with patch.object(core, "make_auth_session", return_value=session):
+            with self.assertRaisesRegex(core.AgendaError, "otro sitio o dominio"):
+                core.Hosting()
+        self.assertEqual(session.request.call_args.args[:2], ("GET", core.BASE + core.SITE_LOOKUP))
 
     def test_image_must_not_point_to_main_site(self):
         from datetime import datetime, timezone, timedelta

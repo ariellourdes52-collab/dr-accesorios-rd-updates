@@ -28,6 +28,9 @@ from urllib.parse import urlparse
 SITE_ID = "dr-accesorios-rd-agenda"
 PRIMARY_SITE_ID = "dr-accesorios-rd"
 SITE = "sites/" + SITE_ID
+# Site metadata is under projects.sites; deploy/version resources use sites/*.
+# Do NOT replace SITE with SITE_LOOKUP: they belong to different REST routes.
+SITE_LOOKUP = "projects/dr-accesorios-rd/sites/" + SITE_ID
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 PUBLIC = "https://" + SITE_ID + ".web.app"
 assert SITE_ID != PRIMARY_SITE_ID, "DR Agenda NO debe desplegarse al Hosting principal"
@@ -381,10 +384,15 @@ class Hosting:
     def __init__(self):
         require(SITE_ID != PRIMARY_SITE_ID, "Hosting principal prohibido")
         self.session = make_auth_session()
-        # Fallar cerrado si el sitio aislado aún no existe o no tenemos permiso.
-        info = self.api("GET", SITE)
-        require(info.get("name") == SITE,
-                "Firebase respondió con otro sitio: se aborta antes de crear versiones")
+        # projects.sites.get exige projects/{projectId}/sites/{siteId}.
+        # Las versiones y los canales usan en cambio sites/{siteId}/... .
+        # El nombre devuelto puede usar el número del proyecto, no su ID.
+        info = self.api("GET", SITE_LOOKUP)
+        site_name = info.get("name")
+        require(isinstance(site_name, str) and site_name.startswith("projects/")
+                and site_name.endswith("/sites/" + SITE_ID)
+                and info.get("defaultUrl") == PUBLIC,
+                "Firebase respondió con otro sitio o dominio: se aborta antes de crear versiones")
 
     def api(self, method, path, **kw):
         response = self.session.request(method, BASE + path, timeout=90, **kw)

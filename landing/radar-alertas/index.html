@@ -85,7 +85,7 @@
     </div>
     <div class="body">
       <p class="lead">Activa las alertas esenciales de DR Accesorios RD</p>
-      <p class="copy">Para completar la configuración necesitas activar Web Push para DR Radar, sismos y nuevas publicaciones. Las notificaciones sociales son opcionales.</p>
+      <p class="copy">Para completar la configuración activa Web Push para DR Radar, sismos, nuevas publicaciones y los eventos de DR Agenda que el administrador anuncie. Las notificaciones sociales son opcionales.</p>
 
       <div class="box install" id="iosInstall">
         <strong>📱 Instalar DR Accesorios RD iOS en iPhone / iPad</strong>
@@ -116,6 +116,12 @@
       </div>
 
       <div class="status" id="status">Comprobando este dispositivo…</div>
+
+      <div class="box" style="margin-top:16px">
+        <strong>📅 DR Agenda · Eventos y avisos iOS</strong>
+        <p class="copy" style="margin:6px 0 12px">Descubre los próximos eventos, estrenos y lanzamientos. Los nuevos avisos de Agenda utilizan la misma suscripción Web Push; no necesitas instalar otra app.</p>
+        <a href="/radar-alertas/agenda.html" style="display:inline-block;background:var(--brand);color:#fff;border-radius:12px;padding:11px 15px;text-decoration:none;font-weight:800">Abrir DR Agenda ↗</a>
+      </div>
 
       <div class="box" style="margin-top:16px">
         <strong>💬 Notificaciones sociales (opcional)</strong>
@@ -255,7 +261,7 @@
           button.disabled=true;
           homeButton.style.display='block';
           deactivate.style.display='block';
-          setStatus('<span class="ok">Configuración mínima completa.</span> Radar, sismos y nuevas publicaciones pueden llegar aunque cierres el navegador. Las notificaciones sociales siguen siendo opcionales.');
+          setStatus('<span class="ok">Configuración mínima completa.</span> Radar, sismos, publicaciones y los eventos anunciados de DR Agenda pueden llegar aunque cierres la Web App. Las notificaciones sociales siguen siendo opcionales.');
           return;
         }
       }catch(e){
@@ -269,14 +275,14 @@
 
       if(Notification.permission==='denied'){
         button.textContent='🔕 Notificaciones bloqueadas';
-        setStatus('<span class="warn">Las alertas esenciales no están activas.</span> Habilita las notificaciones desde los permisos del sitio para recibir Radar, sismos y nuevas publicaciones.');
+        setStatus('<span class="warn">Las alertas esenciales no están activas.</span> Habilita las notificaciones desde los permisos de la Web App para recibir Radar, sismos, publicaciones y avisos de DR Agenda.');
       }else if(isIOS && !isStandalone){
         button.textContent='📲 Añade DR Accesorios RD a inicio primero';
         button.disabled=true;
         setStatus('Para completar el mínimo requerido en iPhone/iPad, añade DR Accesorios RD a la pantalla de inicio y ábrela desde su icono.');
       }else{
         button.textContent='🔔 Activar alertas esenciales';
-        setStatus('Falta activar el mínimo requerido: DR Radar, sismos y nuevas publicaciones.');
+        setStatus('Falta activar Web Push para recibir Radar, sismos, nuevas publicaciones y avisos de DR Agenda.');
       }
     }
 

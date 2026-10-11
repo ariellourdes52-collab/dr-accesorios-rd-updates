@@ -33,7 +33,68 @@ class BootstrapTests(unittest.TestCase):
         with patch.object(boot,'Hosting',return_value=fake):
             result=boot.initialize(mode='auditar',root=self.root)
         self.assertEqual(result['mode'],'auditar')
-        fake.api.assert_not_called()
+        fake.api.assert_called_once_with("GET", boot.SITE + "/versions", params={"pageSize": 20})
+        fake.session.post.assert_not_called()
+
+    def test_uploaded_files_ready_requires_all_active(self):
+        fake = MagicMock()
+        expected = {"/agenda/index.html": "abc123", "/agenda/events.json": "xyz987"}
+        def response(method, path, **kwargs):
+            self.assertEqual(method, "GET")
+            self.assertEqual(path, boot.SITE + "/versions/new/files")
+            state = kwargs["params"]["status"]
+            return {"files": [{"path": p, "hash": h} for p,h in
+                              (expected.items() if state == "ACTIVE" else [])]}
+        fake.api.side_effect = response
+        with patch.object(boot.time, "sleep") as sleep:
+            boot.wait_for_uploaded_files(fake, boot.SITE + "/versions/new", expected, max_checks=2)
+        sleep.assert_not_called()
+
+    def test_uploaded_files_pending_waits_and_retries(self):
+        fake = MagicMock()
+        expected = {"/agenda/events.json": "hash1"}
+        states = iter([{"files": []}, {"files": [{"path": "/agenda/events.json", "hash": "hash1"}]},
+                       {"files": [{"path": "/agenda/events.json", "hash": "hash1"}]}, {"files": []}])
+        fake.api.side_effect = lambda method, path, **kwargs: next(states)
+        with patch.object(boot.time, "sleep") as sleep:
+            boot.wait_for_uploaded_files(fake, boot.SITE + "/versions/new", expected, max_checks=2)
+        sleep.assert_called_once()
+
+    def test_unexpected_hash_never_finalize(self):
+        fake = MagicMock()
+        fake.api.return_value = {"files": [{"path": "/agenda/index.html", "hash": "tampered"}]}
+        with self.assertRaisesRegex(AgendaError, "hash inesperado"):
+            boot.wait_for_uploaded_files(fake, boot.SITE + "/versions/new",
+                                         {"/agenda/index.html": "safe"}, max_checks=1)
+        fake.session.post.assert_not_called()
+
+    def test_permanent_pending_fails_closed(self):
+        fake = MagicMock()
+        def resp(method, path, **kwargs):
+            status = kwargs["params"]["status"]
+            if status == "ACTIVE":
+                return {"files": []}
+            return {"files": [{"path": "/agenda/index.html", "hash": "safe"}]}
+        fake.api.side_effect = resp
+        with patch.object(boot.time, "sleep") as sleep:
+            with self.assertRaisesRegex(AgendaError, "sin publicar"):
+                boot.wait_for_uploaded_files(fake, boot.SITE + "/versions/new",
+                                             {"/agenda/index.html": "safe"}, max_checks=2)
+        sleep.assert_called_once()
+        fake.session.post.assert_not_called()
+
+    def test_auditar_reads_existing_drafts_without_writing(self):
+        fake = MagicMock()
+        name = boot.SITE + "/versions/draft1"
+        def resp(method, path, **kwargs):
+            self.assertEqual(method, "GET")
+            if path == boot.SITE + "/versions":
+                return {"versions": [{"name": name, "status": "CREATED"}]}
+            if path == name + "/files":
+                return {"files": [{"path": "/agenda/index.html", "hash": "safe"}]}
+            self.fail("Unexpected API path")
+        fake.api.side_effect = resp
+        boot.inspect_created_versions(fake)
         fake.session.post.assert_not_called()
 
     def test_existing_release_aborts_without_writing(self):

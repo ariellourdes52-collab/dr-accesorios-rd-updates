@@ -5,7 +5,7 @@ const source=fs.readFileSync('agenda_site/agenda/app.js','utf8');
 assert(!source.includes('downloadCalendar('));
 assert(!source.includes('a.download='));
 assert(source.includes("actionLink('📅 Abrir calendario',calendarUrl)"));
-const match=source.match(/  const utcICS = .*?\n  function actionLink\(/s);
+const match=source.match(/  const safeMapUrl=.*?\n  function actionLink\(/s);
 assert(match,'calendarFormUrl helper not found');
 const funcs=match[0].replace(/\n  function actionLink\($/,'');
 const ctx={URLSearchParams,URL,Date,encodeURIComponent,CONFIG:{timeZone:'America/Santo_Domingo'}};
@@ -32,4 +32,10 @@ assert.equal(fallback.searchParams.get('dates'),'20261016T230000Z/20261017T00000
 assert.equal(get({...event,startAt:'invalid'}),null);
 const place=new URL(get({...event,location:{name:'Auditorio',address:'Calle 3',city:'Santo Domingo'}}));
 assert.equal(place.searchParams.get('location'),'Auditorio, Calle 3, Santo Domingo');
+const geo=new URL(get({...event,location:{type:'presencial',name:'Auditorio',city:'Santo Domingo',
+  lat:18.4861,lng:-69.9312,mapUrl:'https://maps.app.goo.gl/AbcdEfghi'}}));
+assert.equal(geo.searchParams.get('location'),'18.4861,-69.9312');
+assert.match(geo.searchParams.get('details'),/https:\/\/maps\.app\.goo\.gl\/AbcdEfghi/);
+const mapOnly=new URL(get({...event,location:{type:'presencial',name:'Auditorio',mapUrl:'https://maps.app.goo.gl/AbcdEfghi'}}));
+assert.equal(mapOnly.searchParams.get('location'),'https://maps.app.goo.gl/AbcdEfghi');
 console.log('PASS Agenda web calendar: event form and UTC-4 correct, no download');

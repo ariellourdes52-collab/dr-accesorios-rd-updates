@@ -110,8 +110,14 @@ def inspect_created_versions(hosting: Hosting):
         pending = read_version_files(hosting, version, "EXPECTED")
         print("Diagnóstico SOLO LECTURA: borrador", version.rsplit("/", 1)[-1],
               "| archivos activos:", len(active), "| pendientes:", len(pending), flush=True)
-        if pending:
-            print("Pendientes:", ", ".join(sorted(pending)[:20]), flush=True)
+        # Registrar solo rutas públicas y estados, nunca contenidos o credenciales.
+        # Esta auditoría NO modifica el borrador ni elimina archivos.
+        print("Rutas ACTIVE:", ", ".join(sorted(active)) if active else "(ninguna)", flush=True)
+        print("Rutas EXPECTED:", ", ".join(sorted(pending)) if pending else "(ninguna)", flush=True)
+        extra = sorted((set(active) | set(pending)) - set(FILES))
+        absent = sorted(set(FILES) - set(active) - set(pending))
+        print("Rutas no previstas en el paquete:", ", ".join(extra) if extra else "(ninguna)", flush=True)
+        print("Rutas autorizadas ausentes:", ", ".join(absent) if absent else "(ninguna)", flush=True)
         count += 1
         if count >= 5:
             break

@@ -50,16 +50,16 @@ jobs:
           python -m unittest discover -s tests -p 'test_agenda_hosting_isolation.py' -v
       - name: Caducar eventos solamente en Hosting de DR Agenda
         env:
-          FIREBASE_SERVICE_ACCOUNT: \${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
-          DR_AGENDA_BACKUP_DIR: \${{ runner.temp }}/agenda-expiry-backup
-          RUN_MODE: \${{ github.event_name == 'schedule' && 'aplicar' || inputs.mode }}
-          RUN_CONFIRM: \${{ inputs.confirm }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_AGENDA_BACKUP_DIR: ${{ runner.temp }}/agenda-expiry-backup
+          RUN_MODE: ${{ github.event_name == 'schedule' && 'aplicar' || inputs.mode }}
+          RUN_CONFIRM: ${{ inputs.confirm }}
         run: python scripts/expire_dr_agenda_events.py --mode "$RUN_MODE" --confirm "$RUN_CONFIRM"
       - name: Preservar respaldo de catálogo anterior y manifiesto
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dr-agenda-expiry-backup-\${{ github.run_id }}
-          path: \${{ runner.temp }}/agenda-expiry-backup
+          name: dr-agenda-expiry-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/agenda-expiry-backup
           if-no-files-found: ignore
           retention-days: 14

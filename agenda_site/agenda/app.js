@@ -36,7 +36,7 @@
       details:[String(event.description||'').slice(0,2500),info].filter(Boolean).join('\n\n'),
       location:where
     });
-    return 'https://calendar.google.com/calendar/r/eventedit?'+data.toString();
+    return 'https://calendar.google.com/calendar/render?'+data.toString();
   }
   function actionLink(text,href){const a=node('a','',text);a.href=href;a.target='_blank';a.rel='noopener noreferrer';return a;}
   function showDialog(event){

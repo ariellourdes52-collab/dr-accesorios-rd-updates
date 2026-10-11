@@ -36,6 +36,8 @@ def validated_request(text):
     obj = json.loads(text)
     require(isinstance(obj, dict), "Solicitud Agenda debe ser un objeto")
     fcm_requested(obj)
+    notify_webpush = obj.get('notifyWebPush', False)
+    require(type(notify_webpush) is bool, 'notifyWebPush debe ser booleano')
     request_id = obj.get('requestId')
     require(isinstance(request_id, str) and re.fullmatch(r'[0-9a-f-]{36}', request_id), 'requestId inválido')
     eid = obj.get('id')
@@ -99,6 +101,7 @@ def validated_request(text):
         'category': category, 'status': 'confirmed',
         'startAt': start, 'endAt': end,
         'imageUrl': '', 'officialUrl': url, 'articleUrl': '', 'location': loc,
+        'notifyWebPush': notify_webpush,
     }
     return event, file_id
 

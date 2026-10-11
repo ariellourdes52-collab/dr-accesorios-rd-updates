@@ -16,16 +16,27 @@
   const ownImage = (event) => {try{const u=new URL(event.imageUrl,location.origin); return u.origin===location.origin && u.pathname==='/agenda/images/'+event.id+'.webp' && !u.search && !u.hash ? u.href : null;}catch{return null;}};
   const locationName = (event) => {const loc=event.location||{}; if(loc.type==='online'||loc.online)return 'Evento en línea';return [loc.name||loc.address,loc.city].filter(Boolean).join(' · ')||'Lugar por confirmar';};
   const mapsLink = (event) => {const loc=event.location||{};if(loc.type==='online'||loc.online)return null;const query=[loc.name,loc.address,loc.city,loc.province].filter(Boolean).join(', ');if(!query)return null;return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(query);};
+  // Calendario web: formulario Google Calendar precargado, no descarga de archivos.
+  // En navegadores iOS/Android no existe una API web para insertar directamente
+  // eventos en el calendario nativo sin confirmación del usuario.
   const utcICS = (iso) => {const d=new Date(iso);return Number.isNaN(d.getTime()) ? '' : d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');};
-  const icsEscape = (v) => String(v||'').replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');
-  function downloadCalendar(event){
-    const start=utcICS(event.startAt),end=utcICS(event.endAt||event.startAt);
-    if(!start || !end)return;
-    const id=String(event.id).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,95);
+  function calendarFormUrl(event){
+    const start=new Date(event.startAt);
+    if(!Number.isFinite(start.getTime()))return null;
+    const proposedEnd=new Date(event.endAt||'');
+    const end=Number.isFinite(proposedEnd.getTime())&&proposedEnd>start?proposedEnd:new Date(start.getTime()+60*60*1000);
+    const id=String(event.id||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,95);
     const loc=event.location||{};
-    const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//DR Accesorios RD//DR Agenda//ES','CALSCALE:GREGORIAN','BEGIN:VEVENT','UID:'+id+'@dr-accesorios-rd-agenda.web.app','DTSTAMP:'+utcICS(new Date().toISOString()),'DTSTART:'+start,'DTEND:'+end,'SUMMARY:'+icsEscape(event.title),'DESCRIPTION:'+icsEscape(event.description||''),'LOCATION:'+icsEscape([loc.name,loc.address,loc.city,loc.province].filter(Boolean).join(', ')),'END:VEVENT','END:VCALENDAR'];
-    const blob=new Blob([lines.join('\r\n')+'\r\n'],{type:'text/calendar;charset=utf-8'});
-    const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download='dr-agenda-'+id+'.ics';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+    const where=loc.type==='online'||loc.online===true ? 'En línea' : [loc.name,loc.address,loc.city,loc.province].filter(Boolean).join(', ');
+    const info='https://dr-accesorios-rd-agenda.web.app/agenda/?evento='+encodeURIComponent(id);
+    const data=new URLSearchParams({
+      action:'TEMPLATE', text:String(event.title||'Evento DR Agenda').slice(0,180),
+      dates:utcICS(start.toISOString())+'/'+utcICS(end.toISOString()),
+      stz:CONFIG.timeZone, etz:CONFIG.timeZone,
+      details:[String(event.description||'').slice(0,2500),info].filter(Boolean).join('\n\n'),
+      location:where
+    });
+    return 'https://calendar.google.com/calendar/r/eventedit?'+data.toString();
   }
   function actionLink(text,href){const a=node('a','',text);a.href=href;a.target='_blank';a.rel='noopener noreferrer';return a;}
   function showDialog(event){
@@ -34,7 +45,7 @@
     $('#dialog-category').textContent=categories[event.category]||'Evento';
     const photo=$('#dialog-photo');photo.style.backgroundImage='';const src=ownImage(event);if(src){photo.style.backgroundImage='url("'+src.replace(/"/g,'')+'")';}
     const meta=$('#dialog-meta');meta.replaceChildren(node('div','', '◷  '+readableDate(event.startAt)),node('div','', '⌖  '+locationName(event)));
-    const actions=$('#dialog-actions');actions.replaceChildren();const cal=node('button','','+  Añadir al calendario');cal.type='button';cal.addEventListener('click',()=>downloadCalendar(event));actions.append(cal);
+    const actions=$('#dialog-actions');actions.replaceChildren();const calendarUrl=calendarFormUrl(event);if(calendarUrl)actions.append(actionLink('📅 Abrir calendario',calendarUrl));
     const maps=mapsLink(event);if(maps)actions.append(actionLink('⌖  Ver mapa',maps));const website=safeHTTPS(event.officialUrl||event.articleUrl);if(website)actions.append(actionLink('↗  Sitio oficial',website));
     dialog.showModal();const u=new URL(location.href);u.searchParams.set('evento',event.id);history.replaceState(null,'',u.pathname+u.search);
   }

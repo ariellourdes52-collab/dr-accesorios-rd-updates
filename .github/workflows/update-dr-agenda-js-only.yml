@@ -45,6 +45,7 @@ jobs:
           node tests/test_agenda_web_calendar.cjs
       - name: Comprobar barreras del Hosting secundario
         run: |
+          python -m py_compile scripts/update_dr_agenda_js_only.py
           python -m unittest discover -s tests -p 'test_dr_agenda_guardrails.py' -v
           python -m unittest discover -s tests -p 'test_agenda_hosting_isolation.py' -v
           python -m unittest discover -s tests -p 'test_agenda_style_only.py' -v

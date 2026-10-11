@@ -1,0 +1,65 @@
+name: DR Agenda - Caducidad automatica (Hosting secundario)
+run-name: DR Agenda limpiar eventos vencidos (sin notificaciones)
+
+on:
+  schedule:
+    # GitHub Actions admite 5 minutos como intervalo mínimo de cron.
+    # Los inicios programados pueden retrasarse por carga de GitHub.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'auditar = lectura sin cambios; aplicar borra eventos vencidos.'
+        required: true
+        type: choice
+        default: auditar
+        options:
+          - auditar
+          - aplicar
+      confirm:
+        description: 'Manual aplicar: escribir EXPIRAR-EVENTOS-AGENDA'
+        required: false
+        default: NO
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-agenda-secondary-hosting-only
+  cancel-in-progress: false
+
+jobs:
+  expire-agenda:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Código aislado del sitio Agenda
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependencias Firebase Hosting
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3' 'Pillow>=10,<13'
+      - name: Pruebas y barreras de seguridad
+        run: |
+          python -m py_compile scripts/expire_dr_agenda_events.py
+          python -m unittest discover -s tests -p 'test_dr_agenda_auto_expire.py' -v
+          python -m unittest discover -s tests -p 'test_dr_agenda_guardrails.py' -v
+          python -m unittest discover -s tests -p 'test_agenda_hosting_isolation.py' -v
+      - name: Caducar eventos solamente en Hosting de DR Agenda
+        env:
+          FIREBASE_SERVICE_ACCOUNT: \${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_AGENDA_BACKUP_DIR: \${{ runner.temp }}/agenda-expiry-backup
+          RUN_MODE: \${{ github.event_name == 'schedule' && 'aplicar' || inputs.mode }}
+          RUN_CONFIRM: \${{ inputs.confirm }}
+        run: python scripts/expire_dr_agenda_events.py --mode "$RUN_MODE" --confirm "$RUN_CONFIRM"
+      - name: Preservar respaldo de catálogo anterior y manifiesto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-agenda-expiry-backup-\${{ github.run_id }}
+          path: \${{ runner.temp }}/agenda-expiry-backup
+          if-no-files-found: ignore
+          retention-days: 14

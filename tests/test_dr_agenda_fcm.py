@@ -20,7 +20,7 @@ class AgendaFCMTests(unittest.TestCase):
         self.assertEqual(obj["message"]["data"]["type"], "agenda_event")
         self.assertEqual(obj["message"]["data"]["kind"], "published")
         self.assertEqual(obj["message"]["data"]["revision"], "15")
-        self.assertEqual(obj["message"]["android"]["priority"], "NORMAL")
+        self.assertEqual(obj["message"]["android"]["priority"], "HIGH")
         self.assertNotIn("notification", obj["message"])
         self.assertNotEqual(TOPIC, "blog_updates")
 

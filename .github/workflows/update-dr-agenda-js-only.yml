@@ -1,0 +1,65 @@
+name: DR Agenda - Abrir calendario (solo app.js)
+
+run-name: DR Agenda calendario web - JS solamente
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'auditar = solo leer. aplicar = cambiar UNICAMENTE /agenda/app.js en Hosting secundario.'
+        required: true
+        type: choice
+        default: auditar
+        options:
+          - auditar
+          - aplicar
+      confirm:
+        description: 'Para aplicar escribir ACTUALIZAR-SOLO-JS-AGENDA'
+        required: false
+        type: string
+        default: 'NO'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-agenda-secondary-hosting-only
+  cancel-in-progress: false
+
+jobs:
+  agenda-js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Obtener código del repositorio
+        uses: actions/checkout@v4
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependencias de Firebase para auditoría aislada
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3' 'Pillow>=10,<13'
+      - name: Comprobar JavaScript y enlace de calendario
+        run: |
+          node --check agenda_site/agenda/app.js
+          node tests/test_agenda_web_calendar.cjs
+      - name: Comprobar barreras del Hosting secundario
+        run: |
+          python -m unittest discover -s tests -p 'test_dr_agenda_guardrails.py' -v
+          python -m unittest discover -s tests -p 'test_agenda_hosting_isolation.py' -v
+          python -m unittest discover -s tests -p 'test_agenda_style_only.py' -v
+      - name: Auditar o aplicar UNICAMENTE /agenda/app.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_AGENDA_BACKUP_DIR: ${{ runner.temp }}/agenda-js-backup
+          UPDATE_MODE: ${{ inputs.mode || 'auditar' }}
+          UPDATE_CONFIRM: ${{ inputs.confirm }}
+        run: python scripts/update_dr_agenda_js_only.py --mode "$UPDATE_MODE" --confirm "$UPDATE_CONFIRM"
+      - name: Guardar versión anterior para recuperación
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-agenda-js-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/agenda-js-backup
+          if-no-files-found: ignore
+          retention-days: 7

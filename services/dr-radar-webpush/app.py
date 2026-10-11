@@ -430,12 +430,18 @@ def agenda_feed() -> list[dict[str, Any]]:
             e["id"].startswith("evt-") and len(e["id"]) <= 96]
 
 
+def agenda_push_allowed(event: dict[str, Any]) -> bool:
+    # Fail closed. Publishing a catalog item does NOT imply consent to broadcast.
+    # Legacy entries, Telegram-only and FCM-only entries never trigger iOS Web Push.
+    return event.get("notifyWebPush") is True and event.get("status") == "confirmed"
+
+
 def agenda_push_payload(event: dict[str, Any]) -> dict[str, str]:
     eid = event["id"]
     return {
         "title": "📅 DR Agenda · Nuevo evento",
         "body": str(event.get("title") or "Evento disponible")[:200],
-        "url": "https://dr-accesorios-rd-agenda.web.app/agenda/?evento=" + eid,
+        "url": "https://dr-accesorios-rd.web.app/radar-alertas/agenda.html?evento=" + eid,
         "tag": ("dr-agenda-" + eid)[:180],
         "category": "agenda",
     }
@@ -518,7 +524,7 @@ def monitor_loop() -> None:
                 if WEBPUSH_AGENDA_ENABLED:
                     now = datetime.now(timezone.utc)
                     for item in new_items:
-                        if item.get("status") != "confirmed":
+                        if not agenda_push_allowed(item):
                             continue
                         try:
                             until = datetime.fromisoformat(str(item.get("endAt") or item.get("startAt")).replace("Z","+00:00"))
@@ -565,6 +571,8 @@ def health():
         lastRadarPollOk=get_meta("last_radar_poll_ok"),
         lastBlogPollOk=get_meta("last_blog_poll_ok"),
         lastSocialDispatchAt=get_meta("last_social_dispatch_at"),
+        agendaWebPushEnabled=WEBPUSH_AGENDA_ENABLED,
+        lastAgendaPollOk=get_meta("last_agenda_poll_ok"),
         pollSeconds=POLL_SECONDS,
         blogFeed=BLOG_FEED_URL,
     )

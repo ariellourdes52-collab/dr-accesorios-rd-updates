@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es-DO">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#DA135E">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/radar-alertas/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/radar-alertas/apple-touch-icon-180.png">
+<title>DR Agenda | DR Accesorios RD iOS</title>
+<style>
+:root{color-scheme:light dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#f6f6fa;color:#191928}
+header{background:#fff;border-bottom:1px solid #e8e8ef;padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:2}
+header img{height:43px;width:43px;border-radius:12px;object-fit:cover}
+header strong{font-size:19px}header small{display:block;font-size:12px;color:#6e6e80}
+a{color:#b61050}a.back{font-size:13px;text-decoration:none;font-weight:700;margin-left:auto}
+main{margin:auto;max-width:1000px;padding:13px;display:grid;gap:14px}
+.panel{background:#fff;border:1px solid #e8e8ef;border-radius:18px;padding:15px}
+h2{font-size:16px;margin:0 0 8px}p{font-size:13px;color:#676777;margin:4px 0 12px;line-height:1.5}
+#viewer{display:block;width:100%;height:min(76vh,900px);min-height:530px;border:0;border-radius:12px;background:#f5f5f8}
+#history{display:grid;gap:9px}.notice{border:1px solid #dedee8;border-radius:12px;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.notice span{display:block;font-size:12px;color:#66667a;margin-top:4px}.notice strong{font-size:14px}
+button{border:1px solid #cfcfdc;background:transparent;color:inherit;border-radius:10px;padding:7px 9px;cursor:pointer;font-size:12px}
+button.saved{color:#b61050;border-color:#b61050}a.btn{border-radius:11px;background:#da135e;color:white;padding:10px 12px;font-size:13px;text-decoration:none;display:inline-block}
+.notice-actions{display:flex;gap:6px;flex-shrink:0}
+@media(prefers-color-scheme:dark){body{background:#12121b;color:#f0f0f4}header,.panel{background:#1d1d29;border-color:#3a3a47}p,header small,.notice span{color:#b1b1c1}.notice,button{border-color:#4e4e5d}}
+</style>
+</head>
+<body>
+<header>
+<img src="/radar-alertas/icon-app-192.png" alt="DR Accesorios RD" width="43" height="43">
+<div><strong>DR Agenda</strong><small>DR Accesorios RD · iPhone y iPad</small></div>
+<a class="back" href="/radar-alertas/index.html?settings=1">← Ajustes</a>
+</header>
+<main>
+<section class="panel">
+<h2>Eventos y lanzamientos</h2>
+<p>Agenda actualizada desde DR Accesorios RD. Los avisos de Agenda se reciben con las notificaciones de la Web App activadas.</p>
+<a id="openExternal" class="btn" target="_blank" rel="noopener noreferrer" href="https://dr-accesorios-rd-agenda.web.app/agenda/">Abrir agenda en el navegador ↗</a>
+</section>
+<section class="panel">
+<iframe id="viewer" title="Catálogo DR Agenda" referrerpolicy="strict-origin-when-cross-origin" loading="eager" src="https://dr-accesorios-rd-agenda.web.app/agenda/"></iframe>
+</section>
+<section class="panel">
+<h2>🔔 Notificaciones de Agenda</h2>
+<p>Últimos avisos recibidos en este dispositivo. Puedes guardarlos para consultarlos después. Este historial es local y no modifica los eventos del servidor.</p>
+<div id="history"><p>Consultando avisos guardados…</p></div>
+</section>
+</main>
+<script>
+(() => {
+  'use strict';
+  const base='https://dr-accesorios-rd-agenda.web.app/agenda/';
+  const id=new URLSearchParams(location.search).get('evento')||'';
+  const eventId=/^evt-[a-z0-9][a-z0-9-]{1,42}$/.test(id)?id:null;
+  const url=base+(eventId?'?evento='+encodeURIComponent(eventId):'');
+  document.getElementById('viewer').src=url;
+  document.getElementById('openExternal').href=url;
+  const root=document.getElementById('history');
+  function dbOpen(){
+    return new Promise((resolve,reject)=>{
+      const req=indexedDB.open('dr-agenda-push-v1',1);
+      req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('events'))req.result.createObjectStore('events',{keyPath:'id'})};
+      req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+    });
+  }
+  async function allEvents(){
+    const db=await dbOpen();
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction('events','readonly');const req=tx.objectStore('events').getAll();
+      req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);
+      tx.oncomplete=()=>db.close();
+    });
+  }
+  async function setSaved(id,saved){
+    const db=await dbOpen();
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction('events','readwrite'),store=tx.objectStore('events');
+      const req=store.get(id);
+      req.onsuccess=()=>{if(req.result)store.put({...req.result,saved})};
+      tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error);
+    });
+  }
+  async function render(){
+    try{
+      const items=(await allEvents()).sort((a,b)=>(b.receivedAt||0)-(a.receivedAt||0)).slice(0,50);
+      root.replaceChildren();
+      if(!items.length){const p=document.createElement('p');p.textContent='Todavía no hay notificaciones de DR Agenda en este dispositivo.';root.append(p);return;}
+      items.forEach(n=>{
+        if(!/^evt-[a-z0-9][a-z0-9-]{1,42}$/.test(String(n.id||'')))return;
+        const card=document.createElement('div');card.className='notice';
+        const info=document.createElement('div');
+        const title=document.createElement('strong');title.textContent=String(n.title||'Evento DR Agenda').slice(0,200);
+        const when=document.createElement('span');when.textContent=n.receivedAt?new Date(n.receivedAt).toLocaleString('es-DO'):'DR Agenda';
+        info.append(title,when);
+        const actions=document.createElement('div');actions.className='notice-actions';
+        const go=document.createElement('button');go.type='button';go.textContent='Abrir';go.onclick=()=>{location.href='/radar-alertas/agenda.html?evento='+encodeURIComponent(n.id)};
+        const save=document.createElement('button');save.type='button';save.textContent=n.saved?'★ Guardado':'☆ Guardar';save.className=n.saved?'saved':'';
+        save.onclick=async()=>{try{await setSaved(n.id,!n.saved);await render()}catch(_){}};
+        actions.append(go,save);card.append(info,actions);root.append(card);
+      });
+    }catch(_){root.textContent='No se pudo consultar el historial local. El catálogo de eventos sigue disponible.';}
+  }
+  navigator.serviceWorker?.addEventListener('message',e=>{if(e.data?.type==='dr-agenda-push')render()});
+  render();
+})();
+</script>
+</body>
+</html>

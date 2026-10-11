@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from send_dr_agenda_fcm import TOPIC, build_message, send_confirmed
+from publish_dr_agenda_telegram import fcm_requested
+from dr_agenda_publisher_core import AgendaError
 
 
 class AgendaFCMTests(unittest.TestCase):
@@ -33,6 +35,14 @@ class AgendaFCMTests(unittest.TestCase):
                 build_message({**self.event, "id": value}, 1)
         with self.assertRaises(ValueError):
             build_message(self.event, 0)
+
+    def test_per_event_opt_in_is_required(self):
+        self.assertFalse(fcm_requested({}), "Legacy event must not push without opt-in")
+        self.assertFalse(fcm_requested({"notifyFcm": False}))
+        self.assertTrue(fcm_requested({"notifyFcm": True}))
+        for invalid in ("true", 1, None, [], {}):
+            with self.assertRaises(AgendaError):
+                fcm_requested({"notifyFcm": invalid})
 
     def test_gate_off_never_reads_secret_or_sends(self):
         with patch.dict(os.environ, {"DR_AGENDA_FCM_ENABLED": "false"}, clear=True):

@@ -6,6 +6,7 @@ import os
 import sqlite3
 import threading
 import time
+from datetime import datetime, timezone
 from contextlib import closing
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,8 @@ BLOG_FEED_URL = os.environ.get(
     "https://draccesoriosrd.blogspot.com/feeds/posts/default?alt=json&max-results=10",
 )
 POLL_SECONDS = max(15, int(os.environ.get("POLL_SECONDS", "30")))
+AGENDA_URL = 'https://dr-accesorios-rd-agenda.web.app/agenda/events.json'
+WEBPUSH_AGENDA_ENABLED = os.environ.get('WEBPUSH_AGENDA_ENABLED', 'false') == 'true'
 VAPID_PUBLIC_KEY = os.environ["VAPID_PUBLIC_KEY"].strip()
 VAPID_PRIVATE_KEY_B64 = os.environ["VAPID_PRIVATE_KEY"].strip()
 VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "https://draccesoriosrd.blogspot.com/").strip()
@@ -410,6 +413,34 @@ def mark_social_event(event_key: str) -> None:
         conn.commit()
 
 
+def agenda_feed() -> list[dict[str, Any]]:
+    result = _session.get(AGENDA_URL, timeout=12, allow_redirects=False,
+                          headers={"Accept": "application/json", "Cache-Control": "no-cache"})
+    result.raise_for_status()
+    if len(result.content) > 600_000:
+        raise ValueError("Agenda feed too large")
+    data = result.json()
+    if data.get("schemaVersion") != 1 or not isinstance(data.get("revision"), int):
+        raise ValueError("Agenda schema incompatible")
+    items = data.get("events")
+    if not isinstance(items, list) or len(items) > 250:
+        raise ValueError("Agenda events invalid")
+    return [e for e in items if isinstance(e, dict) and
+            isinstance(e.get("id"), str) and
+            e["id"].startswith("evt-") and len(e["id"]) <= 96]
+
+
+def agenda_push_payload(event: dict[str, Any]) -> dict[str, str]:
+    eid = event["id"]
+    return {
+        "title": "📅 DR Agenda · Nuevo evento",
+        "body": str(event.get("title") or "Evento disponible")[:200],
+        "url": "https://dr-accesorios-rd-agenda.web.app/agenda/?evento=" + eid,
+        "tag": ("dr-agenda-" + eid)[:180],
+        "category": "agenda",
+    }
+
+
 def monitor_loop() -> None:
     print(f"[webpush] monitor started every {POLL_SECONDS}s", flush=True)
     while not _stop.is_set():
@@ -469,6 +500,37 @@ def monitor_loop() -> None:
             set_meta("last_blog_poll_ok", str(int(time.time())))
         except Exception as exc:
             print(f"[webpush] blog monitor error: {exc}", flush=True)
+
+        # Agenda isolation: first poll records a baseline and never sends historical events.
+        # A fresh ID is recorded before delivery to avoid ambiguous duplicate sends.
+        try:
+            agenda = agenda_feed()
+            ids = [e["id"] for e in agenda]
+            previous = get_meta("seen_agenda_event_ids_v1")
+            if previous is None:
+                set_meta("seen_agenda_event_ids_v1", json.dumps(ids[:250]))
+                print(f"[agenda webpush] baseline={len(ids)}", flush=True)
+            else:
+                known = set(json.loads(previous))
+                new_items = [e for e in agenda if e["id"] not in known]
+                set_meta("seen_agenda_event_ids_v1",
+                         json.dumps(list(dict.fromkeys(ids + list(known)))[:500]))
+                if WEBPUSH_AGENDA_ENABLED:
+                    now = datetime.now(timezone.utc)
+                    for item in new_items:
+                        if item.get("status") != "confirmed":
+                            continue
+                        try:
+                            until = datetime.fromisoformat(str(item.get("endAt") or item.get("startAt")).replace("Z","+00:00"))
+                            if until.tzinfo is None or until.astimezone(timezone.utc) <= now:
+                                continue
+                        except (ValueError, TypeError):
+                            continue
+                        sent, removed = send_payload(agenda_push_payload(item))
+                        print(f"[agenda webpush] id={item['id']!r} sent={sent} removed={removed}", flush=True)
+            set_meta("last_agenda_poll_ok", str(int(time.time())))
+        except Exception as exc:
+            print(f"[agenda webpush] poll error: {type(exc).__name__}", flush=True)
 
         if radar_ok or posts_ok:
             set_meta("last_poll_ok", str(int(time.time())))

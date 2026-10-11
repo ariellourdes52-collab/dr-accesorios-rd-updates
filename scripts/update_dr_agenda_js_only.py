@@ -39,7 +39,7 @@ def validate_js(js_bytes: bytes) -> None:
     js = js_bytes.decode('utf-8')
     required = ('function calendarFormUrl(event)',
                 "actionLink('📅 Abrir calendario',calendarUrl)",
-                'https://calendar.google.com/calendar/r/eventedit?',
+                'https://calendar.google.com/calendar/render?',
                 'America/Santo_Domingo', 'URLSearchParams')
     require(all(part in js for part in required), 'Falta la apertura de calendario')
     require('downloadCalendar(' not in js and 'a.download=' not in js,

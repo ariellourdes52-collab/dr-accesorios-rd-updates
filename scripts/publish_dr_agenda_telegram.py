@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """GitHub Actions only: Telegram-approved event -> safe Firebase Hosting Spark.
 
-No FCM sends, no Telegram broadcasts. Service-account authentication remains in
+FCM only after explicit per-event opt-in and GitHub gate; no Telegram broadcasts. Secrets remain in
 GitHub Secrets; nothing sensitive is stored in the site or repository.
 """
 from __future__ import annotations
@@ -35,6 +35,7 @@ def validated_request(text):
     require(len(text.encode('utf-8')) <= 18000, "Solicitud demasiado grande")
     obj = json.loads(text)
     require(isinstance(obj, dict), "Solicitud Agenda debe ser un objeto")
+    fcm_requested(obj)
     request_id = obj.get('requestId')
     require(isinstance(request_id, str) and re.fullmatch(r'[0-9a-f-]{36}', request_id), 'requestId inválido')
     eid = obj.get('id')
@@ -100,6 +101,13 @@ def validated_request(text):
         'imageUrl': '', 'officialUrl': url, 'articleUrl': '', 'location': loc,
     }
     return event, file_id
+
+
+def fcm_requested(request: dict) -> bool:
+    """Fail closed: missing opt-in means no FCM even if the repository gate is on."""
+    selected = request.get('notifyFcm', False)
+    require(type(selected) is bool, 'notifyFcm debe ser booleano')
+    return selected
 
 
 def download_telegram_image(file_id: str, filename: Path, token: str):
@@ -183,6 +191,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='dr-agenda-') as dirname:
         root = Path(dirname)
         state, event = build_workspace(payload, root)
+        notify_fcm = fcm_requested(json.loads(payload))
         print('DR Agenda: preflight obligatorio para', event['id'], flush=True)
         publish(root, state, preflight=True)
         if mode == 'auditar':
@@ -201,13 +210,13 @@ def main():
         print('✅ Evento publicado y verificado en Hosting: ' + event['id'])
         # Gate independiente: nunca se envía push durante auditoría.
         # FCM sólo usa el evento recién verificado, no el payload del bot.
-        if os.environ.get('DR_AGENDA_FCM_ENABLED') == 'true':
+        if notify_fcm and os.environ.get('DR_AGENDA_FCM_ENABLED') == 'true':
             confirmed = next((e for e in released['events'] if e.get('id') == event['id']), None)
             from send_dr_agenda_fcm import send_confirmed
             result = send_confirmed(confirmed, int(released['revision']))
             print('DR Agenda FCM:', result, '(topic exclusivo, sin reenviar noticias)')
         else:
-            print('🔒 DR Agenda FCM desactivado; no se enviaron notificaciones')
+            print('🔒 DR Agenda FCM: no solicitado para este evento o bloqueado por la variable')
 
 
 if __name__ == '__main__':

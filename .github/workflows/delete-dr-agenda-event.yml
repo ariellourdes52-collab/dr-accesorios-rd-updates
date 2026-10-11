@@ -1,0 +1,77 @@
+name: DR Agenda - Eliminar un evento publicado (aislado)
+
+run-name: DR Agenda borrar evento confirmado - sin notificar
+
+on:
+  workflow_dispatch:
+    inputs:
+      event_id:
+        description: 'ID exacto del evento de DR Agenda (evt-...).'
+        required: true
+        type: string
+      expected_revision:
+        description: 'Revisión exacta del catálogo consultado por Telegram.'
+        required: true
+        type: string
+      expected_title:
+        description: 'Título exacto del evento; seguridad ante borrado equivocado.'
+        required: true
+        type: string
+      run_mode:
+        description: 'auditar no cambia nada; eliminar requiere habilitar variable DR_AGENDA_DELETE_ENABLED=true y confirmar en Telegram.'
+        required: true
+        default: auditar
+        type: choice
+        options:
+          - auditar
+          - eliminar
+      confirm:
+        description: 'Borrado: escribir BORRAR-EVENTO-AGENDA'
+        required: false
+        default: NO
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-agenda-secondary-hosting-only
+  cancel-in-progress: false
+
+jobs:
+  agenda-delete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependencias Hosting de DR Agenda
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3' 'Pillow>=10,<13'
+      - name: Comprobar aislamiento y sintaxis
+        run: |
+          python -m py_compile scripts/delete_dr_agenda_event.py
+          python -m unittest discover -s tests -p 'test_dr_agenda_guardrails.py' -v
+          python -m unittest discover -s tests -p 'test_agenda_hosting_isolation.py' -v
+          python -m unittest discover -s tests -p 'test_dr_agenda_delete.py' -v
+      - name: Auditar o eliminar un evento exclusivamente en Hosting secundario
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_AGENDA_BACKUP_DIR: ${{ runner.temp }}/agenda-delete-backups
+          DR_AGENDA_DELETE_ENABLED: ${{ vars.DR_AGENDA_DELETE_ENABLED }}
+          AGENDA_EVENT_ID: ${{ inputs.event_id }}
+          AGENDA_EXPECTED_REVISION: ${{ inputs.expected_revision }}
+          AGENDA_EXPECTED_TITLE: ${{ inputs.expected_title }}
+          AGENDA_RUN_MODE: ${{ inputs.run_mode }}
+          AGENDA_CONFIRM: ${{ inputs.confirm }}
+        run: |
+          python scripts/delete_dr_agenda_event.py             --event-id "$AGENDA_EVENT_ID"             --revision "$AGENDA_EXPECTED_REVISION"             --title "$AGENDA_EXPECTED_TITLE"             --mode "$AGENDA_RUN_MODE"             --confirm "$AGENDA_CONFIRM"
+      - name: Guardar respaldo del catálogo y manifiesto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-agenda-event-delete-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/agenda-delete-backups
+          retention-days: 14
+          if-no-files-found: ignore

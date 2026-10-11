@@ -36,6 +36,44 @@ class BootstrapTests(unittest.TestCase):
         fake.api.assert_called_once_with("GET", boot.SITE + "/versions", params={"pageSize": 20})
         fake.session.post.assert_not_called()
 
+    def test_firebase_reserved_urls_are_accepted_only_as_extra(self):
+        expected = {"/agenda/index.html": "safe-html", "/agenda/events.json": "safe-json"}
+        active = {**expected,
+                  "/__/firebase/init.js": "firebase-generated-hash-a",
+                  "/__/firebase/init.json": "firebase-generated-hash-b"}
+        self.assertTrue(boot.verify_hosting_manifest(active, expected))
+        self.assertTrue(boot.verify_hosting_manifest(
+            {"/agenda/events.json": "safe-json", "/__/firebase/init.js": "hash"},
+            expected, allow_incomplete=True))
+
+    def test_extra_unrecognized_route_is_never_accepted(self):
+        expected = {"/agenda/index.html": "safe"}
+        actual = {**expected, "/radar.json": "unexpected"}
+        with self.assertRaisesRegex(AgendaError, "rutas inesperadas"):
+            boot.verify_hosting_manifest(actual, expected)
+
+    def test_modified_own_file_hash_is_rejected_even_with_reserved_urls(self):
+        expected = {"/agenda/index.html": "correct"}
+        active = {"/agenda/index.html": "wrong",
+                  "/__/firebase/init.js": "firebase-generated"}
+        with self.assertRaisesRegex(AgendaError, "hashes incorrectos"):
+            boot.verify_hosting_manifest(active, expected)
+
+    def test_active_reserved_files_during_wait_do_not_block_finalize(self):
+        fake = MagicMock()
+        expected = {"/agenda/index.html": "sha1"}
+        def resp(method, path, **kwargs):
+            self.assertEqual(method, "GET")
+            self.assertEqual(path, boot.SITE + "/versions/new/files")
+            if kwargs["params"]["status"] == "ACTIVE":
+                return {"files": [{"path": "/agenda/index.html", "hash": "sha1"},
+                                  {"path": "/__/firebase/init.js", "hash": "auto-js"},
+                                  {"path": "/__/firebase/init.json", "hash": "auto-json"}]}
+            return {"files": []}
+        fake.api.side_effect = resp
+        boot.wait_for_uploaded_files(fake, boot.SITE + "/versions/new", expected, max_checks=1)
+        fake.session.post.assert_not_called()
+
     def test_uploaded_files_ready_requires_all_active(self):
         fake = MagicMock()
         expected = {"/agenda/index.html": "abc123", "/agenda/events.json": "xyz987"}
@@ -63,7 +101,7 @@ class BootstrapTests(unittest.TestCase):
     def test_unexpected_hash_never_finalize(self):
         fake = MagicMock()
         fake.api.return_value = {"files": [{"path": "/agenda/index.html", "hash": "tampered"}]}
-        with self.assertRaisesRegex(AgendaError, "hash inesperado"):
+        with self.assertRaisesRegex(AgendaError, "hashes incorrectos"):
             boot.wait_for_uploaded_files(fake, boot.SITE + "/versions/new",
                                          {"/agenda/index.html": "safe"}, max_checks=1)
         fake.session.post.assert_not_called()

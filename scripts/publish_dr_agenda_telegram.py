@@ -12,7 +12,7 @@ import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import requests
 from PIL import Image, ImageOps
@@ -65,6 +65,28 @@ def validated_request(text):
     if kind == 'presencial':
         require(bool(loc['city'] and loc['province'] and (loc['name'] or loc['address'])),
                 'Ubicación presencial incompleta')
+    lat, lng = obj.get('lat'), obj.get('lng')
+    require((lat is None) == (lng is None), 'Latitud y longitud deben venir juntas')
+    if lat is not None:
+        require(kind == 'presencial' and isinstance(lat, (int, float)) and not isinstance(lat, bool)
+                and isinstance(lng, (int, float)) and not isinstance(lng, bool)
+                and -90 <= lat <= 90 and -180 <= lng <= 180,
+                'Coordenadas GPS fuera de rango')
+        loc['lat'], loc['lng'] = lat, lng
+    raw_maps = obj.get('mapUrl') or ''
+    require(isinstance(raw_maps, str) and len(raw_maps) <= 600, 'Enlace Maps excesivo')
+    if raw_maps:
+        from urllib.parse import parse_qs
+        u = urlparse(raw_maps)
+        host = (u.hostname or '').lower()
+        good = (host == 'maps.app.goo.gl' and len(u.path) > 1) or \
+               (host == 'goo.gl' and u.path.startswith('/maps/')) or \
+               (host == 'maps.google.com' and (u.path.startswith('/maps') or 'q' in parse_qs(u.query))) or \
+               (host in ('google.com', 'www.google.com') and u.path.startswith('/maps'))
+        require(kind == 'presencial' and u.scheme == 'https' and u.username is None and
+                u.password is None and u.port is None and good,
+                'Enlace de Google Maps inválido o externo')
+        loc['mapUrl'] = raw_maps
     from dr_agenda_publisher_core import confirm_https
     url = confirm_https(obj.get('officialUrl') or '', 'officialUrl')
     file_id = obj.get('telegramPhotoFileId') or ''

@@ -1,0 +1,62 @@
+name: DR Agenda - Ajustar imagenes SIN recortar (solo CSS)
+
+run-name: DR Agenda CSS responsive - sin tocar eventos
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'auditar = solo leer. aplicar = cambiar UNICAMENTE /agenda/styles.css en Hosting secundario.'
+        required: true
+        type: choice
+        default: auditar
+        options:
+          - auditar
+          - aplicar
+      confirm:
+        description: 'Para aplicar escribir ACTUALIZAR-SOLO-CSS-AGENDA'
+        required: false
+        type: string
+        default: 'NO'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-agenda-secondary-hosting-only
+  cancel-in-progress: false
+
+jobs:
+  agenda-css:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Obtener código aprobado
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependencias
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3' 'Pillow>=10,<13'
+      - name: Verificar pruebas existentes y aislamiento CSS
+        run: |
+          python -m unittest discover -s tests -p 'test_dr_agenda_guardrails.py' -v
+          python -m unittest discover -s tests -p 'test_agenda_hosting_isolation.py' -v
+          python -m unittest discover -s tests -p 'test_bootstrap_agenda_site.py' -v
+          python -m unittest discover -s tests -p 'test_agenda_style_only.py' -v
+      - name: Auditar o aplicar solo CSS en Hosting secundario
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_AGENDA_BACKUP_DIR: ${{ runner.temp }}/agenda-css-backup
+          UPDATE_MODE: ${{ inputs.mode || 'auditar' }}
+          UPDATE_CONFIRM: ${{ inputs.confirm }}
+        run: python scripts/update_dr_agenda_style.py --mode "$UPDATE_MODE" --confirm "$UPDATE_CONFIRM"
+      - name: Guardar versión anterior para recuperar si fuera necesario
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-agenda-css-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/agenda-css-backup
+          if-no-files-found: ignore
+          retention-days: 7

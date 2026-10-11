@@ -18,6 +18,8 @@ const event={
 };
 const calendar=new URL(get(event));
 assert.equal(calendar.origin,'https://calendar.google.com');
+assert.equal(calendar.pathname,'/calendar/render');
+assert.match(source,/calendar\.google\.com\/calendar\/render\?/);
 assert.equal(calendar.searchParams.get('action'),'TEMPLATE');
 assert.equal(calendar.searchParams.get('text'),event.title);
 assert.equal(calendar.searchParams.get('dates'),'20261016T230000Z/20261016T233000Z');

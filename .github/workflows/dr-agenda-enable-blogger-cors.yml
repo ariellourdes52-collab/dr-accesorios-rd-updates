@@ -1,0 +1,56 @@
+name: DR Agenda - Habilitar lectura Blogger (solo CORS)
+run-name: DR Agenda CORS publico - solo events.json
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'auditar no cambia nada. aplicar solo agrega CORS a /agenda/events.json.'
+        required: true
+        type: choice
+        default: auditar
+        options:
+          - auditar
+          - aplicar
+      confirm:
+        description: 'Para aplicar escribir HABILITAR-CORS-BLOGGER-AGENDA'
+        required: false
+        type: string
+        default: 'NO'
+permissions:
+  contents: read
+concurrency:
+  group: dr-agenda-secondary-hosting-only
+  cancel-in-progress: false
+jobs:
+  agenda-cors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependencias para Hosting
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3' 'Pillow>=10,<13'
+      - name: Comprobar aislamiento y lógica CORS
+        run: |
+          python -m py_compile scripts/enable_dr_agenda_blogger_cors.py
+          python -m unittest discover -s tests -p 'test_dr_agenda_blogger_cors.py' -v
+          python -m unittest discover -s tests -p 'test_dr_agenda_guardrails.py' -v
+          python -m unittest discover -s tests -p 'test_agenda_hosting_isolation.py' -v
+      - name: Auditar o aplicar solamente CORS a catálogo
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_AGENDA_BACKUP_DIR: ${{ runner.temp }}/agenda-cors-backup
+          UPDATE_MODE: ${{ inputs.mode || 'auditar' }}
+          UPDATE_CONFIRM: ${{ inputs.confirm }}
+        run: python scripts/enable_dr_agenda_blogger_cors.py --mode "$UPDATE_MODE" --confirm "$UPDATE_CONFIRM"
+      - name: Guardar manifiesto previo para recuperación
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-agenda-cors-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/agenda-cors-backup
+          if-no-files-found: ignore
+          retention-days: 14

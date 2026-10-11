@@ -13,7 +13,8 @@ from dr_agenda_publisher_core import AgendaError
 
 
 def request(**changes):
-    start = datetime.now(timezone.utc) + timedelta(days=7)
+    # Publisher accepts RFC3339 seconds with timezone, never fractional seconds.
+    start = (datetime.now(timezone.utc) + timedelta(days=7)).replace(microsecond=0)
     end = start + timedelta(hours=2)
     item = {
         "requestId": "0f00ae66-741c-4ed6-9747-56305ea8153b",

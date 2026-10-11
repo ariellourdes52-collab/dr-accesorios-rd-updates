@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es-DO">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#171827">
+  <meta name="description" content="DR Agenda: próximos lanzamientos tecnológicos, estrenos de cine, videojuegos y eventos en República Dominicana. Fechas y horarios actualizados.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="DR Agenda | Eventos y estrenos — DR Accesorios RD">
+  <meta property="og:description" content="Sigue los próximos eventos de tecnología, cine, videojuegos y actividades en República Dominicana.">
+  <meta property="og:url" content="https://dr-accesorios-rd-agenda.web.app/agenda/">
+  <link rel="canonical" href="https://dr-accesorios-rd-agenda.web.app/agenda/">
+  <title>DR Agenda | Próximos eventos — DR Accesorios RD</title>
+  <link rel="stylesheet" href="/agenda/styles.css">
+  <script src="/agenda/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#contenido">Ir a los eventos</a>
+  <div class="ambient ambient-a" aria-hidden="true"></div><div class="ambient ambient-b" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="/agenda/" aria-label="DR Accesorios RD, DR Agenda">
+        <img class="brand-logo" src="/agenda/logo-oficial.webp" alt="" width="76" height="76" decoding="async" fetchpriority="high">
+        <span class="brand-words">DR ACCESORIOS RD<small>Tu agenda tecnológica</small></span>
+      </a>
+      <nav class="head-links" aria-label="Enlaces principales">
+        <a class="header-link" href="https://draccesoriosrd.blogspot.com/" target="_blank" rel="noopener noreferrer">Noticias <span aria-hidden="true">↗</span></a>
+        <a class="header-link" href="https://t.me/draccesoriosrd_bot" target="_blank" rel="noopener noreferrer">Telegram <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+  <main id="contenido" class="shell">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-main">
+        <div class="eyebrow"><span class="pulse" aria-hidden="true"></span> ACTUALIZACIÓN AUTOMÁTICA · HORA RD</div>
+        <h1 id="page-title">Cada evento.<br><em>En su momento.</em></h1>
+        <p class="hero-sub">Lanzamientos, estrenos de cine, gaming y experiencias que vale la pena tener en el radar. Todo reunido en un solo lugar.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#agenda-listado">Explorar agenda <span aria-hidden="true">↓</span></a>
+          <a class="button quiet" href="https://t.me/draccesoriosrd_bot" target="_blank" rel="noopener noreferrer">Seguir por Telegram <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="calendar-art"><span class="calendar-top">DR AGENDA <b>•</b> 2026</span><span class="calendar-number">✳</span><span class="calendar-footer">EL PRÓXIMO EVENTO<br>ESTÁ POR LLEGAR</span></div><div class="hero-sparkle sparkle-1">✳</div><div class="hero-sparkle sparkle-2">✦</div></div>
+    </section>
+    <section class="stats" aria-label="Resumen de la agenda">
+      <div class="stat"><span class="stat-icon" aria-hidden="true">◈</span><div><strong id="stat-upcoming">—</strong><small>Próximos eventos</small></div></div>
+      <div class="stat"><span class="stat-icon" aria-hidden="true">◷</span><div><strong id="stat-month">—</strong><small>Este mes</small></div></div>
+      <div class="stat last"><span class="stat-icon" aria-hidden="true">↻</span><div><strong id="stat-refresh">Conectando</strong><small>Estado del catálogo</small></div></div>
+    </section>
+    <section class="agenda" id="agenda-listado" aria-labelledby="agenda-heading">
+      <div class="section-title"><div><span class="section-kicker">DESCUBRE LO QUE VIENE</span><h2 id="agenda-heading">Próximos eventos<span class="period">.</span></h2></div><div class="zone-note">◷ Hora de República Dominicana <span>UTC−4</span></div></div>
+      <div class="toolbar"><div id="filters" class="filters" role="group" aria-label="Filtrar por categoría"><button class="filter selected" type="button" data-category="all" aria-pressed="true">Todos</button><button class="filter" type="button" data-category="tech" aria-pressed="false">Tecnología</button><button class="filter" type="button" data-category="cine" aria-pressed="false">Cine</button><button class="filter" type="button" data-category="gaming" aria-pressed="false">Gaming</button><button class="filter" type="button" data-category="local" aria-pressed="false">En RD</button><button class="filter" type="button" data-category="lanzamiento" aria-pressed="false">Lanzamientos</button><button class="filter" type="button" data-category="otros" aria-pressed="false">Otros</button></div><label class="search"><span aria-hidden="true">⌕</span><span class="sr-only">Buscar eventos</span><input id="search-events" type="search" placeholder="Buscar un evento…" maxlength="100" autocomplete="off"></label></div>
+      <div id="status-message" class="sr-only" role="status" aria-live="polite"></div>
+      <div id="event-grid" class="event-grid" aria-live="off"></div>
+      <div id="empty-state" class="empty-state" hidden><div class="empty-illustration" aria-hidden="true"><span class="empty-ring"></span><span class="empty-symbol">✦</span></div><div class="empty-tag">HORIZONTE ABIERTO</div><h3 id="empty-heading">Lo próximo está por llegar.</h3><p id="empty-copy">Estamos preparando eventos verificados. Cuando publiquemos el siguiente, aparecerá aquí automáticamente.</p><a class="button small-primary" href="https://t.me/draccesoriosrd_bot" target="_blank" rel="noopener noreferrer">Conoce nuestro bot de Telegram ↗</a></div>
+    </section>
+    <section class="bottom-banner"><div class="bottom-glyph" aria-hidden="true">✳</div><div><span class="section-kicker">SIEMPRE CONECTADOS</span><h2>Las noticias pasan.<br>Las fechas <em>se recuerdan.</em></h2><p>DR Agenda es un servicio de DR Accesorios RD. Los horarios publicados corresponden a República Dominicana.</p></div><a href="https://draccesoriosrd.blogspot.com/" class="button quiet-dark" target="_blank" rel="noopener noreferrer">Visitar el blog ↗</a></section>
+  </main>
+  <footer class="site-footer"><div class="shell footer-inner"><span>© <span id="year">2026</span> DR Accesorios RD · Todos los derechos reservados</span><span>Creado para República Dominicana <span class="heart" aria-hidden="true">♥</span></span></div></footer>
+  <dialog id="event-dialog" aria-labelledby="dialog-title"><div class="dialog-shell"><button id="dialog-close" class="dialog-close" type="button" aria-label="Cerrar detalle">×</button><div id="dialog-photo" class="dialog-photo" aria-hidden="true"></div><div class="dialog-content"><span id="dialog-category" class="event-category"></span><h2 id="dialog-title"></h2><p id="dialog-description"></p><div id="dialog-meta" class="dialog-meta"></div><div id="dialog-actions" class="dialog-actions"></div></div></div></dialog>
+</body></html>

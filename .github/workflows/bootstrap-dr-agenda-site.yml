@@ -1,0 +1,50 @@
+name: DR Agenda v1 - Primer despliegue solo en Hosting secundario
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Auditar solo lectura, o instalar (una sola vez) en Hosting Agenda'
+        required: true
+        type: choice
+        options:
+          - auditar
+          - instalar
+        default: auditar
+      confirm:
+        description: 'Para instalar, escribe INSTALAR-DR-AGENDA-V1'
+        required: false
+        type: string
+        default: 'NO'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-agenda-secondary-hosting-only
+  cancel-in-progress: false
+
+jobs:
+  agenda-bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Obtener archivos de DR Agenda
+        uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependencias
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3' 'Pillow>=10,<13'
+      - name: Ejecutar pruebas de aislamiento
+        run: |
+          python -m unittest discover -s tests -p 'test_dr_agenda_guardrails.py' -v
+          python -m unittest discover -s tests -p 'test_agenda_hosting_isolation.py' -v
+          python -m unittest discover -s tests -p 'test_bootstrap_agenda_site.py' -v
+      - name: Verificar sitio secundario o instalar version inicial
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          BOOT_MODE: ${{ inputs.mode }}
+          BOOT_CONFIRM: ${{ inputs.confirm }}
+        run: python scripts/bootstrap_dr_agenda_site.py --mode "$BOOT_MODE" --confirm "$BOOT_CONFIRM"

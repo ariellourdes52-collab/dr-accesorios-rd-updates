@@ -33,7 +33,7 @@ def build_message(event: dict, revision: int, *, test_token: str = "") -> dict:
             "event_id": event_id,
             "revision": str(revision),
         },
-        "android": {"priority": "NORMAL", "ttl": "86400s"}
+        "android": {"priority": "HIGH", "ttl": "86400s"}
     }}
 
 

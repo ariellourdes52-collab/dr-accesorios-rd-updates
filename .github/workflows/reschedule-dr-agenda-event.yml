@@ -1,0 +1,111 @@
+name: DR Agenda - Reprogramar evento (Hosting secundario)
+run-name: DR Agenda reprogramar evento - sin reenvío de avisos
+
+on:
+  workflow_dispatch:
+    inputs:
+      event_id:
+        description: 'ID existente evt-...'
+        required: true
+        type: string
+      expected_revision:
+        description: 'Revisión exacta del catálogo'
+        required: true
+        type: string
+      expected_title:
+        description: 'Título actual del evento'
+        required: true
+        type: string
+      expected_start:
+        description: 'Inicio anterior ISO con zona horaria'
+        required: true
+        type: string
+      expected_end:
+        description: 'Fin anterior ISO con zona horaria'
+        required: true
+        type: string
+      new_start:
+        description: 'Inicio nuevo ISO con zona horaria'
+        required: true
+        type: string
+      new_end:
+        description: 'Fin nuevo ISO con zona horaria'
+        required: true
+        type: string
+      change_kind:
+        description: 'Cambiar fecha o posponer'
+        required: true
+        type: choice
+        options: [change, postpone]
+      reason:
+        description: 'Motivo opcional (hasta 160 caracteres)'
+        required: false
+        default: ''
+        type: string
+      run_mode:
+        description: 'auditar no escribe; publicar exige confirmación y variable'
+        required: true
+        type: choice
+        default: auditar
+        options: [auditar, publicar]
+      confirm:
+        description: 'Para publicar: REPROGRAMAR-EVENTO-AGENDA'
+        required: false
+        default: 'NO'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-agenda-secondary-hosting-only
+  cancel-in-progress: false
+
+jobs:
+  reschedule:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependencias
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3' 'Pillow>=10,<13'
+      - name: Comprobar barreras y contrato
+        run: |
+          python -m py_compile scripts/reschedule_dr_agenda_event.py
+          python -m unittest discover -s tests -p 'test_dr_agenda_guardrails.py' -v
+          python -m unittest discover -s tests -p 'test_agenda_hosting_isolation.py' -v
+          python -m unittest discover -s tests -p 'test_dr_agenda_reschedule.py' -v
+      - name: Cambiar únicamente las fechas del evento elegido
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_AGENDA_BACKUP_DIR: ${{ runner.temp }}/agenda-reschedule-backups
+          DR_AGENDA_RESCHEDULE_ENABLED: ${{ vars.DR_AGENDA_RESCHEDULE_ENABLED }}
+          EVENT_ID: ${{ inputs.event_id }}
+          EXPECTED_REVISION: ${{ inputs.expected_revision }}
+          EXPECTED_TITLE: ${{ inputs.expected_title }}
+          EXPECTED_START: ${{ inputs.expected_start }}
+          EXPECTED_END: ${{ inputs.expected_end }}
+          NEW_START: ${{ inputs.new_start }}
+          NEW_END: ${{ inputs.new_end }}
+          CHANGE_KIND: ${{ inputs.change_kind }}
+          CHANGE_REASON: ${{ inputs.reason }}
+          RUN_MODE: ${{ inputs.run_mode }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          python scripts/reschedule_dr_agenda_event.py \
+            --event-id "$EVENT_ID" --expected-revision "$EXPECTED_REVISION" \
+            --expected-title "$EXPECTED_TITLE" --expected-start "$EXPECTED_START" \
+            --expected-end "$EXPECTED_END" --new-start "$NEW_START" --new-end "$NEW_END" \
+            --change-kind "$CHANGE_KIND" "--reason=$CHANGE_REASON" \
+            --mode "$RUN_MODE" --confirm "$CONFIRM"
+      - name: Guardar respaldo del catálogo e inventario
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-agenda-reschedule-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/agenda-reschedule-backups
+          retention-days: 14
+          if-no-files-found: ignore

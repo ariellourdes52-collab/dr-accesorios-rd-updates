@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://dr-accesorios-rd-agenda.web.app/sitemap.xml

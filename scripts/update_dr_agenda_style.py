@@ -30,7 +30,7 @@ BASE_FILES = frozenset({
     "/agenda/index.html", "/agenda/app.js", "/agenda/styles.css",
     "/agenda/logo-oficial.webp", "/agenda/events.json",
 })
-IMAGE_PATH = re.compile(r"/agenda/images/evt-[a-z0-9][a-z0-9-]{1,42}\\.webp\\Z")
+IMAGE_PATH = re.compile(r"/agenda/images/evt-[a-z0-9][a-z0-9-]{1,42}\.webp\Z")
 CONFIRM = "ACTUALIZAR-SOLO-CSS-AGENDA"
 
 

@@ -44,6 +44,9 @@ RD_ZONE = timezone(timedelta(hours=-4))
 # No existen rutas del proyecto principal en este sitio nuevo, independiente.
 # Cada release contiene únicamente el inventario de este segundo Hosting.
 CRITICAL = ()
+# Firebase Hosting añade estos endpoints reservados al inventario de cada versión.
+# No se copian ni se declaran como archivos de DR Agenda: Firebase los gestiona.
+FIREBASE_RESERVED_PATHS = frozenset(("/__/firebase/init.js", "/__/firebase/init.json"))
 MAX_PUBLIC = 600_000  # Misma cota que AgendaRepository de Android.
 MAX_EVENTS = 250
 MAX_IMAGE = 1_500_000
@@ -413,11 +416,13 @@ class Hosting:
         version = SITE + "/versions/" + release["version"]["name"].rsplit("/", 1)[1]
         return release["name"], version
 
-    def files(self, version):
+    def files(self, version, status="ACTIVE"):
+        require(status in ("ACTIVE", "EXPECTED"), "Estado Hosting desconocido")
+        require(version.startswith(SITE + "/versions/"), "Versión fuera de DR Agenda")
         files = {}
         token = None
         while True:
-            params = {"pageSize": 1000, "status": "ACTIVE"}
+            params = {"pageSize": 1000, "status": status}
             if token:
                 params["pageToken"] = token
             page = self.api("GET", version + "/files", params=params)
@@ -428,6 +433,42 @@ class Hosting:
             token = page.get("nextPageToken")
             if not token:
                 return files
+
+
+
+def verify_agenda_inventory(actual: dict, expected: dict, *, allow_incomplete=False) -> bool:
+    """Compara hashes propios, permitiendo solo los dos endpoints de Firebase."""
+    require(isinstance(actual, dict) and isinstance(expected, dict), "Inventario Hosting inválido")
+    unexpected = set(actual) - set(expected) - FIREBASE_RESERVED_PATHS
+    require(not unexpected, "Archivo no autorizado en DR Agenda: " + ", ".join(sorted(unexpected)))
+    altered = [p for p in set(actual) & set(expected) if actual[p] != expected[p]]
+    require(not altered, "Hash incorrecto en DR Agenda: " + ", ".join(sorted(altered)))
+    absent = set(expected) - set(actual)
+    if not allow_incomplete:
+        require(not absent, "Faltan archivos de DR Agenda: " + ", ".join(sorted(absent)))
+    return not absent
+
+
+def wait_for_agenda_inventory(api, version: str, expected: dict, *,
+                              max_checks=10, pause_seconds=3):
+    """Fallar cerrado sin FINALIZED ni release si falta un archivo o sigue EXPECTED."""
+    require(version.startswith(SITE + "/versions/"), "Versión fuera del segundo sitio")
+    require(1 <= max_checks <= 20, "Reintentos excesivos")
+    for attempt in range(max_checks):
+        active = api.files(version, "ACTIVE")
+        pending = api.files(version, "EXPECTED")
+        complete = verify_agenda_inventory(active, expected, allow_incomplete=True)
+        verify_agenda_inventory(pending, expected, allow_incomplete=True)
+        require(not (set(active) & set(pending)), "Firebase devolvió rutas ACTIVE y EXPECTED duplicadas")
+        if complete and not pending:
+            print("✅ DR Agenda: inventario completo, solo rutas reservadas adicionales de Firebase.")
+            return
+        print("DR Agenda: esperando archivos ACTIVE", len(set(active) & set(expected)),
+              "/", len(expected), "| EXPECTED", len(pending),
+              "| intento", attempt + 1, "/", max_checks, flush=True)
+        if attempt + 1 < max_checks:
+            time.sleep(pause_seconds)
+    raise AgendaError("Inventario incompleto, no se finaliza ni publica la versión")
 
 
 def verify_remote_against_live(remote_raw, live_files, state):
@@ -481,6 +522,13 @@ def publish(root: Path, state: dict, *, preflight: bool, confirm: str = "", non_
         require(len(old_files) == int(old_version["fileCount"]), "Inventario activo incompleto")
     missing = [p for p in CRITICAL if p not in old_files]
     require(not missing, "Faltan rutas críticas; NO publicar: " + ", ".join(missing))
+    # Rechazar cualquier recurso ajeno al segundo sitio exclusivo de Agenda.
+    # /__/firebase/init.js y init.json los suministra Firebase, nunca este script.
+    owned_old_files = {p: digest for p, digest in old_files.items()
+                       if p not in FIREBASE_RESERVED_PATHS}
+    require(all(p.startswith("/agenda/") or p in ("/index.html", "/robots.txt", "/sitemap.xml")
+                for p in owned_old_files),
+            "Hosting Agenda contiene rutas no autorizadas: abortado")
     verify_remote_against_live(remote_raw, old_files, state)
 
     for event in payload["events"]:
@@ -490,12 +538,12 @@ def publish(root: Path, state: dict, *, preflight: bool, confirm: str = "", non_
                     "La imagen referenciada no existe ni en Hosting ni localmente: " + path)
     intended = {CATALOG_PATH: raw, **image_raw}
     blobs = {path: compress_digest(data) for path, data in intended.items()}
-    expected = dict(old_files)
+    expected = dict(owned_old_files)
     for path, (_body, digest) in blobs.items():
         require(path.startswith("/agenda/"), "Intento de editar fuera de /agenda/")
         expected[path] = digest
-    require(set(old_files) - set(expected) == set(), "Se perderían archivos de Hosting")
-    require(all(old_files[p] == expected[p] for p in old_files if not p.startswith("/agenda/")),
+    require(set(owned_old_files) - set(expected) == set(), "Se perderían archivos de Hosting")
+    require(all(owned_old_files[p] == expected[p] for p in owned_old_files if not p.startswith("/agenda/")),
             "Cambios no autorizados fuera de /agenda/")
     changed = [p for p, (_b, d) in blobs.items() if old_files.get(p) != d]
     print("\n--- PREFLIGHT DR AGENDA ---")
@@ -554,14 +602,14 @@ def publish(root: Path, state: dict, *, preflight: bool, confirm: str = "", non_
                                         headers={"Content-Type": "application/octet-stream"}, timeout=90)
             require(response.ok, f"Falló carga de archivo Agenda: HTTP {response.status_code}")
             uploaded.add(digest)
-    require(api.files(new_version) == expected, "Inventario de versión nueva no coincide: abortado")
+    wait_for_agenda_inventory(api, new_version, expected)
     api.api("PATCH", new_version, params={"updateMask": "status"}, json={"status": "FINALIZED"})
     require(api.active() == (previous_release, previous_version), "Hosting cambió antes de activar la nueva versión")
     require(fingerprint(read_remote()) == fingerprint(remote_raw), "Cambió catálogo antes de activar versión")
     api.api("POST", SITE + "/releases", params={"versionName": new_version},
             json={"message": "DR Agenda: actualizar solo eventos/imagenes preservando Hosting"})
     require(api.active()[1] == new_version, "La versión activa no coincide con la nueva")
-    require(api.files(new_version) == expected, "Archivos activos no coinciden con manifiesto esperado")
+    verify_agenda_inventory(api.files(new_version), expected)
     for attempt in range(12):
         check_raw = read_remote()
         if check_raw == raw:

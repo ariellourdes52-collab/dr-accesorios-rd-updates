@@ -199,7 +199,15 @@ def main():
                     for e in released.get('events', []) if isinstance(e, dict)),
                 'La ficha del evento no se pudo verificar en Hosting')
         print('✅ Evento publicado y verificado en Hosting: ' + event['id'])
-        print('✅ SIN notificaciones Telegram ni FCM: validar primero en Android')
+        # Gate independiente: nunca se envía push durante auditoría.
+        # FCM sólo usa el evento recién verificado, no el payload del bot.
+        if os.environ.get('DR_AGENDA_FCM_ENABLED') == 'true':
+            confirmed = next((e for e in released['events'] if e.get('id') == event['id']), None)
+            from send_dr_agenda_fcm import send_confirmed
+            result = send_confirmed(confirmed, int(released['revision']))
+            print('DR Agenda FCM:', result, '(topic exclusivo, sin reenviar noticias)')
+        else:
+            print('🔒 DR Agenda FCM desactivado; no se enviaron notificaciones')
 
 
 if __name__ == '__main__':

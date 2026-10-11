@@ -14,8 +14,10 @@
   const node = (type, cls, text) => {const n=document.createElement(type); if(cls)n.className=cls;if(text!==undefined)n.textContent=String(text);return n;};
   const safeHTTPS = (url) => {try{const u=new URL(url);return u.protocol==='https:' && !u.username && !u.password ? u.href : null;}catch{return null;}};
   const ownImage = (event) => {try{const u=new URL(event.imageUrl,location.origin); return u.origin===location.origin && u.pathname==='/agenda/images/'+event.id+'.webp' && !u.search && !u.hash ? u.href : null;}catch{return null;}};
+  const safeMapUrl=(raw)=>{try{const u=new URL(String(raw||'').trim());const h=u.hostname.toLowerCase();const good=(h==='maps.app.goo.gl'&&u.pathname.length>1)||(h==='goo.gl'&&u.pathname.startsWith('/maps/'))||(h==='maps.google.com'&&(u.pathname.startsWith('/maps')||u.searchParams.has('q')))||((h==='www.google.com'||h==='google.com')&&u.pathname.startsWith('/maps'));return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&good&&u.href.length<=600?u.href:null;}catch{return null;}};
+  const gpsPoint=(loc)=>{const a=loc.lat,b=loc.lng;return typeof a==='number'&&typeof b==='number'&&Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a)<=90&&Math.abs(b)<=180?a+','+b:null;};
   const locationName = (event) => {const loc=event.location||{}; if(loc.type==='online'||loc.online)return 'Evento en línea';return [loc.name||loc.address,loc.city].filter(Boolean).join(' · ')||'Lugar por confirmar';};
-  const mapsLink = (event) => {const loc=event.location||{};if(loc.type==='online'||loc.online)return null;const query=[loc.name,loc.address,loc.city,loc.province].filter(Boolean).join(', ');if(!query)return null;return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(query);};
+  const mapsLink = (event) => {const loc=event.location||{};if(loc.type==='online'||loc.online)return null;const linked=safeMapUrl(loc.mapUrl);if(linked)return linked;const query=gpsPoint(loc)||[loc.name,loc.address,loc.city,loc.province].filter(Boolean).join(', ');if(!query)return null;return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(query);};
   // Calendario web: formulario Google Calendar precargado, no descarga de archivos.
   // En navegadores iOS/Android no existe una API web para insertar directamente
   // eventos en el calendario nativo sin confirmación del usuario.
@@ -27,13 +29,19 @@
     const end=Number.isFinite(proposedEnd.getTime())&&proposedEnd>start?proposedEnd:new Date(start.getTime()+60*60*1000);
     const id=String(event.id||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,95);
     const loc=event.location||{};
-    const where=loc.type==='online'||loc.online===true ? 'En línea' : [loc.name,loc.address,loc.city,loc.province].filter(Boolean).join(', ');
+    const isOnline=loc.type==='online'||loc.online===true;
+    const humanPlace=[loc.name,loc.address,loc.city,loc.province].filter(Boolean).join(', ');
+    const mapsUrl=safeMapUrl(loc.mapUrl);
+    const gps=gpsPoint(loc);
+    const where=isOnline?'En línea':gps||mapsUrl||humanPlace;
+    const extra=isOnline?[]:[...(humanPlace&&humanPlace!==where?['Lugar: '+humanPlace]:[]),
+      ...(mapsUrl?['Mapa: '+mapsUrl]:gps?['Mapa: https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(gps)]:[])];
     const info='https://dr-accesorios-rd-agenda.web.app/agenda/?evento='+encodeURIComponent(id);
     const data=new URLSearchParams({
       action:'TEMPLATE', text:String(event.title||'Evento DR Agenda').slice(0,180),
       dates:utcICS(start.toISOString())+'/'+utcICS(end.toISOString()),
       stz:CONFIG.timeZone, etz:CONFIG.timeZone,
-      details:[String(event.description||'').slice(0,2500),info].filter(Boolean).join('\n\n'),
+      details:[String(event.description||'').slice(0,2500),...extra,info].filter(Boolean).join('\n\n'),
       location:where
     });
     return 'https://calendar.google.com/calendar/render?'+data.toString();

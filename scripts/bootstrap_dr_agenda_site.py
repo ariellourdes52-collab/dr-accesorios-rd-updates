@@ -28,6 +28,12 @@ FILES = (
     "/agenda/index.html", "/agenda/styles.css", "/agenda/app.js",
     "/agenda/logo-oficial.webp", "/agenda/events.json",
 )
+# Rutas reservadas que Firebase añade al inventario de una versión Hosting.
+# Se aceptan SOLO en las respuestas de Firebase, nunca como archivos del paquete.
+FIREBASE_RESERVED_PATHS = frozenset({
+    "/__/firebase/init.js",
+    "/__/firebase/init.json",
+})
 
 
 def assert_isolated():
@@ -116,6 +122,10 @@ def inspect_created_versions(hosting: Hosting):
         print("Rutas EXPECTED:", ", ".join(sorted(pending)) if pending else "(ninguna)", flush=True)
         extra = sorted((set(active) | set(pending)) - set(FILES))
         absent = sorted(set(FILES) - set(active) - set(pending))
+        provided_by_firebase = sorted(set(extra) & FIREBASE_RESERVED_PATHS)
+        unexpected = sorted(set(extra) - FIREBASE_RESERVED_PATHS)
+        print("Rutas reservadas de Firebase:", ", ".join(provided_by_firebase) if provided_by_firebase else "(ninguna)", flush=True)
+        print("Rutas realmente inesperadas:", ", ".join(unexpected) if unexpected else "(ninguna)", flush=True)
         print("Rutas no previstas en el paquete:", ", ".join(extra) if extra else "(ninguna)", flush=True)
         print("Rutas autorizadas ausentes:", ", ".join(absent) if absent else "(ninguna)", flush=True)
         count += 1
@@ -125,23 +135,46 @@ def inspect_created_versions(hosting: Hosting):
         print("Diagnóstico SOLO LECTURA: no se encontraron versiones CREATED recientes.", flush=True)
 
 
+def verify_hosting_manifest(actual: dict[str, str], expected: dict[str, str],
+                            *, allow_incomplete: bool = False) -> bool:
+    """Comprobar rutas y hashes propios, tolerando solo init.js/init.json de Firebase.
+
+    Regresa True cuando todos los archivos del paquete están presentes y correctos.
+    Nunca tolera rutas distintas a las ocho propias y las dos reservadas.
+    """
+    require(isinstance(actual, dict) and isinstance(expected, dict),
+            "Inventario Hosting inválido")
+    extra = set(actual) - set(expected)
+    require(extra <= FIREBASE_RESERVED_PATHS,
+            "Firebase devolvió rutas inesperadas: " + ", ".join(sorted(extra - FIREBASE_RESERVED_PATHS)))
+    mismatches = sorted(path for path in set(actual) & set(expected)
+                        if actual[path] != expected[path])
+    require(not mismatches, "Firebase devolvió hashes incorrectos: " + ", ".join(mismatches))
+    missing = set(expected) - set(actual)
+    if not allow_incomplete:
+        require(not missing, "Firebase no tiene todos los archivos del paquete: " + ", ".join(sorted(missing)))
+    return not missing
+
+
 def wait_for_uploaded_files(hosting: Hosting, version: str, expected: dict[str, str],
                             *, max_checks: int = 10, pause_seconds: float = 3):
-    """No finalizar ni publicar hasta ver los ocho hashes ACTIVE y ninguno EXPECTED."""
+    """No finalizar ni publicar hasta verificar hashes propios ACTIVE y cero pendientes."""
     require(max_checks >= 1 and max_checks <= 20, "Número de reintentos inseguro")
     for attempt in range(max_checks):
         active = read_version_files(hosting, version, "ACTIVE")
         pending = read_version_files(hosting, version, "EXPECTED")
-        for label, values in (("ACTIVE", active), ("EXPECTED", pending)):
-            require(set(values) <= set(expected),
-                    label + ": Firebase devolvió una ruta fuera del paquete DR Agenda")
-            require(all(expected[path] == digest for path, digest in values.items()),
-                    label + ": hash inesperado, publicación abortada")
-        if active == expected and not pending:
-            print("✅ Inventario verificado: todos los", len(expected),
-                  "archivos están ACTIVE y ninguno EXPECTED.", flush=True)
+        complete = verify_hosting_manifest(active, expected, allow_incomplete=True)
+        verify_hosting_manifest(pending, expected, allow_incomplete=True)
+        require(not (set(active) & set(pending)),
+                "Firebase reportó rutas duplicadas en ACTIVE y EXPECTED")
+        if complete and not pending:
+            print("✅ Inventario verificado: los", len(expected),
+                  "archivos propios están ACTIVE, hay", len(set(active) - set(expected)),
+                  "rutas reservadas y ningún archivo EXPECTED.", flush=True)
             return
-        print("Esperando archivos de Firebase: ACTIVE", len(active), "/", len(expected),
+        print("Esperando archivos de Firebase: ACTIVE propios",
+              len(set(active) & set(expected)), "/", len(expected),
+              "| reservados", len(set(active) & FIREBASE_RESERVED_PATHS),
               "| EXPECTED", len(pending), "| comprobación", attempt + 1,
               "/", max_checks, flush=True)
         if pending:
@@ -204,7 +237,7 @@ def initialize(*, mode: str, confirm: str = "", root: Path | None = None):
                 json={"message": "DR Agenda v1.0: sitio secundario independiente"})
     active_release, active_version = hosting.active()
     require(active_version == name, "La versión LIVE no coincide con la publicada")
-    require(hosting.files(name) == expected, "La publicación no conserva todos los archivos")
+    verify_hosting_manifest(hosting.files(name), expected)
     print("✅ DR Agenda v1.0 publicada únicamente en", PUBLIC + "/agenda/", flush=True)
     print("✅ Catálogo público inicial vacío; no se enviaron notificaciones.", flush=True)
     return {"mode": "instalar", "site": SITE, "version": name}

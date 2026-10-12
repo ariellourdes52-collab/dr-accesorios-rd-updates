@@ -5,7 +5,16 @@
   const $ = (selector) => document.querySelector(selector);
   const grid = $('#event-grid'), empty = $('#empty-state'), status = $('#status-message');
   const model = { events:[], category:'all', search:'', loaded:false, error:false, updatedAt:null };
-  $('#year').textContent = String(new Date().getFullYear());
+  // Año visual de DR Agenda y derechos reservados, calculado según la hora de RD.
+  // El nodo final de .calendar-top contiene únicamente el año fijo del HTML.
+  const yearRD = new Intl.DateTimeFormat('en-US',{timeZone:CONFIG.timeZone,year:'numeric'});
+  function updateVisibleYear(){
+    const currentYear = yearRD.format(new Date());
+    const calendarYearText = document.querySelector('.calendar-top')?.lastChild;
+    if(calendarYearText?.nodeType === 3) calendarYearText.textContent = ' ' + currentYear;
+    $('#year').textContent = currentYear;
+  }
+  updateVisibleYear();
   const collator = new Intl.Collator('es');
   const dateFmt = new Intl.DateTimeFormat('es-DO', {timeZone:CONFIG.timeZone,day:'numeric',month:'long',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
   const dayFmt = new Intl.DateTimeFormat('es-DO',{timeZone:CONFIG.timeZone,year:'numeric',month:'numeric'});
@@ -76,7 +85,7 @@
     status.textContent=model.error?'No se pudo actualizar el catálogo de eventos.':visible.length+' eventos disponibles.';
     const deep=new URLSearchParams(location.search).get('evento');if(deep){const selected=model.events.find(e=>e.id===deep);if(selected&& !$('#event-dialog').open)showDialog(selected);}
   }
-  async function update(){try{
+  async function update(){updateVisibleYear();try{
     const response=await fetch(CONFIG.url,{cache:'no-store',headers:{Accept:'application/json'}});if(!response.ok)throw Error('HTTP '+response.status);
     const raw=await response.text();if(raw.length>650000)throw Error('Tamaño inesperado');const payload=JSON.parse(raw);
     if(payload.schemaVersion!==1||!Number.isInteger(payload.revision)||!Array.isArray(payload.events)||payload.events.length>250)throw Error('Catálogo incompatible');

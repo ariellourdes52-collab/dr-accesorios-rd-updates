@@ -4,7 +4,9 @@ import unittest
 from datetime import datetime, timezone
 from PIL import Image
 
-from scripts.dr_noticias_media import CoverParser, entries_from_feed, jpeg_from_png, trusted_post
+from scripts.dr_noticias_media import (CoverParser, entries_from_feed, jpeg_from_png,
+                                     trusted_post, high_resolution_cover_urls,
+                                     adequate_cover_quality)
 
 
 class MediaTests(unittest.TestCase):
@@ -28,6 +30,23 @@ class MediaTests(unittest.TestCase):
                 with Image.open(io.BytesIO(output)) as im:
                     self.assertGreaterEqual(im.width / im.height, 0.8)
                     self.assertLessEqual(im.width / im.height, 1.91)
+
+    def test_restaura_resolucion_original_blogger(self):
+        original = "https://blogger.googleusercontent.com/img/b/test/w400-h225/portada.png"
+        candidates = high_resolution_cover_urls(original)
+        self.assertEqual(candidates[0], "https://blogger.googleusercontent.com/img/b/test/s1600/portada.png")
+        self.assertEqual(candidates[1], original)
+        image = "https://blogger.googleusercontent.com/img/b/test/s320/portada.png"
+        self.assertEqual(high_resolution_cover_urls(image)[0],
+                         "https://blogger.googleusercontent.com/img/b/test/s1600/portada.png")
+        self.assertEqual(high_resolution_cover_urls("https://blogger.googleusercontent.com/img/a/test/photo=w400-h225")[0],
+                         "https://blogger.googleusercontent.com/img/a/test/photo=s1600")
+        self.assertRaises(ValueError, high_resolution_cover_urls, "https://otro-dominio.com/s320/portada.png")
+
+    def test_bloquea_miniaturas_de_baja_resolucion(self):
+        self.assertFalse(adequate_cover_quality(self.png((400, 225))))
+        self.assertTrue(adequate_cover_quality(self.png((1200, 675))))
+        self.assertTrue(adequate_cover_quality(self.png((800, 1000))))
 
     def test_portadas_solo_proveedor_blogger(self):
         p = CoverParser()

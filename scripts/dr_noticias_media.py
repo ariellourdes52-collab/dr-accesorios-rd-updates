@@ -63,11 +63,11 @@ def high_resolution_cover_urls(url: str) -> list[str]:
             u.username or u.password or u.port):
         raise ValueError("Portada fuera de Googleusercontent")
     path = re.sub(
-        r"/(?:s\\d+(?:-[A-Za-z0-9]+)*|w\\d+(?:-h\\d+)?(?:-[A-Za-z0-9]+)*)/",
+        r"/(?:s\d+(?:-[A-Za-z0-9]+)*|w\d+(?:-h\d+)?(?:-[A-Za-z0-9]+)*)/",
         "/s1600/", u.path, count=1
     )
     path = re.sub(
-        r"=(?:s\\d+|w\\d+(?:-h\\d+)?)(?:-[A-Za-z0-9]+)*$",
+        r"=(?:s\d+|w\d+(?:-h\d+)?)(?:-[A-Za-z0-9]+)*$",
         "=s1600", path
     )
     candidate = u._replace(path=path).geturl()

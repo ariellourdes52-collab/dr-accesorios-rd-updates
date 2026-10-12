@@ -43,6 +43,28 @@ class ThreadsPilotTests(unittest.TestCase):
         self.assertNotIn("DR Accesorios RD ·", caption)
         self.assertIn("En plena expansión", caption)
 
+    def test_preview_prefers_complete_sentence_over_cutting_mid_phrase(self):
+        title = "Nintendo no abandonará los juegos físicos en Switch 2"
+        editorial = (
+            "En plena expansión de las descargas digitales, Nintendo envía una señal a quienes "
+            "todavía prefieren comprar videojuegos en formato físico. Su responsable para "
+            "Latinoamérica asegura que la empresa no tiene planes actuales de abandonar los "
+            "cartuchos. Sin embargo, en Switch 2 existe una diferencia importante que todo "
+            "comprador debe conocer: no todas las tarjetas contienen el juego completo."
+        )
+        template = (
+            "📰 " + title + "\\n\\n" +
+            "DR Accesorios RD · 12 de octubre de 2026 · República Dominicana\\n\\n" +
+            editorial + "\\n\\n" +
+            "Lee la noticia completa desde el enlace de nuestra biografía.\\n\\n" +
+            "#Nintendo #Switch2 #TecnologiaRD #NoticiasRD #DRNoticiasTech"
+        )
+        rendered = threads.threads_caption(title, template.replace("\\n", "\n"), self.url)
+        self.assertLessEqual(len(rendered), 480)
+        self.assertIn("abandonar los cartuchos.", rendered)
+        self.assertNotIn("existe una…", rendered)
+        self.assertIn(self.url, rendered)
+
     def test_outside_url_and_very_long_title_rejected(self):
         content = "📰 titular\n\n" + "Editorial con datos. " * 15
         with self.assertRaises(ValueError):

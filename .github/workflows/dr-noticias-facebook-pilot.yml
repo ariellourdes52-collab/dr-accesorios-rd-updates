@@ -1,0 +1,85 @@
+name: DR Noticias Tech - Facebook piloto (vista previa por defecto)
+run-name: DR Noticias Tech - Facebook ${{ inputs.mode || 'tests' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - publish
+        description: Vista previa NO publica; publicar requiere autorizacion
+      article_url:
+        type: string
+        required: false
+        description: URL exacta Blogger requerida para publicar
+      approved_sha256:
+        type: string
+        required: false
+        description: SHA256 JPEG de vista previa requerido para publicar
+      confirm:
+        type: string
+        required: false
+        default: NO
+        description: Para publicar usar PUBLICAR-UNA-NOTICIA-DRNOTICIASTECH-FACEBOOK
+  pull_request:
+    paths:
+      - 'scripts/dr_noticias_facebook_pilot.py'
+      - 'tests/test_dr_noticias_facebook_pilot.py'
+      - '.github/workflows/dr-noticias-facebook-pilot.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-noticias-facebook-publisher
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Verificar Python y pruebas locales sin acceso a Meta
+        run: |
+          python -m py_compile scripts/dr_noticias_facebook_pilot.py
+          python -m unittest discover -s tests -p 'test_dr_noticias_facebook_pilot.py' -v
+
+  preview:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'preview'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Consultar fanpage y mostrar noticia SIN PUBLICAR
+        env:
+          DR_NOTICIAS_FB_PAGE_TOKEN: ${{ secrets.DR_NOTICIAS_FB_PAGE_TOKEN }}
+          ARTICLE_URL: ${{ inputs.article_url }}
+        run: python scripts/dr_noticias_facebook_pilot.py --mode preview --article-url "$ARTICLE_URL"
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'publish' && github.ref == 'refs/heads/main'
+    needs: test
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Publicar solo una foto aprobada en fanpage DR Noticias Tech
+        env:
+          DR_NOTICIAS_FB_PAGE_TOKEN: ${{ secrets.DR_NOTICIAS_FB_PAGE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTICLE_URL: ${{ inputs.article_url }}
+          APPROVED_SHA: ${{ inputs.approved_sha256 }}
+          APPROVED_CONFIRM: ${{ inputs.confirm }}
+        run: |
+          python scripts/dr_noticias_facebook_pilot.py --mode publish --article-url "$ARTICLE_URL" --approved-sha256 "$APPROVED_SHA" --confirm "$APPROVED_CONFIRM"

@@ -56,6 +56,30 @@ class CoverParser(HTMLParser):
             pass
 
 
+def high_resolution_cover_urls(url: str) -> list[str]:
+    """Preferir tamaño original, sin modificar archivos ni recortar en Blogger."""
+    u = urlparse(url)
+    if (u.scheme != "https" or u.hostname not in IMAGE_HOSTS or
+            u.username or u.password or u.port):
+        raise ValueError("Portada fuera de Googleusercontent")
+    path = re.sub(
+        r"/(?:s\d+(?:-[A-Za-z0-9]+)*|w\d+(?:-h\d+)?(?:-[A-Za-z0-9]+)*)/",
+        "/s1600/", u.path, count=1
+    )
+    path = re.sub(
+        r"=(?:s\d+|w\d+(?:-h\d+)?)(?:-[A-Za-z0-9]+)*$",
+        "=s1600", path
+    )
+    candidate = u._replace(path=path).geturl()
+    return [candidate, url] if candidate != url else [url]
+
+
+def adequate_cover_quality(raw: bytes) -> bool:
+    with Image.open(io.BytesIO(raw)) as image:
+        w, h = image.size
+        return w >= 700 and h >= 500 and w * h >= 700000
+
+
 def trusted_post(url: str) -> bool:
     try:
         u = urlparse(url)
@@ -217,7 +241,20 @@ def main():
         raise ValueError("No se encontró la noticia elegida en las últimas 72 horas")
     if not selected["cover"]:
         raise ValueError("La noticia no tiene portada Blogger")
-    raw, mimetype = read_url(selected["cover"])
+    # El feed de Blogger suele devolver /w400-h225/ o /s400/.
+    # Nunca enviar a Instagram miniaturas borrosas de 400x225.
+    raw = None
+    mimetype = None
+    for candidate in high_resolution_cover_urls(selected["cover"]):
+        try:
+            attempt, kind = read_url(candidate)
+            if adequate_cover_quality(attempt):
+                raw, mimetype = attempt, kind
+                break
+        except (HTTPError, OSError, ValueError, UnidentifiedImageError):
+            continue
+    if raw is None:
+        raise ValueError("Portada sin resolución editorial suficiente; requiere original de al menos ~1200x675")
     image = jpeg_from_png(raw)
     with Image.open(io.BytesIO(image)) as check:
         print("Noticia: " + selected["title"][:90])

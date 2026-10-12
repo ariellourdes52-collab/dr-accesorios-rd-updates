@@ -92,8 +92,14 @@ def threads_caption(title, instagram_caption, article_url):
     if capacity < 110:
         raise ValueError("Titular o URL demasiado largos para Threads")
     if len(lead) > capacity:
-        cut = lead[:capacity - 1].rsplit(" ", 1)[0].rstrip(" ,;:")
-        lead = cut + "…"
+        # Priorizar una oración completa: evitar finales abruptos como "una…".
+        allowed = lead[:capacity]
+        sentence_ends = [m.end() for m in re.finditer(r"[.!?](?=\\s|$)", allowed)]
+        if sentence_ends and sentence_ends[-1] >= min(120, capacity // 2):
+            lead = allowed[:sentence_ends[-1]].rstrip()
+        else:
+            cut = lead[:capacity - 1].rsplit(" ", 1)[0].rstrip(" ,;:")
+            lead = cut + "…"
     message = top + lead + tail
     if not (len(message) <= 480 and article_url in message and lead):
         raise ValueError("El contenido supera el tamaño permitido para Threads")

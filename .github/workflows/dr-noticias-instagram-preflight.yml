@@ -1,0 +1,48 @@
+name: DR Noticias Tech - Diagnostico Instagram y Blogger (sin publicar)
+run-name: DR Noticias Tech - Verificacion segura
+
+on:
+  workflow_dispatch:
+    inputs:
+      check_account:
+        type: boolean
+        required: true
+        default: true
+        description: Comprobar que el token corresponde a @drnoticiastech
+  pull_request:
+    paths:
+      - 'scripts/dr_noticias_instagram_preflight.cjs'
+      - 'tests/test_dr_noticias_instagram_preflight.cjs'
+      - '.github/workflows/dr-noticias-instagram-preflight.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-noticias-instagram-readonly
+  cancel-in-progress: false
+
+jobs:
+  verify-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+      - name: Verificar sintaxis y pruebas sin red
+        run: |
+          node --check scripts/dr_noticias_instagram_preflight.cjs
+          node --test tests/test_dr_noticias_instagram_preflight.cjs
+  audit-remote:
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+      - name: Auditar token e imagenes sin publicar
+        env:
+          DR_NOTICIAS_IG_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_IG_ACCESS_TOKEN }}
+          DR_NOTICIAS_CHECK_ACCOUNT: ${{ inputs.check_account }}
+        run: node scripts/dr_noticias_instagram_preflight.cjs

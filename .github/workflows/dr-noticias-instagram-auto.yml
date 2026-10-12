@@ -1,0 +1,65 @@
+name: DR Noticias Tech - Automatico Blogger a Instagram (activacion protegida)
+run-name: DR Noticias Tech - ${{ github.event_name == 'schedule' && 'comprobar nuevas noticias' || 'simulacion segura' }}
+
+on:
+  schedule:
+    # Republica Dominicana UTC-4: cada hora desde 09:23 hasta 22:23, con margen contra retrasos GitHub
+    - cron: '23 13-23,0-2 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/dr_noticias_instagram_auto.py'
+      - 'tests/test_dr_noticias_instagram_auto.py'
+      - '.github/workflows/dr-noticias-instagram-auto.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-noticias-instagram-live
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.event_name != 'schedule' || vars.DR_NOTICIAS_AUTO_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --quiet --disable-pip-version-check 'Pillow>=11,<13'
+      - name: Validar fecha, antiguedad, orden y limite diario SIN RED
+        run: |
+          python -m py_compile scripts/dr_noticias_instagram_auto.py
+          python -m unittest discover -s tests -p 'test_dr_noticias_instagram_auto.py' -v
+
+  scan:
+    if: github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --quiet --disable-pip-version-check 'Pillow>=11,<13'
+      - name: Simular la seleccion sin publicar ni subir portadas
+        env:
+          DR_NOTICIAS_IG_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_IG_ACCESS_TOKEN }}
+          DR_NOTICIAS_AUTO_START_UTC: ${{ vars.DR_NOTICIAS_AUTO_START_UTC }}
+        run: python scripts/dr_noticias_instagram_auto.py --mode scan
+
+  publish:
+    if: github.event_name == 'schedule' && vars.DR_NOTICIAS_AUTO_ENABLED == 'true'
+    needs: test
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --quiet --disable-pip-version-check 'Pillow>=11,<13'
+      - name: Publicar a lo sumo una noticia nueva y hasta tres por dia RD
+        env:
+          DR_NOTICIAS_IG_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_IG_ACCESS_TOKEN }}
+          DR_NOTICIAS_AUTO_ENABLED: ${{ vars.DR_NOTICIAS_AUTO_ENABLED }}
+          DR_NOTICIAS_AUTO_START_UTC: ${{ vars.DR_NOTICIAS_AUTO_START_UTC }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/dr_noticias_instagram_auto.py --mode run

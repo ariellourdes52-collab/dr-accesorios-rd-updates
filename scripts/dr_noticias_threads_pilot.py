@@ -94,7 +94,7 @@ def threads_caption(title, instagram_caption, article_url):
     if len(lead) > capacity:
         # Priorizar una oración completa: evitar finales abruptos como "una…".
         allowed = lead[:capacity]
-        sentence_ends = [m.end() for m in re.finditer(r"[.!?](?=\\s|$)", allowed)]
+        sentence_ends = [m.end() for m in re.finditer(r"[.!?](?=\s|$)", allowed)]
         if sentence_ends and sentence_ends[-1] >= min(120, capacity // 2):
             lead = allowed[:sentence_ends[-1]].rstrip()
         else:

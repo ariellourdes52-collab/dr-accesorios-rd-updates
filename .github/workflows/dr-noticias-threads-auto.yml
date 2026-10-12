@@ -1,0 +1,65 @@
+name: DR Noticias Tech - Automatico Blogger a Threads
+run-name: DR Noticias Tech - Threads ${{ github.event_name == 'schedule' && 'noticias nuevas' || 'simulacion segura' }}
+
+on:
+  schedule:
+    # RD UTC-4, desde 09:51 hasta 22:51 (GitHub schedule puede retrasarse)
+    - cron: '51 13-23,0-2 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/dr_noticias_social_auto.py'
+      - 'tests/test_dr_noticias_social_auto.py'
+      - '.github/workflows/dr-noticias-threads-auto.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-noticias-threads-automatico
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    if: github.event_name != 'schedule' || vars.DR_NOTICIAS_THREADS_AUTO_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Pruebas offline de identidad, anti-duplicados y limite diario
+        run: |
+          python -m py_compile scripts/dr_noticias_social_auto.py
+          python -m unittest discover -s tests -p 'test_dr_noticias_social_auto.py' -v
+
+  scan:
+    if: github.event_name == 'workflow_dispatch'
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Simular nuevas noticias de Threads sin publicar
+        env:
+          DR_NOTICIAS_THREADS_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_THREADS_ACCESS_TOKEN }}
+          DR_NOTICIAS_AUTO_START_UTC: ${{ vars.DR_NOTICIAS_AUTO_START_UTC }}
+        run: python scripts/dr_noticias_social_auto.py --platform threads --mode scan
+
+  publish:
+    if: github.event_name == 'schedule' && vars.DR_NOTICIAS_THREADS_AUTO_ENABLED == 'true'
+    needs: tests
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Publicar a lo sumo una noticia en @drnoticiastech Threads (max 3 RD/dia)
+        env:
+          DR_NOTICIAS_THREADS_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_THREADS_ACCESS_TOKEN }}
+          DR_NOTICIAS_AUTO_START_UTC: ${{ vars.DR_NOTICIAS_AUTO_START_UTC }}
+          DR_NOTICIAS_THREADS_AUTO_ENABLED: ${{ vars.DR_NOTICIAS_THREADS_AUTO_ENABLED }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/dr_noticias_social_auto.py --platform threads --mode run

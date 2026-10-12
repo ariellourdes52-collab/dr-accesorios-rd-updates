@@ -1,0 +1,85 @@
+name: DR Noticias Tech - Threads piloto (vista previa por defecto)
+run-name: DR Noticias Tech - Threads ${{ inputs.mode || 'tests' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - publish
+        description: Preview no publica; publish exige confirmacion explicita
+      article_url:
+        type: string
+        required: false
+        description: URL exacta Blogger requerida para publicar
+      approved_sha256:
+        type: string
+        required: false
+        description: SHA256 de portada mostrada en preview
+      confirm:
+        type: string
+        required: false
+        default: NO
+        description: Para publicar PUBLICAR-UNA-NOTICIA-DRNOTICIASTECH-THREADS
+  pull_request:
+    paths:
+      - 'scripts/dr_noticias_threads_pilot.py'
+      - 'tests/test_dr_noticias_threads_pilot.py'
+      - '.github/workflows/dr-noticias-threads-pilot.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-noticias-threads-publisher
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Python compile y pruebas offline de Threads
+        run: |
+          python -m py_compile scripts/dr_noticias_threads_pilot.py
+          python -m unittest discover -s tests -p 'test_dr_noticias_threads_pilot.py' -v
+
+  preview:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'preview' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Verificar Threads, noticia y portada SIN publicar
+        env:
+          DR_NOTICIAS_THREADS_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_THREADS_ACCESS_TOKEN }}
+          ARTICLE_URL: ${{ inputs.article_url }}
+        run: python scripts/dr_noticias_threads_pilot.py --mode preview --article-url "$ARTICLE_URL"
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'publish' && github.ref == 'refs/heads/main'
+    needs: test
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Publicacion supervisada exclusiva Threads DR Noticias Tech
+        env:
+          DR_NOTICIAS_THREADS_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_THREADS_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTICLE_URL: ${{ inputs.article_url }}
+          APPROVED_SHA: ${{ inputs.approved_sha256 }}
+          APPROVED_CONFIRM: ${{ inputs.confirm }}
+        run: |
+          python scripts/dr_noticias_threads_pilot.py --mode publish --article-url "$ARTICLE_URL" --approved-sha256 "$APPROVED_SHA" --confirm "$APPROVED_CONFIRM"

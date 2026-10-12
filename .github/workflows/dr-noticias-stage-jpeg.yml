@@ -1,0 +1,80 @@
+name: DR Noticias Tech - Preparar portada JPEG (sin publicar Instagram)
+run-name: DR Noticias Tech - JPEG ${{ inputs.mode || 'tests' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        required: true
+        default: check
+        description: Comprobar sin cambios o preparar JPEG publico, sin publicar Instagram
+        options:
+          - check
+          - stage
+      article_url:
+        type: string
+        required: false
+        description: Enlace exacto de Blogger (obligatorio para stage)
+      confirm:
+        type: string
+        required: false
+        default: NO
+        description: Para stage escribir PREPARAR-JPEG-DR-NOTICIAS
+  pull_request:
+    paths:
+      - 'scripts/dr_noticias_media.py'
+      - 'tests/test_dr_noticias_media.py'
+      - '.github/workflows/dr-noticias-stage-jpeg.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-noticias-jpeg-publicacion-preparatoria
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+      - name: Preparar Pillow
+        run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Probar conversor y validaciones sin publicar
+        run: |
+          python -m py_compile scripts/dr_noticias_media.py
+          python -m unittest discover -s tests -p 'test_dr_noticias_media.py' -v
+
+  check:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'check'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Comprobar portada real SIN subir ni publicar
+        env:
+          BLOG_ARTICLE_URL: ${{ inputs.article_url }}
+        run: python scripts/dr_noticias_media.py --mode check --url "$BLOG_ARTICLE_URL"
+
+  stage:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'stage'
+    needs: test
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Guardar JPEG unicamente en rama de medios independiente
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTIONS: 'true'
+          BLOG_ARTICLE_URL: ${{ inputs.article_url }}
+          CONFIRM_STAGE: ${{ inputs.confirm }}
+        run: python scripts/dr_noticias_media.py --mode stage --url "$BLOG_ARTICLE_URL" --confirm "$CONFIRM_STAGE"

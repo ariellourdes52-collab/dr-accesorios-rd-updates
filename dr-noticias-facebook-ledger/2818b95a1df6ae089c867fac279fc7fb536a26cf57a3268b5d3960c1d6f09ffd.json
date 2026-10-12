@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/nintendo-switch-2-juegos-fisicos-latinoamerica.html",
   "title": "Nintendo no abandonará los juegos físicos en Switch 2",
   "jpeg_sha256": "acda9f694d948b93e7a05ced95881e3a9a815b5ae69dcc55bbdf4b9fd0e135bf",
   "caption_sha256": "2597004395e5e7bc0532a00f16f3a5f455d4669d923e6c116a56d700851bbf81",
-  "created_at": "2026-10-12T23:24:28.150240+00:00"
+  "created_at": "2026-10-12T23:24:28.150240+00:00",
+  "facebook_media_id": "875159429020764_122141691015183523",
+  "completed_at": "2026-10-12T23:24:34.785933+00:00"
 }

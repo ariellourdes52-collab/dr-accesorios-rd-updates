@@ -1,0 +1,13 @@
+name = "dr-noticias-tech-trigger"
+main = "src/index.mjs"
+compatibility_date = "2026-10-12"
+workers_dev = false
+
+# 09:08–22:08 hora de República Dominicana (UTC-4 fijo).
+# Sólo 14 invocaciones/día. Es un disparador; GitHub realiza el trabajo.
+[triggers]
+crons = ["8 13-23,0-2 * * *"]
+
+# Activación explícita. NO habilitar hasta validar el secreto en Cloudflare.
+[vars]
+DR_NOTICIAS_CF_ENABLED = "false"

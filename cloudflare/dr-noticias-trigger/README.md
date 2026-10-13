@@ -26,6 +26,16 @@ en GitHub Actions Secrets; no se copian a Cloudflare.
   Cloudflare. Cuando se valide y se desee ahorrar minutos en GitHub, estudiar
   reducir su frecuencia sin perder respaldo.
 
+## Compilaciones Preview (PR)
+
+En Cloudflare **Settings → Builds → Previews Base**, usar Build command vacío,
+Preview command `npx wrangler preview` y Root directory
+`/cloudflare/dr-noticias-trigger`. Esta configuración es independiente de
+Production, cuyo comando es `npx wrangler deploy`. Para actualizar comprobaciones
+tras cambiar la configuración de Cloudflare, realizar un nuevo commit en el PR.
+Las previews mantienen `DR_NOTICIAS_CF_ENABLED = "false"` en `[previews.vars]`
+y no pueden disparar publicaciones.
+
 ## Pruebas antes del despliegue
 
 Desde la carpeta `cloudflare/dr-noticias-trigger`, ejecutar:

@@ -26,6 +26,20 @@ en GitHub Actions Secrets; no se copian a Cloudflare.
   Cloudflare. Cuando se valide y se desee ahorrar minutos en GitHub, estudiar
   reducir su frecuencia sin perder respaldo.
 
+## Compilaciones Preview (PR)
+
+**Configuración de este proyecto: Preview Builds desactivados en Cloudflare.**
+Este Worker solo tiene un handler `scheduled` (no sirve HTTP), así que las
+Previews automáticas no son necesarias para probar su función. Los PR se verifican
+con los tests offline en GitHub Actions. Production Builds siguen habilitados
+para despliegues de `main`, con Build command vacío, Deploy command
+`npx wrangler deploy` y Root directory `/cloudflare/dr-noticias-trigger`.
+
+Como defensa adicional, `[previews.vars]` conserva
+`DR_NOTICIAS_CF_ENABLED = "false"` por si más adelante se activan Previews.
+Un estado rojo histórico de Cloudflare Preview no demuestra un fallo de
+despliegue en Production; verificar siempre el build de la rama `main`.
+
 ## Pruebas antes del despliegue
 
 Desde la carpeta `cloudflare/dr-noticias-trigger`, ejecutar:

@@ -10,4 +10,8 @@ crons = ["8 13-23,0-2 * * *"]
 
 # Activación explícita. NO habilitar hasta validar el secreto en Cloudflare.
 [vars]
+DR_NOTICIAS_CF_ENABLED = "true"
+
+# Previews aisladas: jamás disparar GitHub desde una rama de prueba.
+[previews.vars]
 DR_NOTICIAS_CF_ENABLED = "false"

@@ -1,0 +1,29 @@
+name: DR Noticias Tech - Cloudflare Free Cron (pruebas)
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/dr-noticias-trigger/**'
+      - '.github/workflows/dr-noticias-cloudflare-trigger-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-noticias-cloudflare-trigger-tests
+  cancel-in-progress: false
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Revisar sintaxis sin llamadas a Cloudflare ni GitHub API
+        run: node --check cloudflare/dr-noticias-trigger/src/index.mjs
+      - name: Probar activacion protegida, horarios y secreto (sin publicar)
+        run: node --test cloudflare/dr-noticias-trigger/tests/trigger.test.mjs

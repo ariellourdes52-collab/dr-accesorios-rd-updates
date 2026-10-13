@@ -16,6 +16,8 @@ from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 
 PROJECT_ID = "dr-accesorios-rd"
+from seismic_feed_guard import require_seismic_preserved
+
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 RADAR_PATH = "/radar.json"
@@ -253,6 +255,8 @@ def main() -> None:
 
     # 4) Create a new Hosting version containing every existing hash,
     #    except the new /radar.json hash.
+    require_seismic_preserved(old_files, expected)
+
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
 

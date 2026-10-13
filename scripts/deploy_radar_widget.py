@@ -16,6 +16,8 @@ from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 from PIL import Image
 
+from seismic_feed_guard import require_seismic_preserved
+
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
@@ -216,6 +218,8 @@ def main() -> None:
         "Cache-Control": "no-cache",
         "X-Content-Type-Options": "nosniff",
     })
+
+    require_seismic_preserved(old_files, expected)
 
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]

@@ -1,0 +1,99 @@
+name: DR Radar - Vigilancia independiente del feed sismico
+run-name: DR Radar sismico - verificar feed publico
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/watch-seismic-feed.yml'
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/seismic_feed_guard.py'
+      - 'scripts/check_seismic_feed_public.py'
+      - 'tests/test_seismic_feed_monitor_and_guard.py'
+      - 'scripts/deploy_*.py'
+      - 'scripts/expire_radar_alerts.py'
+      - 'scripts/manual_*radar*.py'
+      - '.github/workflows/watch-seismic-feed.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dr-radar-seismic-public-feed-health
+  cancel-in-progress: false
+
+jobs:
+  offline-tests:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validar sintaxis y protecciones sin acceso a Firebase
+        run: |
+          python -m compileall -q scripts
+          python -m unittest discover -s tests -p 'test_seismic_feed_monitor_and_guard.py' -v
+
+  live-monitor:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verificar HTTP 200, JSON sísmico y ping Healthchecks opcional
+        id: feed
+        continue-on-error: true
+        env:
+          DR_SEISMIC_HEALTHCHECKS_PING_URL: ${{ secrets.DR_SEISMIC_HEALTHCHECKS_PING_URL }}
+        run: python scripts/check_seismic_feed_public.py
+
+      - name: Abrir incidente único en GitHub al fallar el feed
+        if: steps.feed.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TITLE='[DR Radar] Feed sísmico público inaccesible'
+          OPEN="$(gh issue list --state open --limit 100 --json number,title --jq '.[] | select(.title == "[DR Radar] Feed sísmico público inaccesible") | .number' | head -n 1)"
+          if [ -z "$OPEN" ]; then
+            gh issue create --title "$TITLE" --body "Alerta automática: el archivo público /radar-seismic-v231.json no respondió correctamente tras tres intentos.
+
+          URL del feed: https://dr-accesorios-rd.web.app/radar-seismic-v231.json
+
+          Registro de la ejecución: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+
+          **Solo monitorización**: no se han publicado alertas ni modificado Firebase Hosting, DR Audio, DR Agenda o Telegram."
+          else
+            echo "Incidente #$OPEN ya abierto. Evitamos duplicados."
+          fi
+
+      - name: Cerrar incidente anterior al recuperarse el feed
+        if: steps.feed.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OPEN="$(gh issue list --state open --limit 100 --json number,title --jq '.[] | select(.title == "[DR Radar] Feed sísmico público inaccesible") | .number' | head -n 1)"
+          if [ -n "$OPEN" ]; then
+            gh issue close "$OPEN" --comment "Recuperado: HTTP 200 y JSON sísmico válido. Verificación: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi
+
+      - name: Marcar fallo para alertas de GitHub Actions
+        if: steps.feed.outcome == 'failure'
+        run: |
+          echo "::error::DR Radar sísmico no disponible; revisar incidente de GitHub."
+          exit 1

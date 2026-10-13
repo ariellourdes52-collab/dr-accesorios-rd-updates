@@ -15,6 +15,8 @@ import requests
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 
+from seismic_feed_guard import require_seismic_preserved
+
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
@@ -310,6 +312,8 @@ def main() -> None:
             flush=True,
         )
         return
+
+    require_seismic_preserved(old_files, expected)
 
     try:
         created = api("POST", SITE + "/versions", json={"config": config})

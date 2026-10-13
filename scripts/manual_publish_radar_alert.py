@@ -17,6 +17,8 @@ from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 
 PROJECT_ID = "dr-accesorios-rd"
+from seismic_feed_guard import require_seismic_preserved
+
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 RADAR_PATH = "/radar.json"
@@ -244,6 +246,8 @@ def main() -> None:
 
     expected = dict(old_files)
     expected[RADAR_PATH] = digest
+
+    require_seismic_preserved(old_files, expected)
 
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]

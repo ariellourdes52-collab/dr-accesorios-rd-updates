@@ -12,6 +12,8 @@ import requests
 from google.oauth2 import service_account
 from google.auth.transport.requests import AuthorizedSession
 
+from seismic_feed_guard import require_seismic_preserved
+
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 PUBLIC = "https://dr-accesorios-rd.web.app/version.json"
@@ -131,6 +133,8 @@ def main():
     compressed = gzip.compress((json.dumps(target, ensure_ascii=False, indent=2) + "\n").encode(), mtime=0)
     digest = hashlib.sha256(compressed).hexdigest()
     expected = preserved_manifest(old_files, digest)
+    require_seismic_preserved(old_files, expected)
+
     created = api("POST", SITE + "/versions", json={"config": config})
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
     items = list(expected.items())

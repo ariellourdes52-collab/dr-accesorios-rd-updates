@@ -37,7 +37,7 @@ test("llama una sola vez al workflow exacto de main, sin compartir secreto", asy
   assert.equal(calls[0].url,
     "https://api.github.com/repos/ariellourdes52-collab/dr-accesorios-rd-updates/actions/workflows/dr-noticias-railway-dispatch.yml/dispatches");
   assert.equal(calls[0].opts.method, "POST");
-  assert.equal(calls[0].opts.redirect, "error");
+  assert.equal(calls[0].opts.redirect, "manual");
   assert.equal(calls[0].opts.headers.Authorization, "Bearer " + secret);
   assert.equal(calls[0].opts.headers["X-GitHub-Api-Version"], "2022-11-28");
   assert.equal(calls[0].opts.body, '{"ref":"main"}');
@@ -80,4 +80,45 @@ test("fallos inciertos de red no exponen credenciales ni reintentan", async () =
     }
   );
   assert.equal(count, 1);
+});
+
+test("diagnostica rechazo de redireccion sin seguimiento ni reintentos", async () => {
+  let count = 0;
+  await assert.rejects(runScheduled(event, active, async (url, opts) => {
+    count++;
+    assert.equal(opts.redirect, "manual");
+    return {status: 302};
+  }), /HTTP 302/);
+  assert.equal(count, 1);
+});
+
+test("diagnostica error DNS por categoria sin revelar el mensaje ni el token", async () => {
+  const original = "DNS resolution failed Authorization: Bearer " + secret;
+  await assert.rejects(runScheduled(event, active, async () => {
+    throw Object.assign(new TypeError(original), {name: "TypeError"});
+  }), error => {
+    assert.match(error.message, /dns_resolution/);
+    assert.ok(!error.message.includes(secret));
+    assert.ok(!error.message.includes(original));
+    return true;
+  });
+});
+
+test("diagnostica TimeoutError sin retry", async () => {
+  let count = 0;
+  await assert.rejects(runScheduled(event, active, async () => {
+    count++;
+    throw Object.assign(new Error("Timed out"), {name: "TimeoutError"});
+  }), /timeout_or_abort/);
+  assert.equal(count, 1);
+});
+
+test("mensaje desconocido que contiene un secreto nunca se registra", async () => {
+  await assert.rejects(runScheduled(event, active, async () => {
+    throw new Error("Authorization: Bearer " + secret);
+  }), error => {
+    assert.match(error.message, /unknown_fetch_error/);
+    assert.ok(!error.message.includes(secret));
+    return true;
+  });
 });

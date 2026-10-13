@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/meta-muse-wonder-ia-memoria-activa-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "190ea5150f51239e998fc26ea2127d3c8fc2b6cd9b9ee50124753941fc107eeb",
   "caption_sha256": "10592d2a588215abda33c743f138a75cb7cd412f262c24b7ff8622e880d2e87f",
   "created_at": "2026-10-13T23:09:27.063077+00:00",
-  "container_id": "17992665159110510"
+  "container_id": "17992665159110510",
+  "threads_media_id": "17890854759456577",
+  "completed_at": "2026-10-13T23:09:38.461931+00:00"
 }

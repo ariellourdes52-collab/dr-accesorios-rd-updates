@@ -1,0 +1,75 @@
+name: DR Radar - Auditar o restaurar SOLO feed sismico 404
+run-name: DR Radar feed sismico - ${{ inputs.mode || 'pruebas sin acceso Firebase' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'auditar NO modifica nada; restaurar requiere confirmacion'
+        type: choice
+        required: true
+        default: auditar
+        options:
+          - auditar
+          - restaurar
+      confirm:
+        description: 'Solo para restaurar: RESTAURAR-SOLO-RADAR-SEISMIC-V231'
+        type: string
+        required: false
+        default: 'NO'
+  pull_request:
+    paths:
+      - 'scripts/repair_seismic_feed_only.py'
+      - 'tests/test_repair_seismic_feed_only.py'
+      - '.github/workflows/repair-seismic-feed-only.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-radar-seismic-feed-only
+  cancel-in-progress: false
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar bibliotecas para validaciones
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3'
+      - name: Comprobar sintaxis, protecciones y aislamiento
+        run: |
+          python -m py_compile scripts/repair_seismic_feed_only.py
+          python -m unittest discover -s tests -p 'test_repair_seismic_feed_only.py' -v
+
+  hosting:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar herramientas Firebase Hosting
+        run: python -m pip install --disable-pip-version-check --quiet 'requests>=2.31,<3' 'google-auth>=2.29,<3'
+      - name: Auditar o restaurar exclusivamente el feed sismico ausente
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_SEISMIC_BACKUP_DIR: ${{ runner.temp }}/dr-seismic-manifest-backup
+          REPAIR_MODE: ${{ inputs.mode }}
+          REPAIR_CONFIRM: ${{ inputs.confirm }}
+        run: python scripts/repair_seismic_feed_only.py --mode "$REPAIR_MODE" --confirm "$REPAIR_CONFIRM"
+      - name: Guardar inventario previo para auditoria y recuperacion
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-seismic-hosting-pre-${{ github.run_id }}
+          path: ${{ runner.temp }}/dr-seismic-manifest-backup
+          if-no-files-found: ignore
+          retention-days: 14

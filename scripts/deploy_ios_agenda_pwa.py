@@ -13,6 +13,8 @@ import requests
 from google.oauth2 import service_account
 from google.auth.transport.requests import AuthorizedSession
 
+from seismic_feed_guard import require_seismic_preserved
+
 SITE = "sites/dr-accesorios-rd"
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 HOST = "https://dr-accesorios-rd.web.app"
@@ -115,6 +117,8 @@ def main():
             headers.append(header)
         header.setdefault("headers", {})["Cache-Control"] = "no-cache"
         header["headers"]["X-Content-Type-Options"] = "nosniff"
+
+    require_seismic_preserved(live, expected)
 
     created = api("POST", SITE + "/versions", json={"config":config})
     version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]

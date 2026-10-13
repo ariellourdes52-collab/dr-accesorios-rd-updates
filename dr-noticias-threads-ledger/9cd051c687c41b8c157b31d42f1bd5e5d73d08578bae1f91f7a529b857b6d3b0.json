@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/google-fitbit-edge-precio-bateria-2026.html",
   "title": "Google Fitbit Edge: precio, batería y novedades",
   "jpeg_sha256": "270e478f522cb06c9c99eb263332239378f9eb8b82a1628d0618f82e148cb5b7",
   "caption_sha256": "8503de3f45b6ddd0a5876d70c5277c471f47ad0293766c5df6fa7370bebfe2af",
-  "created_at": "2026-10-13T18:09:28.695929+00:00"
+  "created_at": "2026-10-13T18:09:28.695929+00:00",
+  "container_id": "17992639155110510"
 }

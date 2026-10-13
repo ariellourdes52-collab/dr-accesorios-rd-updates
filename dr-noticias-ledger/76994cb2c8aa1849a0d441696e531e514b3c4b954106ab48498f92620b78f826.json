@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/meta-muse-wonder-ia-memoria-activa-2026.html",
   "title": "Meta lanza Muse Wonder: su nueva IA con memoria activa",
   "image_sha256": "12cdd19a35b4321098a2abb6f263ad540ee38ab9eb790c8adb07aab2a8d9f20c",
   "caption_sha256": "0e6eb73fbbb8dbedf95621074cbe884cc144d3138bd363d7b4108cd8f34e3a55",
-  "created_at": "2026-10-13T23:08:36.729626+00:00"
+  "created_at": "2026-10-13T23:08:36.729626+00:00",
+  "container_id": "18181590130429315"
 }

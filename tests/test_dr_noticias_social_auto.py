@@ -119,6 +119,61 @@ class SocialAutoTests(unittest.TestCase):
             self.assertEqual(len(published), 1)
             self.assertEqual(published[0][3], "texto " + platform + " " + self.url)
 
+
+    def test_prepare_post_reuses_one_jpeg_and_verifies_integrity(self):
+        import hashlib
+        jpeg = bytes([255, 216, 255]) + b"valid-jpeg-test"
+        digest = hashlib.sha256(jpeg).hexdigest()
+        url = auto.MEDIA_BASE + digest + ".jpg"
+        feed = {"feed": {"entry": [{"link": [{"rel": "alternate", "href": self.url}],
+                                    "content": {"$t": "<p>Noticia verificada</p>"}}]}}
+        with (
+            patch.object(auto, "high_resolution_cover_urls", return_value=[self.post["cover"]]),
+            patch.object(auto, "read_url", side_effect=[(b"original", "image/png"),
+                                                        (jpeg, "image/jpeg")]) as fetch,
+            patch.object(auto, "adequate_cover_quality", return_value=True),
+            patch.object(auto, "jpeg_from_png", return_value=jpeg) as convert,
+            patch.object(auto, "stage_jpeg", return_value=url) as stage,
+            patch.object(auto, "make_caption", return_value="texto verificado"),
+        ):
+            selected, actual_digest, actual_url, caption = auto.prepare_post(feed, self.post)
+        self.assertEqual(selected, self.post)
+        self.assertEqual(actual_digest, digest)
+        self.assertEqual(actual_url, url)
+        self.assertEqual(caption, "texto verificado")
+        self.assertEqual(fetch.call_count, 2)
+        convert.assert_called_once_with(b"original")
+        stage.assert_called_once_with(self.post, jpeg)
+
+    def test_prepare_post_rejects_staged_jpeg_with_wrong_content(self):
+        import hashlib
+        jpeg = bytes([255, 216, 255]) + b"correct"
+        digest = hashlib.sha256(jpeg).hexdigest()
+        url = auto.MEDIA_BASE + digest + ".jpg"
+        with (
+            patch.object(auto, "high_resolution_cover_urls", return_value=[self.post["cover"]]),
+            patch.object(auto, "read_url", side_effect=[(b"original", "image/png"),
+                                                        (b"wrong-jpeg", "image/jpeg")]),
+            patch.object(auto, "adequate_cover_quality", return_value=True),
+            patch.object(auto, "jpeg_from_png", return_value=jpeg),
+            patch.object(auto, "stage_jpeg", return_value=url),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "no coincide"):
+                auto.prepare_post({"feed": {"entry": []}}, self.post)
+
+    def test_prepare_post_rejects_unexpected_media_url(self):
+        jpeg = bytes([255, 216, 255]) + b"correct"
+        with (
+            patch.object(auto, "high_resolution_cover_urls", return_value=[self.post["cover"]]),
+            patch.object(auto, "read_url", return_value=(b"original", "image/png")) as fetch,
+            patch.object(auto, "adequate_cover_quality", return_value=True),
+            patch.object(auto, "jpeg_from_png", return_value=jpeg),
+            patch.object(auto, "stage_jpeg", return_value="https://invalid.example/cover.jpg"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "URL de portada"):
+                auto.prepare_post({"feed": {"entry": []}}, self.post)
+        fetch.assert_called_once()
+
     def test_repeated_article_is_skipped_without_publishing(self):
         for platform in ("facebook", "threads"):
             cfg = auto.PLATFORMS[platform]

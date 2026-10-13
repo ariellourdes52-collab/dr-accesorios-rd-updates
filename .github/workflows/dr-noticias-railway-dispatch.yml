@@ -1,0 +1,88 @@
+name: DR Noticias Tech - Railway dispatch de las tres redes
+run-name: DR Noticias Tech - Railway publica noticias nuevas
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/dr-noticias-railway-dispatch.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Pillow solo para tests
+        run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Validar ambos publicadores offline
+        run: |
+          python -m py_compile scripts/dr_noticias_instagram_auto.py scripts/dr_noticias_social_auto.py
+          python -m unittest discover -s tests -p 'test_dr_noticias_instagram_auto.py' -v
+          python -m unittest discover -s tests -p 'test_dr_noticias_social_auto.py' -v
+
+  instagram:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DR_NOTICIAS_AUTO_ENABLED == 'true'
+    concurrency:
+      group: dr-noticias-instagram-live
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Instagram - una nueva noticia, hasta tres por dia
+        env:
+          DR_NOTICIAS_IG_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_IG_ACCESS_TOKEN }}
+          DR_NOTICIAS_AUTO_ENABLED: ${{ vars.DR_NOTICIAS_AUTO_ENABLED }}
+          DR_NOTICIAS_AUTO_START_UTC: ${{ vars.DR_NOTICIAS_AUTO_START_UTC }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/dr_noticias_instagram_auto.py --mode run
+
+  facebook:
+    needs: instagram
+    if: always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DR_NOTICIAS_FB_AUTO_ENABLED == 'true'
+    concurrency:
+      group: dr-noticias-facebook-automatico
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Facebook - una nueva noticia, hasta tres por dia
+        env:
+          DR_NOTICIAS_FB_PAGE_TOKEN: ${{ secrets.DR_NOTICIAS_FB_PAGE_TOKEN }}
+          DR_NOTICIAS_FB_AUTO_ENABLED: ${{ vars.DR_NOTICIAS_FB_AUTO_ENABLED }}
+          DR_NOTICIAS_AUTO_START_UTC: ${{ vars.DR_NOTICIAS_AUTO_START_UTC }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/dr_noticias_social_auto.py --platform facebook --mode run
+
+  threads:
+    needs: facebook
+    if: always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DR_NOTICIAS_THREADS_AUTO_ENABLED == 'true'
+    concurrency:
+      group: dr-noticias-threads-automatico
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+      - name: Threads - una nueva noticia, hasta tres por dia
+        env:
+          DR_NOTICIAS_THREADS_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_THREADS_ACCESS_TOKEN }}
+          DR_NOTICIAS_THREADS_AUTO_ENABLED: ${{ vars.DR_NOTICIAS_THREADS_AUTO_ENABLED }}
+          DR_NOTICIAS_AUTO_START_UTC: ${{ vars.DR_NOTICIAS_AUTO_START_UTC }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/dr_noticias_social_auto.py --platform threads --mode run

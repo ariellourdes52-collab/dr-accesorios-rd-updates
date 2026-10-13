@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/apple-welcome-home-13-octubre-2026.html",
   "title": "Apple prepara HomeView, HomePod mini 2 y Apple TV 4K",
   "image_sha256": "bb7b77ce03ec5dfbffb2491acfa4988c1cd2921a490213bd9deae284b78d1804",
   "caption_sha256": "c5a5cf65706b59e06a9d5717fcaeb0569075fbe6dc3d108dfd72a6febf2427f9",
-  "created_at": "2026-10-13T13:08:38.094197+00:00"
+  "created_at": "2026-10-13T13:08:38.094197+00:00",
+  "container_id": "18181542577429315"
 }

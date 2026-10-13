@@ -22,7 +22,7 @@ from dr_noticias_media import (
 from dr_noticias_instagram_auto import (
     MAX_AGE_SECONDS, activation_instant, eligible_entries, editorial_ready
 )
-from dr_noticias_instagram_pilot import ready_post, ledger_write
+from dr_noticias_instagram_pilot import MEDIA_BASE, make_caption, ledger_write
 from dr_noticias_facebook_pilot import (
     PAGE_ID, facebook_caption, facebook_ledger_path, publish as facebook_publish,
     verify_page
@@ -95,11 +95,24 @@ def prepare_post(feed, post):
     if raw is None:
         raise ValueError("Portada sin tamaño original suficiente")
     jpg = jpeg_from_png(raw)
-    stage_jpeg(post, jpg)  # Solo rama dr-noticias-media, sin tocar Blogger
-    selected, digest, url, instagram_caption = ready_post(feed, post["url"])
-    if selected["url"] != post["url"] or digest != hashlib.sha256(jpg).hexdigest():
-        raise RuntimeError("La imagen o noticia cambió durante la preparación")
-    return selected, digest, url, instagram_caption
+    digest = hashlib.sha256(jpg).hexdigest()
+    image_url = stage_jpeg(post, jpg)  # Solo rama dr-noticias-media, sin tocar Blogger
+    # La portada ya fue recuperada, convertida y guardada: no volver a descargar
+    # el original de Blogger ni recomprimirlo (podría cambiar entre solicitudes).
+    expected_url = MEDIA_BASE + digest + ".jpg"
+    if image_url != expected_url:
+        raise RuntimeError("URL de portada preparada inesperada")
+    staged, mime = read_url(image_url, max_bytes=8 * 1024 * 1024)
+    if mime != "image/jpeg" or hashlib.sha256(staged).hexdigest() != digest:
+        raise RuntimeError("Portada JPEG pública no coincide con el archivo preparado")
+    entry = next((e for e in feed.get("feed", {}).get("entry", [])
+                  if any(link.get("rel") == "alternate" and
+                         link.get("href") == post["url"]
+                         for link in e.get("link", []))), None)
+    if entry is None:
+        raise RuntimeError("La noticia cambió durante la preparación")
+    instagram_caption = make_caption(post["title"], entry.get("content", {}).get("$t", ""))
+    return post, digest, image_url, instagram_caption
 
 
 def run(platform, mode, environ=None, now=None):

@@ -26,6 +26,7 @@ class XPublisherTests(unittest.TestCase):
             "GITHUB_REF": "refs/heads/main",
             "GITHUB_TOKEN": "test-github",
             "DR_NOTICIAS_X_AUTO_ENABLED": "true",
+            "DR_NOTICIAS_X_LIVE_APPROVED": "true",
             "DR_NOTICIAS_X_START_UTC": "2026-10-14T13:00:00+00:00",
             "X_API_KEY": "fake-api-key",
             "X_API_SECRET": "fake-api-secret",
@@ -73,6 +74,7 @@ class XPublisherTests(unittest.TestCase):
     def test_run_rejects_disabled_wrong_branch_and_missing_keys(self):
         for name, value in [
             ("DR_NOTICIAS_X_AUTO_ENABLED", "false"),
+            ("DR_NOTICIAS_X_LIVE_APPROVED", ""),
             ("GITHUB_REF", "refs/heads/test"),
             ("GITHUB_ACTIONS", "false"),
             ("GITHUB_TOKEN", ""),
@@ -147,6 +149,52 @@ class XPublisherTests(unittest.TestCase):
                       writer=lambda path, r, sha=None: written.append(dict(r)) or "sha",
                       requester=requester)
         self.assertTrue(any(r["status"] == "requires_review" for r in written))
+        self.assertTrue(any(r.get("failure_stage") == "account_check" and
+                            r.get("failure_code") == "account_mismatch" for r in written))
+
+    def test_safe_error_code_does_not_leak_arbitrary_api_response(self):
+        self.assertEqual(x.safe_error_code(
+            RuntimeError("X API HTTP 403; no reintentar sin revisión")), "http_403")
+        self.assertEqual(x.safe_error_code(
+            RuntimeError("X API HTTP 401; no reintentar sin revisión")), "http_401")
+        self.assertEqual(x.safe_error_code(
+            RuntimeError("X API HTTP 401; secret=HIDDEN")), "unexpected")
+        self.assertEqual(x.safe_error_code(
+            RuntimeError("password HIDDEN + token")), "unexpected")
+
+    def test_media_api_failure_is_redacted_and_saves_exact_stage(self):
+        import io
+        from contextlib import redirect_stdout
+        records = []
+        def fake_writer(path, record, sha=None):
+            records.append(dict(record))
+            return "fake-sha"
+        def fake_requester(method, path, env, payload=None):
+            if path == "/2/users/me":
+                return {"data": {"username": "drnoticiastech"}}
+            if path == "/2/media/upload":
+                raise RuntimeError("X API HTTP 403; no reintentar sin revisión")
+            self.fail("X no debe intentar crear un post si falla el upload")
+        log = io.StringIO()
+        with patch.object(x, "entries_from_feed", return_value=[self.post]), \
+             patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \
+             patch.object(x, "image_for_article", return_value=b"\xff\xd8\xffJPEGtest"), \
+             redirect_stdout(log):
+            with self.assertRaisesRegex(RuntimeError, "etapa=media_upload tipo=http_403"):
+                x.run("run", env=self.env, now=self.now, fetch=self.fake_fetch,
+                      gh=lambda _: None, writer=fake_writer, requester=fake_requester)
+        self.assertTrue(any(r.get("failure_stage") == "media_upload" and
+                            r.get("failure_code") == "http_403" and
+                            r["status"] == "requires_review" for r in records))
+        self.assertIn("etapa=media_upload | fallo=http_403", log.getvalue())
+        self.assertNotIn(self.env["X_API_SECRET"], log.getvalue())
+
+    def test_live_requires_extra_explicit_approval_even_if_previous_flag_true(self):
+        env = dict(self.env)
+        env.pop("DR_NOTICIAS_X_LIVE_APPROVED")
+        with self.assertRaisesRegex(ValueError, "desactivada"):
+            x.run("run", env=env, now=self.now,
+                  fetch=lambda *a, **k: self.fail("No debe tocar Blogger"))
 
 
 if __name__ == "__main__":

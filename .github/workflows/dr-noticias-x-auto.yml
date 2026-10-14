@@ -1,11 +1,7 @@
-name: DR Noticias Tech - X Blogger (aislado, desactivado)
+name: DR Noticias Tech - X pruebas y vista previa
 run-name: DR Noticias Tech - X (pruebas protegidas)
 
 on:
-  schedule:
-    # RD UTC-4: una oportunidad cada hora de 09:14 a 22:14;
-    # la publicacion sigue BLOQUEADA hasta activar DR_NOTICIAS_X_AUTO_ENABLED.
-    - cron: '14 13-23,0-2 * * *'
   workflow_dispatch:
   pull_request:
     paths:
@@ -22,7 +18,6 @@ concurrency:
 
 jobs:
   offline-tests:
-    if: github.event_name != 'schedule' || vars.DR_NOTICIAS_X_AUTO_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -46,24 +41,3 @@ jobs:
         env:
           DR_NOTICIAS_X_START_UTC: ${{ vars.DR_NOTICIAS_X_START_UTC }}
         run: python scripts/dr_noticias_x_auto.py --mode scan
-
-  publish:
-    if: github.event_name == 'schedule' && vars.DR_NOTICIAS_X_AUTO_ENABLED == 'true'
-    needs: offline-tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13' 'requests-oauthlib>=2,<3'
-      - name: Una noticia maxima por ejecucion, maximo tres por dia RD
-        env:
-          X_API_KEY: ${{ secrets.X_API_KEY }}
-          X_API_SECRET: ${{ secrets.X_API_SECRET }}
-          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
-          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-          DR_NOTICIAS_X_AUTO_ENABLED: ${{ vars.DR_NOTICIAS_X_AUTO_ENABLED }}
-          DR_NOTICIAS_X_START_UTC: ${{ vars.DR_NOTICIAS_X_START_UTC }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scripts/dr_noticias_x_auto.py --mode run

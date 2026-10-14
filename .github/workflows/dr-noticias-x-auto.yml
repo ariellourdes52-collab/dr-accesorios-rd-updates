@@ -44,7 +44,7 @@ jobs:
       - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13' 'requests-oauthlib>=2,<3'
       - name: Leer Blogger y mostrar texto, SIN tocar X ni registrar reservas
         env:
-          DR_NOTICIAS_X_START_UTC: \${{ vars.DR_NOTICIAS_X_START_UTC }}
+          DR_NOTICIAS_X_START_UTC: ${{ vars.DR_NOTICIAS_X_START_UTC }}
         run: python scripts/dr_noticias_x_auto.py --mode scan
 
   publish:
@@ -59,11 +59,11 @@ jobs:
       - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13' 'requests-oauthlib>=2,<3'
       - name: Una noticia maxima por ejecucion, maximo tres por dia RD
         env:
-          X_API_KEY: \${{ secrets.X_API_KEY }}
-          X_API_SECRET: \${{ secrets.X_API_SECRET }}
-          X_ACCESS_TOKEN: \${{ secrets.X_ACCESS_TOKEN }}
-          X_ACCESS_TOKEN_SECRET: \${{ secrets.X_ACCESS_TOKEN_SECRET }}
-          DR_NOTICIAS_X_AUTO_ENABLED: \${{ vars.DR_NOTICIAS_X_AUTO_ENABLED }}
-          DR_NOTICIAS_X_START_UTC: \${{ vars.DR_NOTICIAS_X_START_UTC }}
-          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+          DR_NOTICIAS_X_AUTO_ENABLED: ${{ vars.DR_NOTICIAS_X_AUTO_ENABLED }}
+          DR_NOTICIAS_X_START_UTC: ${{ vars.DR_NOTICIAS_X_START_UTC }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/dr_noticias_x_auto.py --mode run

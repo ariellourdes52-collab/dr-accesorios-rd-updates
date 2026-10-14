@@ -134,6 +134,75 @@ class XPublisherTests(unittest.TestCase):
         self.assertEqual(sum(1 for _, rec, _ in written if rec["status"] == "published"), 1)
         self.assertEqual(sum(1 for _, rec, _ in written if rec["status"] == "reserved"), 2)
 
+    def test_auto_waits_for_confirmed_first_post_without_x_or_blogger(self):
+        env = dict(self.env)
+        env["DR_NOTICIAS_X_AUTOMATIC"] = "true"
+        x.run("run", env=env, now=self.now,
+              gh=lambda _: None,
+              fetch=lambda *a, **k: self.fail("No debe consultar Blogger sin autorización"),
+              requester=lambda *a, **k: self.fail("No debe llamar X"),
+              writer=lambda *a, **k: self.fail("No debe escribir"))
+
+    def test_first_post_marker_must_contain_confirmed_numeric_post_id(self):
+        import base64
+        import json
+        def marker(**fields):
+            data = {"platform": "x", "account": "drnoticiastech",
+                    "status": "enabled_after_confirmed_post",
+                    "x_post_id": "987654321"}
+            data.update(fields)
+            return {"content": base64.b64encode(json.dumps(data).encode()).decode()}
+        self.assertTrue(x.first_post_confirmed(lambda path: marker()))
+        self.assertFalse(x.first_post_confirmed(lambda path: marker(x_post_id="bogus")))
+        self.assertFalse(x.first_post_confirmed(lambda path: marker(status="reserved")))
+        self.assertFalse(x.first_post_confirmed(lambda path: marker(account="otra")))
+        self.assertFalse(x.first_post_confirmed(lambda path: {"content": "invalid-json"}))
+        self.assertFalse(x.first_post_confirmed(lambda path: None))
+
+    def test_manual_first_publication_writes_marker_only_after_success(self):
+        written = []
+        env = dict(self.env)
+        env["DR_NOTICIAS_X_FIRST_MANUAL"] = "true"
+        def writer(path, record, sha=None):
+            written.append((path, dict(record)))
+            return "new-sha"
+        def requester(method, path, env, payload=None):
+            if path == "/2/users/me":
+                return {"data": {"username": "drnoticiastech"}}
+            if path == "/2/media/upload":
+                return {"data": {"id": "123456"}}
+            if path == "/2/tweets":
+                return {"data": {"id": "987654321"}}
+            self.fail("No endpoint")
+        with patch.object(x, "entries_from_feed", return_value=[self.post]), \\
+             patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \\
+             patch.object(x, "image_for_article", return_value=b"\\xff\\xd8\\xffJPEGtest"):
+            x.run("run", env=env, now=self.now, fetch=self.fake_fetch,
+                  gh=lambda _: None, writer=writer, requester=requester)
+        matched = [(path, rec) for path, rec in written if path == x.FIRST_CONFIRMED_PATH]
+        self.assertEqual(len(matched), 1)
+        self.assertEqual(matched[0][1]["x_post_id"], "987654321")
+        self.assertEqual(matched[0][1]["status"], "enabled_after_confirmed_post")
+
+    def test_manual_failure_does_not_unlock_automation(self):
+        env = dict(self.env)
+        env["DR_NOTICIAS_X_FIRST_MANUAL"] = "true"
+        paths = []
+        def writer(path, record, sha=None):
+            paths.append(path)
+            return "sha"
+        def requester(method, path, env, payload=None):
+            if path == "/2/users/me":
+                return {"data": {"username": "drnoticiastech"}}
+            raise RuntimeError("X API HTTP 403; no reintentar sin revisión")
+        with patch.object(x, "entries_from_feed", return_value=[self.post]), \\
+             patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \\
+             patch.object(x, "image_for_article", return_value=b"\\xff\\xd8\\xffJPEGtest"):
+            with self.assertRaises(RuntimeError):
+                x.run("run", env=env, now=self.now, fetch=self.fake_fetch,
+                      gh=lambda _: None, writer=writer, requester=requester)
+        self.assertNotIn(x.FIRST_CONFIRMED_PATH, paths)
+
     def test_wrong_user_blocks_without_upload_and_no_retry(self):
         written = []
         def requester(method, path, env, payload=None):

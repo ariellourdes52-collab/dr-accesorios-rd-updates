@@ -134,14 +134,74 @@ class XPublisherTests(unittest.TestCase):
         self.assertEqual(sum(1 for _, rec, _ in written if rec["status"] == "published"), 1)
         self.assertEqual(sum(1 for _, rec, _ in written if rec["status"] == "reserved"), 2)
 
-    def test_auto_waits_for_confirmed_first_post_without_x_or_blogger(self):
+    def test_auto_stops_if_first_attempt_was_already_reserved(self):
         env = dict(self.env)
         env["DR_NOTICIAS_X_AUTOMATIC"] = "true"
         x.run("run", env=env, now=self.now,
-              gh=lambda _: None,
-              fetch=lambda *a, **k: self.fail("No debe consultar Blogger sin autorización"),
+              gh=lambda path: {"sha": "first-attempt"} if x.FIRST_ATTEMPT_PATH in path else None,
+              fetch=lambda *a, **k: self.fail("No debe consultar Blogger tras primer intento"),
               requester=lambda *a, **k: self.fail("No debe llamar X"),
               writer=lambda *a, **k: self.fail("No debe escribir"))
+
+    def test_auto_skips_old_reserved_article_without_api_calls(self):
+        env = dict(self.env)
+        env["DR_NOTICIAS_X_AUTOMATIC"] = "true"
+        with patch.object(x, "entries_from_feed", return_value=[self.post]):
+            x.run("run", env=env, now=self.now, fetch=self.fake_fetch,
+                  gh=lambda path: {"sha": "prior"} if "x-ledger" in path else None,
+                  requester=lambda *a, **k: self.fail("No debe llamar X"),
+                  writer=lambda *a, **k: self.fail("No debe escribir"))
+
+    def test_first_automatic_post_writes_attempt_then_confirmed_marker(self):
+        env = dict(self.env)
+        env["DR_NOTICIAS_X_AUTOMATIC"] = "true"
+        written = []
+        def writer(path, record, sha=None):
+            written.append((path, dict(record)))
+            return "new-sha"
+        def requester(method, path, environment, payload=None):
+            if path == "/2/users/me":
+                return {"data": {"username": "drnoticiastech"}}
+            if path == "/2/media/upload":
+                return {"data": {"id": "123456"}}
+            if path == "/2/tweets":
+                return {"data": {"id": "987654321"}}
+            self.fail("Unexpected endpoint")
+        with patch.object(x, "entries_from_feed", return_value=[self.post]):
+            with patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}):
+                with patch.object(x, "image_for_article", return_value=b"\xff\xd8\xffJPEGtest"):
+                    x.run("run", env=env, now=self.now, fetch=self.fake_fetch,
+                          gh=lambda _: None, writer=writer, requester=requester)
+        paths = [path for path, _ in written]
+        self.assertIn(x.FIRST_ATTEMPT_PATH, paths)
+        self.assertIn(x.FIRST_CONFIRMED_PATH, paths)
+        self.assertLess(paths.index(x.FIRST_ATTEMPT_PATH), paths.index(x.FIRST_CONFIRMED_PATH))
+        first = next(rec for path, rec in written if path == x.FIRST_CONFIRMED_PATH)
+        self.assertEqual(first["x_post_id"], "987654321")
+
+    def test_first_auto_failure_reserves_attempt_but_no_confirmation(self):
+        env = dict(self.env)
+        env["DR_NOTICIAS_X_AUTOMATIC"] = "true"
+        written = []
+        def writer(path, record, sha=None):
+            written.append(path)
+            return "new-sha"
+        def requester(method, path, environment, payload=None):
+            if path == "/2/users/me":
+                return {"data": {"username": "drnoticiastech"}}
+            raise RuntimeError("X API HTTP 403; no reintentar sin revisión")
+        with patch.object(x, "entries_from_feed", return_value=[self.post]):
+            with patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}):
+                with patch.object(x, "image_for_article", return_value=b"\xff\xd8\xffJPEGtest"):
+                    with self.assertRaisesRegex(RuntimeError, "etapa=media_upload tipo=http_403"):
+                        x.run("run", env=env, now=self.now, fetch=self.fake_fetch,
+                              gh=lambda _: None, writer=writer, requester=requester)
+        self.assertIn(x.FIRST_ATTEMPT_PATH, written)
+        self.assertNotIn(x.FIRST_CONFIRMED_PATH, written)
+        x.run("run", env=env, now=self.now,
+              gh=lambda path: {"sha": "attempt"} if x.FIRST_ATTEMPT_PATH in path else None,
+              fetch=lambda *a, **k: self.fail("No segunda petición a Blogger"),
+              requester=lambda *a, **k: self.fail("No segunda petición a X"))
 
     def test_first_post_marker_must_contain_confirmed_numeric_post_id(self):
         import base64

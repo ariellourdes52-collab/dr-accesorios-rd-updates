@@ -178,7 +178,7 @@ class XPublisherTests(unittest.TestCase):
         log = io.StringIO()
         with patch.object(x, "entries_from_feed", return_value=[self.post]), \
              patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \
-             patch.object(x, "image_for_article", return_value=b"\\xff\\xd8\\xffJPEGtest"), \
+             patch.object(x, "image_for_article", return_value=b"\xff\xd8\xffJPEGtest"), \
              redirect_stdout(log):
             with self.assertRaisesRegex(RuntimeError, "etapa=media_upload tipo=http_403"):
                 x.run("run", env=self.env, now=self.now, fetch=self.fake_fetch,

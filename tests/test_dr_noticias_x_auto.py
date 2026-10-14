@@ -44,6 +44,7 @@ class XPublisherTests(unittest.TestCase):
         self.assertLessEqual(len(msg), 235)
         self.assertIn("#DRNoticiasTech", msg)
         self.assertIn("#Android", msg)
+        self.assertIn("Lee la noticia completa en nuestro blog. Enlace en el perfil.", msg)
         self.assertNotIn("http", msg)
         self.assertNotIn(self.url, msg)
 

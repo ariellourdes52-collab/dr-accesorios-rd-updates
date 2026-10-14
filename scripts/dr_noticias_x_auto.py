@@ -198,6 +198,28 @@ def image_for_article(post, fetch=None):
     raise ValueError("X: portada original insuficiente o supera 5 MB")
 
 
+def safe_error_code(error):
+    """Solo categorías enumeradas; nunca mostrar cuerpo HTTP, excepciones ni secretos."""
+    if isinstance(error, RuntimeError):
+        match = re.fullmatch(r"X API HTTP ([1-5][0-9]{2}); no reintentar sin revisión", str(error))
+        if match:
+            status = match.group(1)
+            return "http_" + status
+        if str(error) == "X: error de red, publicación incierta; NO reintentar":
+            return "network_uncertain"
+        known = {
+            "X: cuenta OAuth distinta de @drnoticiastech; publicación bloqueada": "account_mismatch",
+            "X: carga de portada sin media_id confirmado": "media_id_missing",
+            "X: creación sin ID confirmado; revisión manual": "post_id_missing",
+            "X: respuesta JSON inválida, no reintentar": "invalid_json",
+            "X: formato de respuesta inesperado": "invalid_response",
+        }
+        return known.get(str(error), "unexpected")
+    if isinstance(error, ValueError):
+        return "validation_error"
+    return "unexpected"
+
+
 def run(mode, env=None, now=None, gh=None, writer=None,
         fetch=None, requester=None):
     if mode not in ("scan", "run"):
@@ -212,6 +234,7 @@ def run(mode, env=None, now=None, gh=None, writer=None,
     requester = requester or x_request
     if mode == "run":
         if (env.get("DR_NOTICIAS_X_AUTO_ENABLED") != "true" or
+                env.get("DR_NOTICIAS_X_LIVE_APPROVED") != "true" or
                 env.get("GITHUB_ACTIONS") != "true" or
                 env.get("GITHUB_REF") != "refs/heads/main" or
                 not env.get("GITHUB_TOKEN")):
@@ -267,22 +290,35 @@ def run(mode, env=None, now=None, gh=None, writer=None,
             "status": "reserved", "platform": "x",
             "article_url": post["url"], "created_at": now.isoformat(), "slot": slot
         })
+        stage = "account_check"
         try:
+            print("X: etapa=account_check | comprobando cuenta autorizada")
             verify_account(env, requester)
+            stage = "media_upload"
+            print("X: etapa=media_upload | enviando portada")
             media_id = upload_image(image, env, requester)
+            stage = "post_create"
+            print("X: etapa=post_create | enviando publicación sin enlaces")
             tweet_id = publish_post(message, media_id, env, requester)
+            stage = "ledger_finalize"
             record.update(status="published", x_post_id=tweet_id,
                           published_at=datetime.now(timezone.utc).isoformat())
             writer(path, record, sha=sha)
             print("X: UNA publicación confirmada. ID=" + tweet_id)
             return
-        except Exception:
+        except Exception as error:
+            code = safe_error_code(error)
             record["status"] = "requires_review"
+            record["failure_stage"] = stage
+            record["failure_code"] = code
+            print("X: etapa=" + stage + " | fallo=" + code +
+                  " | reserva bloqueada, NO reintentar")
             try:
                 writer(path, record, sha=sha)
             except Exception:
                 print("X: reserva bloqueada; fallo registrando revisión")
-            raise RuntimeError("X: intento bloqueado para revisión manual; nunca reintentar automáticamente") from None
+            raise RuntimeError("X: revisión manual requerida; etapa=" + stage +
+                               " tipo=" + code + "; nunca reintentar automáticamente") from None
     print("X: sin otras noticias aptas; no se ha publicado.")
 
 

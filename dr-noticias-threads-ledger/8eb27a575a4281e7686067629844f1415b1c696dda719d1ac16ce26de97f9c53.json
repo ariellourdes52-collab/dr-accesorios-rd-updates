@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/airtag-silencer-retirado-riesgos-acoso-privacidad.html",
   "title": "Retiran accesorio AirTag por riesgos de espionaje y acoso",
   "jpeg_sha256": "e74fca53b31d9f985ed56bfde6b43500760b522ae0bec7c912fac5b058593a90",
   "caption_sha256": "9fa3e14c89addfc6e03ccc6b756c5fa5181d64259d4c3b402c87af02e75035ac",
-  "created_at": "2026-10-14T23:09:19.094418+00:00"
+  "created_at": "2026-10-14T23:09:19.094418+00:00",
+  "container_id": "17992831434110510"
 }

@@ -58,6 +58,22 @@ class IOSAgendaNoticeTests(unittest.TestCase):
                 with self.assertRaises(AgendaError):
                     validated_request(request(notifyWebPush=value))
 
+    def test_published_catalog_preserves_explicit_webpush_consent(self):
+        from dr_agenda_publisher_core import validate
+        event_on, _ = validated_request(request(notifyWebPush=True, notifyFcm=False))
+        published_on = validate({"baseRevision": 0, "events": [event_on]}, ROOT)
+        self.assertIs(published_on[0].get("notifyWebPush"), True)
+        self.assertNotIn("notifyFcm", published_on[0])
+
+        event_off, _ = validated_request(request(notifyWebPush=False))
+        published_off = validate({"baseRevision": 0, "events": [event_off]}, ROOT)
+        self.assertNotIn("notifyWebPush", published_off[0])
+
+        old_event = dict(event_on)
+        old_event.pop("notifyWebPush")
+        published_old = validate({"baseRevision": 0, "events": [old_event]}, ROOT)
+        self.assertNotIn("notifyWebPush", published_old[0])
+
     def test_railway_requires_explicit_opt_in(self):
         allows = load_server_gate()
         self.assertFalse(allows({"status":"confirmed"}))

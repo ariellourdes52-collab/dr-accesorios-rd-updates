@@ -138,7 +138,7 @@ class XPublisherTests(unittest.TestCase):
         env = dict(self.env)
         env["DR_NOTICIAS_X_AUTOMATIC"] = "true"
         x.run("run", env=env, now=self.now,
-              gh=lambda path: {"sha": "first-attempt"} if path == x.FIRST_ATTEMPT_PATH else None,
+              gh=lambda path: {"sha": "first-attempt"} if x.FIRST_ATTEMPT_PATH in path else None,
               fetch=lambda *a, **k: self.fail("No debe consultar Blogger tras primer intento"),
               requester=lambda *a, **k: self.fail("No debe llamar X"),
               writer=lambda *a, **k: self.fail("No debe escribir"))
@@ -199,7 +199,7 @@ class XPublisherTests(unittest.TestCase):
         self.assertIn(x.FIRST_ATTEMPT_PATH, written)
         self.assertNotIn(x.FIRST_CONFIRMED_PATH, written)
         x.run("run", env=env, now=self.now,
-              gh=lambda path: {"sha": "attempt"} if path == x.FIRST_ATTEMPT_PATH else None,
+              gh=lambda path: {"sha": "attempt"} if x.FIRST_ATTEMPT_PATH in path else None,
               fetch=lambda *a, **k: self.fail("No segunda petición a Blogger"),
               requester=lambda *a, **k: self.fail("No segunda petición a X"))
 

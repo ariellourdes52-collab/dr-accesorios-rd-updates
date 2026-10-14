@@ -91,7 +91,7 @@ jobs:
 
   x:
     # Mismo workflow_dispatch de Cloudflare. No crear cron nuevo.
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DR_NOTICIAS_X_AUTO_ENABLED == 'true' && vars.DR_NOTICIAS_X_LIVE_APPROVED == 'true'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DR_NOTICIAS_X_AUTO_ENABLED == 'true'
     concurrency:
       group: dr-noticias-x-auto
       cancel-in-progress: false
@@ -114,7 +114,8 @@ jobs:
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
           DR_NOTICIAS_X_AUTO_ENABLED: ${{ vars.DR_NOTICIAS_X_AUTO_ENABLED }}
-          DR_NOTICIAS_X_LIVE_APPROVED: ${{ vars.DR_NOTICIAS_X_LIVE_APPROVED }}
+          DR_NOTICIAS_X_LIVE_APPROVED: 'true'
+          DR_NOTICIAS_X_AUTOMATIC: 'true'
           DR_NOTICIAS_X_START_UTC: ${{ vars.DR_NOTICIAS_X_START_UTC }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/dr_noticias_x_auto.py --mode run

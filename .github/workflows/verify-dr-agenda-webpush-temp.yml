@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - fix/dr-agenda-webpush-consent-20261013
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, ready_for_review]
 permissions:
   contents: read
 jobs:

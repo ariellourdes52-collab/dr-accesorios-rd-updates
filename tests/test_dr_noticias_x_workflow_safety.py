@@ -25,7 +25,12 @@ class XManualWorkflowSafety(unittest.TestCase):
 
     def test_auto_requires_separate_approval_and_does_not_touch_meta(self):
         text = AUTO.read_text(encoding="utf-8")
-        self.assertIn("vars.DR_NOTICIAS_X_LIVE_APPROVED == 'true'", text)
+        self.assertIn("vars.DR_NOTICIAS_X_AUTO_ENABLED == 'true'", text)
+        self.assertIn("DR_NOTICIAS_X_AUTOMATIC: 'true'", text)
+        self.assertIn("DR_NOTICIAS_X_LIVE_APPROVED: 'true'", text)
+        self.assertNotIn("vars.DR_NOTICIAS_X_LIVE_APPROVED == 'true'", text)
+        manual = MANUAL.read_text(encoding="utf-8")
+        self.assertIn("DR_NOTICIAS_X_FIRST_MANUAL: 'true'", manual)
         for job in ("  instagram:", "  facebook:", "  threads:", "  x:"):
             self.assertIn(job, text)
 

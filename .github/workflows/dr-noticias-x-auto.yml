@@ -3,6 +3,15 @@ run-name: DR Noticias Tech - X (pruebas protegidas)
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: 'Accion en X: vista previa o UNA publicación real autorizada (puede gastar créditos)'
+        required: true
+        type: choice
+        default: preview
+        options:
+          - preview
+          - publish_once
   pull_request:
     paths:
       - 'scripts/dr_noticias_x_auto.py'
@@ -13,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dr-noticias-x-auto
+  group: dr-noticias-x-preview-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -30,7 +39,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_dr_noticias_x_auto.py' -v
 
   preview:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'preview'
     needs: offline-tests
     runs-on: ubuntu-latest
     timeout-minutes: 8
@@ -41,3 +50,30 @@ jobs:
         env:
           DR_NOTICIAS_X_START_UTC: ${{ vars.DR_NOTICIAS_X_START_UTC }}
         run: python scripts/dr_noticias_x_auto.py --mode scan
+
+  first-publication:
+    # Acción manual explícita y exclusiva de X. La automatización por Cloudflare
+    # permanece BLOQUEADA hasta la aprobación permanente separada.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.action == 'publish_once'
+    needs: offline-tests
+    concurrency:
+      group: dr-noticias-x-auto
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13' 'requests-oauthlib>=2,<3'
+      - name: Publicar solo UNA noticia con imagen, despues de validar la cuenta
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+          DR_NOTICIAS_X_START_UTC: ${{ vars.DR_NOTICIAS_X_START_UTC }}
+          DR_NOTICIAS_X_AUTO_ENABLED: 'true'
+          DR_NOTICIAS_X_LIVE_APPROVED: 'true'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/dr_noticias_x_auto.py --mode run

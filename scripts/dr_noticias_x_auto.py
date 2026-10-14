@@ -35,6 +35,7 @@ DAILY_LIMIT = 3
 MAX_TEXT = 235  # Margen bajo 280 caracteres ponderados, sin URLs.
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 X_KEYS = ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET")
+FIRST_CONFIRMED_PATH = "dr-noticias-x-state/first-confirmed.json"
 URL_PATTERN = re.compile(
     r"(?i)(?:https?://|www\.|\b[\w-]+\.(?:com|net|org|do|io|app|ai|co)\b)"
 )
@@ -198,6 +199,24 @@ def image_for_article(post, fetch=None):
     raise ValueError("X: portada original insuficiente o supera 5 MB")
 
 
+def first_post_confirmed(gh=None):
+    """La automatizacion requiere evidencia de un primer post REAL ya confirmado."""
+    info = read_ledger(FIRST_CONFIRMED_PATH, gh)
+    if not isinstance(info, dict):
+        return False
+    try:
+        record = json.loads(base64.b64decode(info["content"]))
+    except (KeyError, ValueError, TypeError):
+        return False
+    return (
+        isinstance(record, dict)
+        and record.get("platform") == "x"
+        and record.get("account") == ACCOUNT
+        and record.get("status") == "enabled_after_confirmed_post"
+        and str(record.get("x_post_id", "")).isdecimal()
+    )
+
+
 def safe_error_code(error):
     """Solo categorías enumeradas; nunca mostrar cuerpo HTTP, excepciones ni secretos."""
     if isinstance(error, RuntimeError):
@@ -240,6 +259,10 @@ def run(mode, env=None, now=None, gh=None, writer=None,
                 not env.get("GITHUB_TOKEN")):
             raise ValueError("X: publicación desactivada o fuera de main")
         credentials(env)
+        if env.get("DR_NOTICIAS_X_AUTOMATIC") == "true":
+            if not first_post_confirmed(gh):
+                print("X: automatizacion pendiente del primer post real confirmado; sin llamadas a X.")
+                return
         # Inicio propio de X: impide publicar noticias anteriores a la activación.
         start = activation_instant(env.get("DR_NOTICIAS_X_START_UTC", ""))
     else:
@@ -305,6 +328,18 @@ def run(mode, env=None, now=None, gh=None, writer=None,
                           published_at=datetime.now(timezone.utc).isoformat())
             writer(path, record, sha=sha)
             print("X: UNA publicación confirmada. ID=" + tweet_id)
+            if env.get("DR_NOTICIAS_X_FIRST_MANUAL") == "true":
+                try:
+                    writer(FIRST_CONFIRMED_PATH, {
+                        "platform": "x", "account": ACCOUNT,
+                        "status": "enabled_after_confirmed_post",
+                        "x_post_id": tweet_id, "article_url": post["url"],
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    })
+                    print("X: primer post confirmado; siguientes habilitados para Cloudflare.")
+                except Exception:
+                    # El post ya existe; nunca intentar enviarlo de nuevo.
+                    print("X: publicado; fallo al habilitar Cloudflare, revisar sin reintentar.")
             return
         except Exception as error:
             code = safe_error_code(error)

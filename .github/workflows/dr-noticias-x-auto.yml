@@ -77,5 +77,6 @@ jobs:
           DR_NOTICIAS_X_START_UTC: ${{ vars.DR_NOTICIAS_X_START_UTC }}
           DR_NOTICIAS_X_AUTO_ENABLED: 'true'
           DR_NOTICIAS_X_LIVE_APPROVED: 'true'
+          DR_NOTICIAS_X_FIRST_MANUAL: 'true'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/dr_noticias_x_auto.py --mode run

@@ -1,6 +1,6 @@
 name: DR Agenda - Hosting SECUNDARIO aislado
 
-run-name: DR Agenda publicar evento privado
+run-name: DR Agenda publicar evento
 
 on:
   workflow_dispatch:

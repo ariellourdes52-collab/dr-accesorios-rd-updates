@@ -1,0 +1,62 @@
+name: DR Noticias Tech - Mantenimiento seguro de tokens Meta
+run-name: DR Noticias Tech - Verificación y renovación Instagram/Threads
+
+on:
+  schedule:
+    # Lunes 03:17 RD (07:17 UTC). Exclusivo de GitHub, no toca Workers.
+    - cron: '17 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Auditar sin cambios o renovar (requiere habilitación y permisos)'
+        required: true
+        type: choice
+        default: audit
+        options:
+          - audit
+          - refresh
+  pull_request:
+    paths:
+      - '.github/workflows/dr-noticias-meta-token-refresh.yml'
+      - 'scripts/dr_noticias_meta_token_refresh.cjs'
+      - 'tests/test_dr_noticias_meta_token_refresh.cjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-noticias-meta-token-refresh
+  cancel-in-progress: false
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pruebas sin red y sin secretos
+        run: |
+          node --check scripts/dr_noticias_meta_token_refresh.cjs
+          node --test tests/test_dr_noticias_meta_token_refresh.cjs
+
+  check-and-refresh:
+    needs: offline-tests
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Auditar o renovar únicamente los dos secretos de DR Noticias Tech
+        env:
+          DR_NOTICIAS_IG_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_IG_ACCESS_TOKEN }}
+          DR_NOTICIAS_THREADS_ACCESS_TOKEN: ${{ secrets.DR_NOTICIAS_THREADS_ACCESS_TOKEN }}
+          DR_NOTICIAS_TOKEN_REFRESH_ENABLED: ${{ vars.DR_NOTICIAS_TOKEN_REFRESH_ENABLED }}
+          GH_SECRETS_UPDATE_TOKEN: ${{ secrets.DR_NOTICIAS_SECRETS_UPDATE_PAT }}
+          RUN_MODE: ${{ github.event_name == 'schedule' && 'refresh' || inputs.mode }}
+        run: node scripts/dr_noticias_meta_token_refresh.cjs "$RUN_MODE"

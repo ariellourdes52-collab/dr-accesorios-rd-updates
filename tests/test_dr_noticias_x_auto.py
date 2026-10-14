@@ -174,9 +174,9 @@ class XPublisherTests(unittest.TestCase):
             if path == "/2/tweets":
                 return {"data": {"id": "987654321"}}
             self.fail("No endpoint")
-        with patch.object(x, "entries_from_feed", return_value=[self.post]), \\
-             patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \\
-             patch.object(x, "image_for_article", return_value=b"\\xff\\xd8\\xffJPEGtest"):
+        with patch.object(x, "entries_from_feed", return_value=[self.post]), \
+             patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \
+             patch.object(x, "image_for_article", return_value=b"\xff\xd8\xffJPEGtest"):
             x.run("run", env=env, now=self.now, fetch=self.fake_fetch,
                   gh=lambda _: None, writer=writer, requester=requester)
         matched = [(path, rec) for path, rec in written if path == x.FIRST_CONFIRMED_PATH]
@@ -195,9 +195,9 @@ class XPublisherTests(unittest.TestCase):
             if path == "/2/users/me":
                 return {"data": {"username": "drnoticiastech"}}
             raise RuntimeError("X API HTTP 403; no reintentar sin revisión")
-        with patch.object(x, "entries_from_feed", return_value=[self.post]), \\
-             patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \\
-             patch.object(x, "image_for_article", return_value=b"\\xff\\xd8\\xffJPEGtest"):
+        with patch.object(x, "entries_from_feed", return_value=[self.post]), \
+             patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \
+             patch.object(x, "image_for_article", return_value=b"\xff\xd8\xffJPEGtest"):
             with self.assertRaises(RuntimeError):
                 x.run("run", env=env, now=self.now, fetch=self.fake_fetch,
                       gh=lambda _: None, writer=writer, requester=requester)

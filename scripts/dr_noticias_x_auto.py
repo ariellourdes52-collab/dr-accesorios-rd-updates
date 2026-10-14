@@ -36,6 +36,7 @@ MAX_TEXT = 235  # Margen bajo 280 caracteres ponderados, sin URLs.
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 X_KEYS = ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET")
 FIRST_CONFIRMED_PATH = "dr-noticias-x-state/first-confirmed.json"
+FIRST_ATTEMPT_PATH = "dr-noticias-x-state/first-attempt.json"
 URL_PATTERN = re.compile(
     r"(?i)(?:https?://|www\.|\b[\w-]+\.(?:com|net|org|do|io|app|ai|co)\b)"
 )
@@ -260,8 +261,8 @@ def run(mode, env=None, now=None, gh=None, writer=None,
             raise ValueError("X: publicación desactivada o fuera de main")
         credentials(env)
         if env.get("DR_NOTICIAS_X_AUTOMATIC") == "true":
-            if not first_post_confirmed(gh):
-                print("X: automatizacion pendiente del primer post real confirmado; sin llamadas a X.")
+            if not first_post_confirmed(gh) and read_ledger(FIRST_ATTEMPT_PATH, gh) is not None:
+                print("X: primera prueba pendiente de revisión; no repetir ni llamar a X.")
                 return
         # Inicio propio de X: impide publicar noticias anteriores a la activación.
         start = activation_instant(env.get("DR_NOTICIAS_X_START_UTC", ""))
@@ -308,11 +309,23 @@ def run(mode, env=None, now=None, gh=None, writer=None,
         path = ledger_path(post["url"])
         if read_ledger(path, gh) is not None or read_ledger(slot_path(day, slot), gh) is not None:
             raise RuntimeError("X: reserva existente, no reintentar")
+        first_auto = (
+            env.get("DR_NOTICIAS_X_AUTOMATIC") == "true"
+            and not first_post_confirmed(gh)
+        )
         sha = writer(path, record)
         writer(slot_path(day, slot), {
             "status": "reserved", "platform": "x",
             "article_url": post["url"], "created_at": now.isoformat(), "slot": slot
         })
+        if first_auto:
+            # Persistir permiso de UN solo primer intento antes de tocar X.
+            # Si cualquier API falla, el marcador impide más intentos automáticos.
+            writer(FIRST_ATTEMPT_PATH, {
+                "platform": "x", "status": "first_attempt_reserved",
+                "account": ACCOUNT, "article_url": post["url"],
+                "created_at": now.isoformat()
+            })
         stage = "account_check"
         try:
             print("X: etapa=account_check | comprobando cuenta autorizada")
@@ -328,7 +341,7 @@ def run(mode, env=None, now=None, gh=None, writer=None,
                           published_at=datetime.now(timezone.utc).isoformat())
             writer(path, record, sha=sha)
             print("X: UNA publicación confirmada. ID=" + tweet_id)
-            if env.get("DR_NOTICIAS_X_FIRST_MANUAL") == "true":
+            if env.get("DR_NOTICIAS_X_FIRST_MANUAL") == "true" or first_auto:
                 try:
                     writer(FIRST_CONFIRMED_PATH, {
                         "platform": "x", "account": ACCOUNT,

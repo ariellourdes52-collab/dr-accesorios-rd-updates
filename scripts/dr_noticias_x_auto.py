@@ -64,15 +64,16 @@ def caption(title, html):
              else "#Android" if "android" in low or "samsung" in low
              else "#Apple" if "iphone" in low or "apple" in low
              else "#Tecnologia")
-    tags = " #DRNoticiasTech " + topic
+    tags = "\n\n#DRNoticiasTech " + topic
+    action = "\n\n📰 Lee la noticia completa en nuestro blog. Enlace en el perfil."
     top = title + "\n\n"
-    remaining = MAX_TEXT - len(top) - len(tags)
-    if remaining < 48:
+    remaining = MAX_TEXT - len(top) - len(action) - len(tags)
+    if remaining < 30:
         raise ValueError("X: titular deja poco espacio para la noticia")
     if len(lead) > remaining:
         cut = lead[:remaining - 1]
         lead = cut.rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
-    result = top + lead + tags
+    result = top + lead + action + tags
     if len(result) > MAX_TEXT or len(lead) < 30:
         raise ValueError("X: texto fuera de límites")
     return no_links(result)

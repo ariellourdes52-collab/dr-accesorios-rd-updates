@@ -16,6 +16,7 @@ on:
     paths:
       - 'scripts/dr_noticias_x_auto.py'
       - 'tests/test_dr_noticias_x_auto.py'
+      - 'tests/test_dr_noticias_x_workflow_safety.py'
       - '.github/workflows/dr-noticias-x-auto.yml'
 
 permissions:
@@ -37,6 +38,7 @@ jobs:
         run: |
           python -m py_compile scripts/dr_noticias_x_auto.py
           python -m unittest discover -s tests -p 'test_dr_noticias_x_auto.py' -v
+          python -m unittest discover -s tests -p 'test_dr_noticias_x_workflow_safety.py' -v
 
   preview:
     if: github.event_name == 'workflow_dispatch' && inputs.action == 'preview'

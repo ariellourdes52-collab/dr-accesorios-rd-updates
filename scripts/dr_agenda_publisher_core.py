@@ -329,6 +329,10 @@ def validate(state: dict, root: Path) -> list[dict]:
             # No exponer metadatos locales, secretos o estado interno en el catálogo.
             public = {k: public.get(k) for k in ("id", "title", "description", "category", "startAt", "endAt", "status",
                                                  "imageUrl", "officialUrl", "articleUrl", "location")}
+            # Conserva solamente el consentimiento explícito de Web Push iOS.
+            # Sin este campo, Railway NO envía la alerta de Agenda.
+            if event.get("notifyWebPush") is True:
+                public["notifyWebPush"] = True
             result.append(public)
     result.sort(key=lambda e: parse_iso(e["startAt"]).timestamp())
     require(len(result) <= MAX_EVENTS, "Demasiados eventos públicos")

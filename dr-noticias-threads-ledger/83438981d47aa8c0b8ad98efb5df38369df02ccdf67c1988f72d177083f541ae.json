@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/battlefield-6-game-pass-temporada-5-las-vegas.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "24aae908ab2bfc4cee611fe1345c5f0a2bfd09f51fd1210e279115512f251885",
   "caption_sha256": "92055255b9290ed17ad811d8d22e273a3158dfc3d783e84f6b6be0a3ec1c40f9",
   "created_at": "2026-10-14T13:09:30.582202+00:00",
-  "container_id": "17992753722110510"
+  "container_id": "17992753722110510",
+  "threads_media_id": "18078237374718887",
+  "completed_at": "2026-10-14T13:09:41.127282+00:00"
 }

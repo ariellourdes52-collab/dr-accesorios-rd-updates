@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/ios-27-2-beta-4-siri-espanol-iphone-novedades.html",
   "title": "iOS 27.2 beta 4: Siri en español y cambios importantes",
   "jpeg_sha256": "7c50af7fab1a5f1fe89684e23631a49aa0d8578c173c9d9d15a21f4970e62a00",
   "caption_sha256": "c35c6e7fd17d790d180771b3305d7c37785d6bd215ab53b15fa7f0deb96c3e58",
-  "created_at": "2026-10-14T18:09:02.032430+00:00"
+  "created_at": "2026-10-14T18:09:02.032430+00:00",
+  "facebook_media_id": "875159429020764_122141855163183523",
+  "completed_at": "2026-10-14T18:09:07.603035+00:00"
 }

@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/battlefield-6-game-pass-temporada-5-las-vegas.html",
   "title": "Battlefield 6 llega a Game Pass y estrena temporada 5",
   "image_sha256": "24aae908ab2bfc4cee611fe1345c5f0a2bfd09f51fd1210e279115512f251885",
   "caption_sha256": "a290c1c43b66e6a80f2ee19b42374948b3a9e633718ae4805e90a7015250e299",
-  "created_at": "2026-10-14T13:08:31.180789+00:00"
+  "created_at": "2026-10-14T13:08:31.180789+00:00",
+  "container_id": "18181645669429315"
 }

@@ -405,10 +405,10 @@ class XPublisherTests(unittest.TestCase):
         def writer(path, record, sha=None):
             attempts.append(path)
             raise RuntimeError("GitHub API HTTP 409")
-        with patch.object(x, "entries_from_feed", return_value=[self.post]), \\
-             patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \\
-             patch.object(x, "image_for_article", return_value=b"\\xff\\xd8\\xffJPEGtest"), \\
-             patch.object(x.time, "sleep"):
+        with (patch.object(x, "entries_from_feed", return_value=[self.post]),
+              patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}),
+              patch.object(x, "image_for_article", return_value=b"\xff\xd8\xffJPEGtest"),
+              patch.object(x.time, "sleep")):
             def gh(endpoint):
                 if "dr-noticias-x-ledger/" in endpoint and attempts:
                     return {"sha": "another-process"}

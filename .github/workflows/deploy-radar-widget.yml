@@ -55,7 +55,7 @@ jobs:
               while IFS= read -r path; do
                 case "$path" in
                   "landing/radar-widget/index.html") radar_changed=true ;;
-                  "scripts/deploy_radar_widget_bilingual_only.py"|".github/workflows/deploy-radar-widget.yml") ;;
+                  "scripts/deploy_radar_widget_bilingual_only.py"|".github/workflows/deploy-radar-widget.yml"|".github/workflows/dr-radar-bilingual-qa.yml") ;;
                   *) other_changed=true ;;
                 esac
               done < <(git diff --name-only "$BEFORE" HEAD)

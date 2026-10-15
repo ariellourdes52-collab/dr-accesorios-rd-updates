@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/fbi-187-equipos-empleos-falsos-corea-norte.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "466d298e230b18a65dca421d9f25bc94d2de36dbff15812bf46e7ffd9e8aa04d",
   "caption_sha256": "d34e272348e8701a1406cf613b00e638db00120b3a8b28189f128d78ca53961b",
   "created_at": "2026-10-15T18:09:24.932170+00:00",
-  "container_id": "17992980045110510"
+  "container_id": "17992980045110510",
+  "threads_media_id": "18121630633933222",
+  "completed_at": "2026-10-15T18:09:34.927170+00:00"
 }

@@ -318,6 +318,107 @@ class XPublisherTests(unittest.TestCase):
         self.assertIn("etapa=media_upload | fallo=http_403", log.getvalue())
         self.assertNotIn(self.env["X_API_SECRET"], log.getvalue())
 
+    def test_github_409_read_retries_without_writing(self):
+        calls = []
+        def gh(endpoint):
+            calls.append(endpoint)
+            if len(calls) == 1:
+                raise RuntimeError("GitHub API HTTP 409")
+            return {"sha": "stable"}
+        with patch.object(x.time, "sleep") as sleep:
+            result = x.read_ledger("dr-noticias-x-daily/day/slot-1.json", gh)
+        self.assertEqual(result["sha"], "stable")
+        self.assertEqual(len(calls), 2)
+        sleep.assert_called_once()
+
+    def test_github_409_write_retries_when_path_still_absent(self):
+        attempts = []
+        def writer(path, record, sha=None):
+            attempts.append((path, sha))
+            if len(attempts) == 1:
+                raise RuntimeError("GitHub API HTTP 409")
+            return "new-sha"
+        with patch.object(x.time, "sleep") as sleep:
+            result = x.write_ledger_safely(
+                "dr-noticias-x-ledger/test.json", {"status": "reserved"},
+                gh=lambda _: None, writer=writer)
+        self.assertEqual(result, "new-sha")
+        self.assertEqual(len(attempts), 2)
+        sleep.assert_called_once()
+
+    def test_github_409_write_does_not_overwrite_existing_record(self):
+        attempts = []
+        def writer(path, record, sha=None):
+            attempts.append(path)
+            raise RuntimeError("GitHub API HTTP 409")
+        with patch.object(x.time, "sleep") as sleep:
+            with self.assertRaisesRegex(RuntimeError, "registro ya existente"):
+                x.write_ledger_safely(
+                    "dr-noticias-x-ledger/test.json", {"status": "reserved"},
+                    gh=lambda _: {"sha": "someone-else"}, writer=writer)
+        self.assertEqual(len(attempts), 1)
+        sleep.assert_not_called()
+
+    def test_github_409_finalize_requires_original_sha(self):
+        attempts = []
+        def writer(path, record, sha=None):
+            attempts.append(sha)
+            raise RuntimeError("GitHub API HTTP 409")
+        with patch.object(x.time, "sleep") as sleep:
+            with self.assertRaisesRegex(RuntimeError, "registro modificado"):
+                x.write_ledger_safely(
+                    "dr-noticias-x-ledger/test.json", {"status": "published"},
+                    sha="original-sha", gh=lambda _: {"sha": "other-sha"},
+                    writer=writer)
+        self.assertEqual(attempts, ["original-sha"])
+        sleep.assert_not_called()
+
+    def test_github_409_does_not_retry_after_three_conflicts(self):
+        attempts = []
+        def writer(path, record, sha=None):
+            attempts.append(path)
+            raise RuntimeError("GitHub API HTTP 409")
+        with patch.object(x.time, "sleep") as sleep:
+            with self.assertRaisesRegex(RuntimeError, "GitHub API HTTP 409"):
+                x.write_ledger_safely(
+                    "dr-noticias-x-ledger/test.json", {"status": "reserved"},
+                    gh=lambda _: None, writer=writer)
+        self.assertEqual(len(attempts), 4)
+        self.assertEqual(sleep.call_count, 3)
+
+    def test_github_other_errors_never_retried(self):
+        attempts = []
+        def writer(path, record, sha=None):
+            attempts.append(path)
+            raise RuntimeError("GitHub API HTTP 403")
+        with patch.object(x.time, "sleep") as sleep:
+            with self.assertRaisesRegex(RuntimeError, "GitHub API HTTP 403"):
+                x.write_ledger_safely(
+                    "dr-noticias-x-ledger/test.json", {"status": "reserved"},
+                    gh=lambda _: self.fail("No debe leer el registro"),
+                    writer=writer)
+        self.assertEqual(len(attempts), 1)
+        sleep.assert_not_called()
+
+    def test_reserved_conflict_never_contacts_x(self):
+        attempts = []
+        def writer(path, record, sha=None):
+            attempts.append(path)
+            raise RuntimeError("GitHub API HTTP 409")
+        with patch.object(x, "entries_from_feed", return_value=[self.post]), \\
+             patch.object(x, "editorial_ready", return_value={"content": {"$t": self.html}}), \\
+             patch.object(x, "image_for_article", return_value=b"\\xff\\xd8\\xffJPEGtest"), \\
+             patch.object(x.time, "sleep"):
+            def gh(endpoint):
+                if "dr-noticias-x-ledger/" in endpoint and attempts:
+                    return {"sha": "another-process"}
+                return None
+            with self.assertRaisesRegex(RuntimeError, "registro ya existente"):
+                x.run("run", env=self.env, now=self.now, fetch=self.fake_fetch,
+                      gh=gh, writer=writer,
+                      requester=lambda *args: self.fail("No llamar a X"))
+        self.assertEqual(len(attempts), 1)
+
     def test_live_requires_extra_explicit_approval_even_if_previous_flag_true(self):
         env = dict(self.env)
         env.pop("DR_NOTICIAS_X_LIVE_APPROVED")

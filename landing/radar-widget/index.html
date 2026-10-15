@@ -408,5 +408,90 @@
       window.addEventListener('resize', notifyHeight);
     })();
   </script>
+<script>
+// DR_RADAR_BILINGUAL_QA_V1 — UI text only. Feeds, alerts, service worker and notifications unchanged.
+(() => {
+  'use strict';
+  if (window.__DR_RADAR_BILINGUAL_QA_V1__) return;
+  window.__DR_RADAR_BILINGUAL_QA_V1__=true;
+  const root=document.querySelector('.radar');
+  if (!root) return;
+  const translations=new Map(Object.entries({
+    'EN VIVO':'LIVE',
+    'Consultando DR Radar…':'Checking DR Radar…',
+    'Cargando el estado más reciente.':'Loading the latest status.',
+    'Todo tranquilo':'All clear',
+    'No hay alertas activas en DR Radar en este momento.':'There are no active DR Radar alerts at this time.',
+    'DR Radar temporalmente no disponible':'DR Radar temporarily unavailable',
+    'No se pudo consultar el estado en este instante. Se reintentará automáticamente.':'The current status could not be retrieved. We will retry automatically.',
+    'Actualizando…':'Updating…','Reintentando…':'Retrying…','Estado en vivo':'Live status',
+    'Radar, sismos y nuevas publicaciones.':'DR Radar, earthquakes and new posts.',
+    '📱 Configurar alertas y Web App':'📱 Set up alerts and Web App',
+    '⚠️ Alertas esenciales desactivadas':'⚠️ Essential alerts disabled',
+    'Radar, sismos y nuevas publicaciones están bloqueadas. Pulsa para configurarlas.':'DR Radar, earthquake alerts and new posts are blocked. Select to configure them.',
+    '⚙️ Administrar alertas y Web App':'⚙️ Manage alerts and Web App',
+    'Permiso concedido. Abre para confirmar o administrar Radar, sismos y nuevas publicaciones.':'Permission granted. Open to manage DR Radar, earthquakes and new posts.',
+    '🔔 Activar alertas esenciales':'🔔 Enable essential alerts',
+    'Falta activar Radar, sismos y nuevas publicaciones. Las sociales son opcionales.':'Enable DR Radar, earthquake alerts and new posts. Social alerts are optional.',
+    '🔔 Alertas esenciales':'🔔 Essential alerts',
+    'Crítica':'Critical','Advertencia':'Warning','Informativa':'Advisory','Activa':'Active',
+    'Radar sísmico':'Seismic radar',
+    'Alerta activa en DR Radar':'Active DR Radar alert',
+    'Consulta la información más reciente de DR Radar.':'See the latest DR Radar information.',
+    'Más información →':'More information →',
+    'Instala DR Accesorios RD en tu iPhone/iPad y configura tus alertas 24/7.':'Install DR Accesorios RD on your iPhone/iPad and set up 24/7 alerts.',
+    'Abre la Web App y administra tus notificaciones desde tu Mac.':'Open the Web App to manage notifications from your Mac.',
+    'Administra tus alertas 24/7 y el acceso desde tu dispositivo Android.':'Manage 24/7 alerts from your Android device.',
+    'Abre la Web App y administra tus notificaciones 24/7.':'Open the Web App to manage notifications 24/7.'
+  }));
+  const originals=new WeakMap(), lastWrites=new WeakMap();
+  let language='es', scheduled=false;
+  function translated(value) {
+    if (translations.has(value)) return translations.get(value);
+    if (value.startsWith('Actualizado ')) return 'Updated '+value.slice('Actualizado '.length);
+    const n=value.match(/^\+ (\d+) alerta(s)? activa(s)?$/u);
+    if (n) return '+ '+n[1]+' active alert'+(Number(n[1])===1?'':'s');
+    // Dynamic alert headlines and safety descriptions remain in original Spanish unless reviewed.
+    return value;
+  }
+  function render() {
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node=walker.nextNode())) {
+      if (!node.parentElement || node.parentElement.closest('script,style,textarea,input')) continue;
+      const now=node.nodeValue;
+      if (!originals.has(node) || (now!==lastWrites.get(node) && now!==originals.get(node))) originals.set(node,now);
+      const original=originals.get(node);
+      const lead=original.match(/^\s*/u)?.[0]||'';
+      const trail=original.match(/\s*$/u)?.[0]||'';
+      const clean=original.trim();
+      const goal=lead+(language==='en'?translated(clean):clean)+trail;
+      if (now!==goal) {lastWrites.set(node,goal);node.nodeValue=goal;}
+    }
+    document.documentElement.lang=language;
+  }
+  function schedule() {
+    if (scheduled) return;
+    scheduled=true;
+    queueMicrotask(()=>{scheduled=false;render();});
+  }
+  new MutationObserver(schedule).observe(root,{subtree:true,childList:true,characterData:true});
+  window.addEventListener('message',event=>{
+    if (event.source!==window.parent || event.origin!=='https://draccesoriosrd.blogspot.com') return;
+    if (event.data?.type!=='dr-radar-set-language'|| !['es','en'].includes(event.data.lang)) return;
+    language=event.data.lang; schedule();
+  });
+  if (window.parent===window) {
+    const requested=new URLSearchParams(location.search).get('lang');
+    language=['es','en'].includes(requested)?requested:
+      (navigator.languages?.[0]||navigator.language||'es').toLowerCase().startsWith('en')?'en':'es';
+  }
+  if ('ResizeObserver' in window) new ResizeObserver(()=>{
+    if(window.parent!==window)
+      window.parent.postMessage({type:'dr-radar-widget-height',height:document.documentElement.scrollHeight},'*');
+  }).observe(root);
+  schedule();
+})();
+</script>
 </body>
 </html>

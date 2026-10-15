@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/samsung-health-sueno-3-noches-galaxy-watch.html",
   "title": "Samsung Health mejora el sueño con solo 3 noches",
   "image_sha256": "c6d18e789b668a762fae69ffebd85ec7e6376fd447cb155e2def8784cc482491",
   "caption_sha256": "e298a17c3f0920989f54d30289131d840abc31a1ba5513f688c9988df4629b0f",
   "created_at": "2026-10-15T13:08:36.200579+00:00",
-  "container_id": "18181753627429315"
+  "container_id": "18181753627429315",
+  "instagram_media_id": "18105922943254404",
+  "completed_at": "2026-10-15T13:08:48.073497+00:00"
 }

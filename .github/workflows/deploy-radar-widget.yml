@@ -8,6 +8,7 @@ on:
       - 'landing/radar-widget/**'
       - 'landing/radar-alertas/**'
       - 'scripts/deploy_radar_widget.py'
+      - 'scripts/deploy_radar_widget_bilingual_only.py'
       - '.github/workflows/deploy-radar-widget.yml'
   workflow_dispatch:
 
@@ -26,6 +27,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,7 +38,59 @@ jobs:
       - name: Install deployment dependencies
         run: python -m pip install --disable-pip-version-check --quiet google-auth requests pillow
 
+      - name: Choose least-change deployment
+        id: deploy_scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          scope=broad
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            scope=skip
+            if [[ -n "$BEFORE" ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              radar_changed=false
+              other_changed=false
+              while IFS= read -r path; do
+                case "$path" in
+                  "landing/radar-widget/index.html") radar_changed=true ;;
+                  "scripts/deploy_radar_widget_bilingual_only.py"|".github/workflows/deploy-radar-widget.yml"|".github/workflows/dr-radar-bilingual-qa.yml") ;;
+                  *) other_changed=true ;;
+                esac
+              done < <(git diff --name-only "$BEFORE" HEAD)
+              if [[ "$radar_changed" == true && "$other_changed" == false ]]; then
+                scope=widget_only
+              else
+                scope=broad
+              fi
+            fi
+          fi
+          echo "scope=$scope" >> "$GITHUB_OUTPUT"
+          echo "Deployment scope: $scope"
+
+      - name: Verify widget-only code
+        if: steps.deploy_scope.outputs.scope == 'widget_only'
+        shell: bash
+        run: |
+          python -m py_compile scripts/deploy_radar_widget_bilingual_only.py
+          node -e '
+          const fs=require("fs"),vm=require("vm");
+          const h=fs.readFileSync("landing/radar-widget/index.html","utf8");
+          const scripts=[...h.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+          if(scripts.length!==2) throw Error("Unexpected script count: "+scripts.length);
+          scripts.forEach(x=>new vm.Script(x[1]));
+          if(!h.includes("DR_RADAR_BILINGUAL_QA_V1")) throw Error("Missing bilingual marker");
+          console.log("Radar bilingual scripts parsed successfully");
+          '
+
       - name: Deploy DR Radar Blogger widget preserving Hosting
+        if: steps.deploy_scope.outputs.scope != 'skip'
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
-        run: python scripts/deploy_radar_widget.py
+        run: |
+          if [[ "${{ steps.deploy_scope.outputs.scope }}" == "widget_only" ]]; then
+            python scripts/deploy_radar_widget_bilingual_only.py
+          else
+            python scripts/deploy_radar_widget.py
+          fi

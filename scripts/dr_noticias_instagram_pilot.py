@@ -187,10 +187,36 @@ def ledger_write(path, record, sha=None):
                 record, ensure_ascii=False, indent=2).encode("utf-8")).decode("ascii")}
     if sha:
         body["sha"] = sha
-    result = github_api("/contents/" + quote(path), method="PUT", data=body)
-    if not result or not result.get("content", {}).get("sha"):
-        raise RuntimeError("Registro anti-duplicados no guardado")
-    return result["content"]["sha"]
+    endpoint = "/contents/" + quote(path)
+    for attempt in range(4):
+        try:
+            result = github_api(endpoint, method="PUT", data=body)
+            if not result or not result.get("content", {}).get("sha"):
+                raise RuntimeError("Registro anti-duplicados no guardado")
+            return result["content"]["sha"]
+        except RuntimeError as error:
+            if str(error) not in ("GitHub API HTTP 409", "GitHub API HTTP 500",
+                                  "GitHub API HTTP 502", "GitHub API HTTP 503",
+                                  "GitHub API HTTP 504"):
+                raise
+            # 500 tras PUT puede haber grabado la reserva: siempre releer.
+            current = github_api(endpoint + "?ref=" + MEDIA_BRANCH)
+            if current is not None:
+                try:
+                    actual = json.loads(base64.b64decode(
+                        current["content"].replace("\n", "")
+                    ))
+                except (KeyError, ValueError, TypeError):
+                    raise RuntimeError("Registro remoto ilegible; revisión manual") from None
+                if actual == record and current.get("sha"):
+                    return current["sha"]
+                if sha is None or current.get("sha") != sha:
+                    raise RuntimeError("Registro modificado; no reintentar ni publicar") from None
+            elif sha is not None:
+                raise RuntimeError("Registro anterior desaparecido; revisión manual") from None
+            if attempt == 3:
+                raise
+            time.sleep((0.3, 0.7, 1.5)[attempt])
 
 
 def publish(post, digest, media_url, caption, token):

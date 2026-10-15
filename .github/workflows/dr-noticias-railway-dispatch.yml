@@ -26,6 +26,7 @@ jobs:
           python -m py_compile scripts/dr_noticias_instagram_auto.py scripts/dr_noticias_social_auto.py
           python -m unittest discover -s tests -p 'test_dr_noticias_instagram_auto.py' -v
           python -m unittest discover -s tests -p 'test_dr_noticias_social_auto.py' -v
+          python -m unittest discover -s tests -p 'test_dr_noticias_x_auto.py' -v
 
   instagram:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DR_NOTICIAS_AUTO_ENABLED == 'true'
@@ -90,8 +91,10 @@ jobs:
         run: python scripts/dr_noticias_social_auto.py --platform threads --mode run
 
   x:
+    # Esperar a las tres redes Meta; no bloquear X si alguna falla o está desactivada.
+    needs: threads
     # Mismo workflow_dispatch de Cloudflare. No crear cron nuevo.
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DR_NOTICIAS_X_AUTO_ENABLED == 'true'
+    if: always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DR_NOTICIAS_X_AUTO_ENABLED == 'true'
     concurrency:
       group: dr-noticias-x-auto
       cancel-in-progress: false

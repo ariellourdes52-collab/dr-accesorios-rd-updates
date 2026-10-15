@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -94,7 +95,36 @@ def slot_path(day, slot):
 
 def read_ledger(path, gh=None):
     gh = gh or github_api
-    return gh("/contents/" + quote(path) + "?ref=" + MEDIA_BRANCH)
+    endpoint = "/contents/" + quote(path) + "?ref=" + MEDIA_BRANCH
+    for attempt in range(4):
+        try:
+            return gh(endpoint)
+        except RuntimeError as error:
+            if str(error) != "GitHub API HTTP 409" or attempt == 3:
+                raise
+            time.sleep((0.3, 0.7, 1.5)[attempt])
+
+
+def write_ledger_safely(path, record, sha=None, gh=None, writer=None):
+    """Reintentar SOLO conflictos de GitHub, verificando que nadie ocupó el registro.
+
+    Nunca reintenta una llamada a X; tampoco sobrescribe reservas ajenas.
+    """
+    gh = gh or github_api
+    writer = writer or ledger_write
+    for attempt in range(4):
+        try:
+            return writer(path, record, sha=sha)
+        except RuntimeError as error:
+            if str(error) != "GitHub API HTTP 409" or attempt == 3:
+                raise
+            existing = read_ledger(path, gh)
+            if sha is None and existing is not None:
+                raise RuntimeError("X: registro ya existente; no reintentar") from None
+            if sha is not None and (
+                    not isinstance(existing, dict) or existing.get("sha") != sha):
+                raise RuntimeError("X: registro modificado; no reintentar") from None
+            time.sleep((0.3, 0.7, 1.5)[attempt])
 
 
 def first_free_slot(day, gh=None):
@@ -313,19 +343,19 @@ def run(mode, env=None, now=None, gh=None, writer=None,
             env.get("DR_NOTICIAS_X_AUTOMATIC") == "true"
             and not first_post_confirmed(gh)
         )
-        sha = writer(path, record)
-        writer(slot_path(day, slot), {
+        sha = write_ledger_safely(path, record, gh=gh, writer=writer)
+        write_ledger_safely(slot_path(day, slot), {
             "status": "reserved", "platform": "x",
             "article_url": post["url"], "created_at": now.isoformat(), "slot": slot
-        })
+        }, gh=gh, writer=writer)
         if first_auto:
             # Persistir permiso de UN solo primer intento antes de tocar X.
             # Si cualquier API falla, el marcador impide más intentos automáticos.
-            writer(FIRST_ATTEMPT_PATH, {
+            write_ledger_safely(FIRST_ATTEMPT_PATH, {
                 "platform": "x", "status": "first_attempt_reserved",
                 "account": ACCOUNT, "article_url": post["url"],
                 "created_at": now.isoformat()
-            })
+            }, gh=gh, writer=writer)
         stage = "account_check"
         try:
             print("X: etapa=account_check | comprobando cuenta autorizada")
@@ -339,16 +369,16 @@ def run(mode, env=None, now=None, gh=None, writer=None,
             stage = "ledger_finalize"
             record.update(status="published", x_post_id=tweet_id,
                           published_at=datetime.now(timezone.utc).isoformat())
-            writer(path, record, sha=sha)
+            write_ledger_safely(path, record, sha=sha, gh=gh, writer=writer)
             print("X: UNA publicación confirmada. ID=" + tweet_id)
             if env.get("DR_NOTICIAS_X_FIRST_MANUAL") == "true" or first_auto:
                 try:
-                    writer(FIRST_CONFIRMED_PATH, {
+                    write_ledger_safely(FIRST_CONFIRMED_PATH, {
                         "platform": "x", "account": ACCOUNT,
                         "status": "enabled_after_confirmed_post",
                         "x_post_id": tweet_id, "article_url": post["url"],
                         "created_at": datetime.now(timezone.utc).isoformat(),
-                    })
+                    }, gh=gh, writer=writer)
                     print("X: primer post confirmado; siguientes habilitados para Cloudflare.")
                 except Exception:
                     # El post ya existe; nunca intentar enviarlo de nuevo.
@@ -362,7 +392,7 @@ def run(mode, env=None, now=None, gh=None, writer=None,
             print("X: etapa=" + stage + " | fallo=" + code +
                   " | reserva bloqueada, NO reintentar")
             try:
-                writer(path, record, sha=sha)
+                write_ledger_safely(path, record, sha=sha, gh=gh, writer=writer)
             except Exception:
                 print("X: reserva bloqueada; fallo registrando revisión")
             raise RuntimeError("X: revisión manual requerida; etapa=" + stage +

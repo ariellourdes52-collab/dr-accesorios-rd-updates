@@ -7,7 +7,10 @@ on:
     paths:
       - '.github/workflows/dr-noticias-railway-dispatch.yml'
       - 'scripts/dr_noticias_x_auto.py'
+      - 'scripts/dr_noticias_media.py'
+      - 'scripts/dr_noticias_instagram_pilot.py'
       - 'tests/test_dr_noticias_x_auto.py'
+      - 'tests/test_dr_noticias_github_resilience.py'
 
 permissions:
   contents: read
@@ -27,6 +30,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_dr_noticias_instagram_auto.py' -v
           python -m unittest discover -s tests -p 'test_dr_noticias_social_auto.py' -v
           python -m unittest discover -s tests -p 'test_dr_noticias_x_auto.py' -v
+          python -m unittest discover -s tests -p 'test_dr_noticias_github_resilience.py' -v
 
   instagram:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DR_NOTICIAS_AUTO_ENABLED == 'true'

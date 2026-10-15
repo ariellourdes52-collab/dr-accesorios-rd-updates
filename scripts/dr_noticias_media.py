@@ -173,13 +173,19 @@ def github_api(path: str, *, method: str = "GET", data: dict | None = None):
         headers["Content-Type"] = "application/json"
     req = Request("https://api.github.com/repos/" + REPO + path,
                   data=body, headers=headers, method=method)
-    try:
-        with urlopen(req, timeout=30) as response:
-            return json.load(response)
-    except HTTPError as error:
-        if error.code == 404:
-            return None
-        raise RuntimeError("GitHub API HTTP " + str(error.code)) from None
+    # GET idempotente: protege a las cuatro redes de 409 y 5xx transitorios.
+    # Nunca repetir aquí un PUT, POST o una llamada de publicación.
+    for attempt in range(4 if method == "GET" else 1):
+        try:
+            with urlopen(req, timeout=30) as response:
+                return json.load(response)
+        except HTTPError as error:
+            if error.code == 404:
+                return None
+            if method == "GET" and error.code in (409, 500, 502, 503, 504) and attempt < 3:
+                time.sleep((0.3, 0.7, 1.5)[attempt])
+                continue
+            raise RuntimeError("GitHub API HTTP " + str(error.code)) from None
 
 
 def ensure_media_branch():
@@ -201,12 +207,36 @@ def stage_jpeg(post: dict, image: bytes) -> str:
     present = github_api(api_path + "?ref=" + MEDIA_BRANCH)
     if present and present.get("type") != "file":
         raise RuntimeError("Ruta existente no es un archivo")
+    # Identidad de archivo para evitar sobrescribir otra portada.
+    expected_blob_sha = hashlib.sha1(
+        b"blob " + str(len(image)).encode("ascii") + b"\x00" + image
+    ).hexdigest()
+    if present and present.get("sha") != expected_blob_sha:
+        raise RuntimeError("Portada existente diferente; no sobrescribir")
     if not present:
-        github_api(api_path, method="PUT", data={
-            "message": "media(dr-noticias): portada JPEG de noticia verificada",
-            "content": base64.b64encode(image).decode("ascii"),
-            "branch": MEDIA_BRANCH
-        })
+        for attempt in range(4):
+            try:
+                github_api(api_path, method="PUT", data={
+                    "message": "media(dr-noticias): portada JPEG de noticia verificada",
+                    "content": base64.b64encode(image).decode("ascii"),
+                    "branch": MEDIA_BRANCH
+                })
+                break
+            except RuntimeError as error:
+                if str(error) not in ("GitHub API HTTP 409", "GitHub API HTTP 500",
+                                      "GitHub API HTTP 502", "GitHub API HTTP 503",
+                                      "GitHub API HTTP 504"):
+                    raise
+                # 500 tras PUT puede ser un guardado exitoso: consultar antes.
+                existing = github_api(api_path + "?ref=" + MEDIA_BRANCH)
+                if existing is not None:
+                    if (existing.get("type") == "file"
+                            and existing.get("sha") == expected_blob_sha):
+                        break
+                    raise RuntimeError("Portada cambiada; no reintentar") from None
+                if attempt == 3:
+                    raise
+                time.sleep((0.3, 0.7, 1.5)[attempt])
     url = ("https://raw.githubusercontent.com/" + REPO + "/" +
            MEDIA_BRANCH + "/" + path)
     # Comprobar que el recurso público realmente sirve imagen JPEG.

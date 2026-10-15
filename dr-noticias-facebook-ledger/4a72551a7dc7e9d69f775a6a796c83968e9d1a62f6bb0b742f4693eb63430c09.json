@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/monster-hunter-wilds-demo-gratis-switch-2.html",
   "title": "Monster Hunter Wilds anuncia demo gratis para Switch 2",
   "jpeg_sha256": "795faaa05c87a76b7c0c959d7c9d0b402fbf31e36714f872ee332c59642ffe49",
   "caption_sha256": "e47fbf6cc20f1aadd8d25578568f4578e9c4872f4d9641da39dfc58e927b9a1b",
-  "created_at": "2026-10-15T23:09:23.915690+00:00"
+  "created_at": "2026-10-15T23:09:23.915690+00:00",
+  "facebook_media_id": "875159429020764_122141969697183523",
+  "completed_at": "2026-10-15T23:09:30.811808+00:00"
 }

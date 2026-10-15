@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""Deploy ONLY Radar iframe HTML, preserving all existing live Hosting files."""
+from __future__ import annotations
+
+import copy
+import io
+import gzip
+import hashlib
+import json
+import os
+import time
+from pathlib import Path
+
+import requests
+from google.auth.transport.requests import AuthorizedSession
+from google.oauth2 import service_account
+from PIL import Image
+
+from seismic_feed_guard import require_seismic_preserved
+
+SITE = "sites/dr-accesorios-rd"
+BASE = "https://firebasehosting.googleapis.com/v1beta1/"
+PUBLIC_BASE = "https://dr-accesorios-rd.web.app"
+
+ASSETS = {
+    "/radar-widget/index.html": (Path("landing/radar-widget/index.html"), b"DR_RADAR_BLOGGER_WIDGET_V1"),
+}
+
+
+CRITICAL_PATHS = (
+    "/radar.json",
+    "/descargar/index.html",
+    "/dr-audio/index.json",
+)
+
+ICON_MASTER = Path("landing/radar-alertas/icon-source/app-logo-master.webp")
+
+
+def build_icon_assets() -> dict[str, bytes]:
+    require(ICON_MASTER.exists(), f"No existe el logo maestro oficial: {ICON_MASTER}.")
+
+    try:
+        source = Image.open(ICON_MASTER).convert("RGBA")
+    except Exception as exc:
+        raise RuntimeError(f"No se pudo abrir el logo maestro oficial: {exc}") from exc
+
+    require(
+        source.width >= 1000 and source.height >= 1000,
+        f"Logo maestro con resolución insuficiente: {source.size}.",
+    )
+
+    alpha_bbox = source.getchannel("A").getbbox()
+    require(alpha_bbox is not None, "El logo maestro no contiene área visible.")
+    logo = source.crop(alpha_bbox)
+
+    def render(
+        size: int,
+        scale: float,
+        background: tuple[int, int, int, int],
+    ) -> bytes:
+        canvas = Image.new("RGBA", (size, size), background)
+        target = max(1, int(round(size * scale)))
+
+        fitted = logo.copy()
+        fitted.thumbnail((target, target), Image.Resampling.LANCZOS)
+
+        x = (size - fitted.width) // 2
+        y = (size - fitted.height) // 2
+        canvas.alpha_composite(fitted, (x, y))
+
+        output = io.BytesIO()
+        canvas.save(output, format="PNG", optimize=True)
+        return output.getvalue()
+
+    # Normal launcher icon: maximum clarity and full circular logo.
+    app_192 = render(192, 0.96, (0, 0, 0, 0))
+    app_512 = render(512, 0.96, (0, 0, 0, 0))
+
+    # iPhone/iPad: opaque light background avoids dark/transparent halos.
+    apple_180 = render(180, 0.92, (245, 245, 243, 255))
+
+    # Android adaptive/maskable: full background plus a large, safe logo.
+    mask_192 = render(192, 0.88, (245, 245, 243, 255))
+    mask_512 = render(512, 0.88, (245, 245, 243, 255))
+
+    assets: dict[str, bytes] = {
+        # Legacy routes remain valid for already-installed clients.
+        "/radar-alertas/icon-180.png": apple_180,
+        "/radar-alertas/icon-192.png": app_192,
+        "/radar-alertas/icon-512.png": app_512,
+
+        # Current Web App routes.
+        "/radar-alertas/apple-touch-icon-180.png": apple_180,
+        "/radar-alertas/icon-app-192.png": app_192,
+        "/radar-alertas/icon-app-512.png": app_512,
+        "/radar-alertas/icon-maskable-192.png": mask_192,
+        "/radar-alertas/icon-maskable-512.png": mask_512,
+    }
+
+    return assets
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise RuntimeError(message)
+
+
+def main() -> None:
+    secret = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
+    require(secret, "FIREBASE_SERVICE_ACCOUNT no está configurado.")
+
+    for _, (source, _) in ASSETS.items():
+        require(source.exists(), f"No existe {source}.")
+
+    credentials = service_account.Credentials.from_service_account_info(
+        json.loads(secret),
+        scopes=["https://www.googleapis.com/auth/firebase.hosting"],
+    )
+    session = AuthorizedSession(credentials)
+
+    def api(method: str, path: str, **kwargs):
+        response = session.request(method, BASE + path, timeout=60, **kwargs)
+        response.raise_for_status()
+        return response.json() if response.content else {}
+
+    def active():
+        release = api("GET", SITE + "/channels/live")["release"]
+        version_id = release["version"]["name"].rsplit("/", 1)[1]
+        return release["name"], SITE + "/versions/" + version_id
+
+    def files(version: str) -> dict[str, str]:
+        result: dict[str, str] = {}
+        token = None
+        while True:
+            params = {"pageSize": 1000, "status": "ACTIVE"}
+            if token:
+                params["pageToken"] = token
+            page = api("GET", version + "/files", params=params)
+            for item in page.get("files", []):
+                path = item["path"]
+                require(path not in result, f"Ruta duplicada en Hosting: {path}")
+                result[path] = item["hash"]
+            token = page.get("nextPageToken")
+            if not token:
+                return result
+
+    old_release, old_version = active()
+    old = api("GET", old_version)
+    old_files = files(old_version)
+    require(bool(old_files), "El inventario activo de Hosting está vacío.")
+
+    missing = [path for path in CRITICAL_PATHS if path not in old_files]
+    require(
+        not missing,
+        "ABORTADO: faltan rutas críticas antes del deploy: " + " | ".join(missing),
+    )
+
+    for route in ("/radar.json", "/descargar/", "/dr-audio/index.json"):
+        response = requests.get(
+            PUBLIC_BASE + route,
+            params={"precheck": time.time_ns()},
+            headers={"Cache-Control": "no-cache"},
+            timeout=30,
+        )
+        require(response.ok, f"ABORTADO: {route} no responde (HTTP {response.status_code}).")
+
+    prepared: dict[str, tuple[bytes, str]] = {}
+    digest_to_body: dict[str, bytes] = {}
+
+    for hosting_path, (source, marker) in ASSETS.items():
+        raw = source.read_bytes()
+        require(marker in raw, f"Falta marcador requerido en {source}.")
+        body = gzip.compress(raw, mtime=0)
+        digest = hashlib.sha256(body).hexdigest()
+        prepared[hosting_path] = (body, digest)
+        digest_to_body[digest] = body
+
+    widget_raw = ASSETS["/radar-widget/index.html"][0].read_bytes()
+    require(b"/radar.json" in widget_raw, "El widget no referencia radar.json.")
+    require(b"/radar-seismic-v231.json" in widget_raw, "El widget no referencia el feed sísmico.")
+    require(b"REFRESH_MS = 30_000" in widget_raw, "El widget no quedó configurado a 30 segundos.")
+    require(b"/radar-alertas/index.html" in widget_raw, "El widget no referencia la activación de alertas.")
+
+    expected = dict(old_files)
+    for hosting_path, (_, digest) in prepared.items():
+        expected[hosting_path] = digest
+
+    config = copy.deepcopy(old.get("config", {}))
+    require(set(prepared) == {"/radar-widget/index.html"}, "ABORTADO: se intentó publicar más de un archivo.")
+    unchanged = {p: h for p, h in old_files.items() if p != "/radar-widget/index.html"}
+    require({p: h for p, h in expected.items() if p != "/radar-widget/index.html"} == unchanged,
+            "ABORTADO: se detectó alteración de archivos de otros servicios.")
+
+    require_seismic_preserved(old_files, expected)
+
+    created = api("POST", SITE + "/versions", json={"config": config})
+    new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
+    items = list(expected.items())
+    uploaded: set[str] = set()
+    allowed_hashes = set(digest_to_body)
+
+    for offset in range(0, len(items), 1000):
+        batch = api(
+            "POST",
+            new_version + ":populateFiles",
+            json={"files": dict(items[offset : offset + 1000])},
+        )
+        required_hashes = set(batch.get("uploadRequiredHashes", []))
+        require(
+            required_hashes <= allowed_hashes,
+            "Firebase pidió volver a subir un archivo preservado; se aborta.",
+        )
+        for digest in required_hashes:
+            if digest in uploaded:
+                continue
+            upload = session.post(
+                batch["uploadUrl"] + "/" + digest,
+                data=digest_to_body[digest],
+                headers={"Content-Type": "application/octet-stream"},
+                timeout=60,
+            )
+            upload.raise_for_status()
+            uploaded.add(digest)
+
+    require(files(new_version) == expected, "El inventario nuevo no coincide con el preservado.")
+    api("PATCH", new_version, params={"updateMask": "status"}, json={"status": "FINALIZED"})
+    require(
+        active() == (old_release, old_version),
+        "Otro deploy cambió Hosting durante la preparación; se abortó antes de publicar.",
+    )
+
+    release = api(
+        "POST",
+        SITE + "/releases",
+        params={"versionName": new_version},
+        json={"message": "DR Radar Blogger widget + browser alerts; preserve all live Hosting files"},
+    )
+    print("Hosting release:", release.get("name", ""), flush=True)
+    require(active()[1] == new_version, "La nueva versión de Hosting no quedó activa.")
+    require(files(new_version) == expected, "El inventario publicado no coincide.")
+
+    checks = (("/radar-widget/index.html", "DR_RADAR_BLOGGER_WIDGET_V1"),)
+    for route, marker in checks:
+        verified = False
+        for _ in range(18):
+            response = requests.get(
+                PUBLIC_BASE + route,
+                params={"verify": time.time_ns()},
+                headers={"Cache-Control": "no-cache"},
+                timeout=30,
+            )
+            if response.ok and marker in response.text:
+                verified = True
+                break
+            time.sleep(5)
+        require(verified, f"No pudo verificarse {route} después del deploy.")
+
+    for route in ("/radar.json", "/descargar/", "/dr-audio/index.json"):
+        response = requests.get(
+            PUBLIC_BASE + route,
+            params={"verify": time.time_ns()},
+            headers={"Cache-Control": "no-cache"},
+            timeout=30,
+        )
+        require(response.ok, f"ALERTA: {route} no sobrevivió al deploy.")
+
+    print("✅ Solo /radar-widget/index.html actualizado; el resto de Hosting fue preservado.", flush=True)
+
+
+if __name__ == "__main__":
+    main()

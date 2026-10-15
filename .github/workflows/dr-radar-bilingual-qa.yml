@@ -1,0 +1,78 @@
+name: QA isolated DR Radar bilingual bridge
+
+on:
+  push:
+    branches:
+      - feature/dr-radar-bilingual-qa-20261015
+  pull_request:
+    paths:
+      - 'landing/radar-widget/index.html'
+      - 'scripts/deploy_radar_widget_bilingual_only.py'
+      - '.github/workflows/deploy-radar-widget.yml'
+      - '.github/workflows/dr-radar-bilingual-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install static YAML parser
+        run: python -m pip install --quiet PyYAML
+      - name: Validate Python code and Hosting scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/deploy_radar_widget_bilingual_only.py
+          python - <<'PY'
+          import ast, pathlib, subprocess, tempfile, yaml
+          p=pathlib.Path('scripts/deploy_radar_widget_bilingual_only.py')
+          src=p.read_text(encoding='utf-8')
+          tree=ast.parse(src)
+          assignment=next(n for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='ASSETS' for t in n.targets))
+          assert isinstance(assignment.value,ast.Dict)
+          assert [k.value for k in assignment.value.keys]==['/radar-widget/index.html']
+          for marker in ('require_seismic_preserved(old_files, expected)', 'required_hashes <= allowed_hashes',
+                         'active() == (old_release, old_version)', 'files(new_version) == expected',
+                         '"/dr-audio/index.json"', '"/radar.json"'):
+              assert marker in src, marker
+          assert 'build_icon_assets().items()' not in src
+          assert 'set_headers(' not in src
+          wf=yaml.safe_load(pathlib.Path('.github/workflows/deploy-radar-widget.yml').read_text(encoding='utf-8'))
+          steps=wf['jobs']['deploy']['steps']
+          assert any('scope=widget_only' in step.get('run','') for step in steps)
+          assert any('scripts/deploy_radar_widget_bilingual_only.py' in step.get('run','') for step in steps)
+          for step in steps:
+              cmd=step.get('run')
+              if not cmd: continue
+              with tempfile.NamedTemporaryFile('w',suffix='.sh') as sh:
+                  sh.write(cmd);sh.flush()
+                  subprocess.run(['bash','-n',sh.name],check=True)
+          original=subprocess.check_output(['git','show','origin/main:scripts/deploy_radar_widget.py'])
+          assert original == pathlib.Path('scripts/deploy_radar_widget.py').read_bytes()
+          print('PASS: Python, YAML, Bash and unrelated deployer are protected')
+          PY
+      - name: Confirm old Radar logic is unchanged and scripts parse
+        shell: bash
+        run: |
+          node <<'NODE'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),cp=require('node:child_process'),vm=require('node:vm');
+          const old=cp.execFileSync('git',['show','origin/main:landing/radar-widget/index.html'],{encoding:'utf8'});
+          const now=fs.readFileSync('landing/radar-widget/index.html','utf8');
+          const cut=old.lastIndexOf('</body>');
+          assert.ok(cut>0);
+          assert.equal(now.slice(0,cut),old.slice(0,cut),'Original Radar logic changed');
+          const scripts=[...now.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+          assert.equal(scripts.length,2,'Unexpected number of scripts');
+          for(const s of scripts) new vm.Script(s[1]);
+          for(const marker of ["const RADAR_URL = '/radar.json'","const SEISMIC_URL = '/radar-seismic-v231.json'",
+                 "const REFRESH_MS = 30_000","notifyNewAlerts(alerts).catch(() => {})",
+                 'DR_RADAR_BILINGUAL_QA_V1'])
+              assert.ok(now.includes(marker),marker);
+          console.log('PASS: original Radar logic and new bilingual JS syntax');
+          NODE

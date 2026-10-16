@@ -150,3 +150,23 @@ jobs:
           python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
       - name: Create full-file preview channels only, with original LIVE config and hashes
         run: python scripts/pr41_full_live_preserving_preview.py
+
+  approved-candidate-production-dry-run:
+    name: Check approved LIVE promotion (GET only, no writes)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: [full-live-overlay-audit, production-inventory-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      contents: read
+    env:
+      DR_PR41_RELEASE_MODE: DRY_RUN
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate release script and read-only dependencies
+        run: |
+          python -m py_compile scripts/pr41_promote_approved_candidate.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Confirm both exact approved versions, LIVE configs and preserved service hashes
+        run: python scripts/pr41_promote_approved_candidate.py

@@ -105,6 +105,128 @@ class EnglishAudioTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "confirmation"):
                 en.main()
 
+    def test_historical_fill_waits_until_all_newest_five_have_english(self):
+        feed = [dict(self.article, url=f"https://example.com/new/{n}") for n in range(5)]
+        older = dict(self.article, url="https://example.com/older-but-ready")
+        feed.append(older)
+        spanish = {
+            "entries": [dict(self.spanish["entries"][0], url=x["url"]) for x in feed]
+        }
+        english = {
+            "language": "en", "entries": [
+                {"url": x["url"]} for x in feed[:4]
+            ]
+        }
+        # Newest missing English ALWAYS outranks an old ready article.
+        self.assertEqual(
+            en.eligible_article(feed, spanish, english, historical_backfill=True)["url"],
+            feed[4]["url"],
+        )
+        # Even if last new English is waiting for Spanish, no old story preempts it.
+        spanish["entries"][4].pop("audioMaleUrl")
+        self.assertIsNone(en.eligible_article(
+            feed, spanish, english, historical_backfill=True,
+        ))
+        # Only when all latest five are EN-ready may older backfill proceed.
+        english["entries"].append({"url": feed[4]["url"]})
+        self.assertEqual(
+            en.eligible_article(feed, spanish, english, historical_backfill=True)["url"],
+            older["url"],
+        )
+        self.assertIsNone(en.eligible_article(
+            feed, spanish, english, historical_backfill=False,
+        ))
+
+    def test_english_quota_cache_is_separate_and_time_bounded(self):
+        from datetime import datetime, timedelta, timezone
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".dr-audio-english-state/gemini-daily-quota.json"
+            other = Path(tmp) / ".dr-audio-state/gemini-daily-quota.json"
+            other.parent.mkdir()
+            other.write_text("existing Spanish quota", encoding="utf-8")
+            self.assertTrue(en.pause_english_quota(Exception("429 rate limit"), path))
+            self.assertTrue(path.exists())
+            self.assertTrue((path.parent / ".new-quota").exists())
+            self.assertIsNotNone(en.english_quota_blocked_until(path))
+            self.assertEqual(other.read_text(encoding="utf-8"), "existing Spanish quota")
+            self.assertFalse(en.pause_english_quota(ValueError("Invalid title"), path))
+            data = __import__("json").loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(data["key"], "GEMINI_API_KEY_DR_AUDIO_EN")
+            data["blockedUntil"] = (
+                datetime.now(timezone.utc) - timedelta(minutes=1)
+            ).isoformat()
+            path.write_text(__import__("json").dumps(data), encoding="utf-8")
+            self.assertIsNone(en.english_quota_blocked_until(path))
+
+    def test_schedule_requires_main_and_github_actions(self):
+        article_already_english = {
+            "schemaVersion": 1, "language": "en",
+            "entries": [{"url": self.article["url"]}],
+        }
+        env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main",
+               "EVENT_NAME": "schedule"}
+        with (patch.dict("os.environ", env),
+              patch.object(sys, "argv", ["english", "--mode", "generate"]),
+              patch.object(en, "english_quota_blocked_until", return_value=None),
+              patch.object(en, "load_live_index", return_value=self.spanish),
+              patch.object(en, "load_english_index", return_value=article_already_english),
+              patch.object(en, "parse_feed", return_value=[self.article]),
+              patch.object(en.genai, "Client") as client,
+              tempfile.TemporaryDirectory() as tmp):
+            with patch.object(sys, "argv", [
+                "english", "--mode", "generate", "--output", tmp,
+            ]):
+                en.main()
+            client.assert_not_called()
+        with (patch.dict("os.environ", {"GITHUB_ACTIONS": "true",
+                                       "GITHUB_REF": "refs/heads/other",
+                                       "EVENT_NAME": "schedule"}),
+              patch.object(sys, "argv", ["english", "--mode", "generate"])):
+            with self.assertRaisesRegex(RuntimeError, "confirmation"):
+                en.main()
+        with (patch.dict("os.environ", {"GITHUB_ACTIONS": "true",
+                                       "GITHUB_REF": "refs/heads/main",
+                                       "EVENT_NAME": "workflow_dispatch"}),
+              patch.object(sys, "argv", ["english", "--mode", "generate",
+                                         "--confirm", "BAD"])):
+            with self.assertRaisesRegex(RuntimeError, "confirmation"):
+                en.main()
+
+    def test_restored_old_manifest_cannot_deploy_when_quota_blocked(self):
+        from datetime import datetime, timedelta, timezone
+        blocked = datetime.now(timezone.utc) + timedelta(hours=1)
+        env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main",
+               "EVENT_NAME": "schedule"}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "dr-audio"
+            root.mkdir()
+            manifest = root / "index.json"
+            manifest.write_text('{"stale":true}', encoding="utf-8")
+            with (patch.dict("os.environ", env),
+                  patch.object(sys, "argv", [
+                      "english", "--mode", "generate", "--output", tmp,
+                  ]),
+                  patch.object(en, "english_quota_blocked_until",
+                               return_value=blocked),
+                  patch.object(en, "load_live_index") as spanish_get):
+                en.main()
+                spanish_get.assert_not_called()
+            self.assertFalse(manifest.exists())
+
+    def test_workflow_scheduler_never_uses_spanish_queue_key_or_secret(self):
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/generate-dr-audio-english.yml").read_text()
+        self.assertIn("8,18,28,38,48,58 * * * *", workflow)
+        self.assertIn("group: dr-audio-english-independent-release", workflow)
+        self.assertNotIn("group: dr-accesorios-rd-production-release", workflow)
+        self.assertIn("GEMINI_API_KEY_DR_AUDIO_EN", workflow)
+        self.assertNotIn("secrets.GEMINI_API_KEY_DR_AUDIO }}", workflow)
+        self.assertIn("dr-audio-en-quota-", workflow)
+        self.assertIn("dr-audio-english-pending-", workflow)
+        self.assertIn("dr_audio_english_build", workflow)
+        self.assertIn("scripts/deploy_dr_audio_english.py", workflow)
+        self.assertNotIn("scripts/deploy_shared_dr_audio.py", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

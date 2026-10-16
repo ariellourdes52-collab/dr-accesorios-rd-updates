@@ -658,10 +658,10 @@
       folded(box.classList.contains('folded'));
     }
     const toggle=box.querySelector('.toggle');
-    toggle.addEventListener('click',()=>{const previous=box.classList.contains('folded');folded(!previous);if(previous)later();else clearTimeout(collapseTimer);});
-    box.addEventListener('pointerenter',()=>{folded(false);clearTimeout(collapseTimer);});
+    toggle.addEventListener('click',event=>{const previous=box.classList.contains('folded');if(event.detail>0)toggle.blur();folded(!previous);if(previous)later();else clearTimeout(collapseTimer);});
+    box.addEventListener('pointerenter',()=>{if(!box.classList.contains('folded'))clearTimeout(collapseTimer);});
     box.addEventListener('pointerleave',later);
-    box.addEventListener('focusin',()=>{folded(false);clearTimeout(collapseTimer);});
+    box.addEventListener('focusin',event=>{if(event.target===toggle)return;folded(false);clearTimeout(collapseTimer);});
     box.addEventListener('focusout',later);
     for(const b of box.querySelectorAll('[data-lang]'))b.addEventListener('click',()=>{b.blur();folded(false);select(b.dataset.lang,true);if(agenda&&window.parent!==window)window.parent.postMessage({type:'dr-site-language-v1',lang:choice},parentOrigin);});
     if(agenda)window.addEventListener('message',e=>{

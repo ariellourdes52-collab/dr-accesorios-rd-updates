@@ -16,7 +16,16 @@ for(const path of paths){
   assert.ok(addition.includes('DR_SITE_BILINGUAL_UI_QA_V1'),path+': missing QA marker');
   assert.equal((addition.match(/<script>/g)||[]).length,1,path+': unexpected number of added scripts');
   assert.ok(addition.includes("new MutationObserver(schedule).observe(document.body"),path+': no UI observer');
+  assert.ok(addition.includes("requestAnimationFrame("),path+': missing observer throttling');
+  assert.ok(addition.includes("r.target.nodeValue!==lastWrite.get(r.target)"),path+': missing own-mutation guard');
+  assert.ok(addition.includes("e.source!==wrapper.contentWindow"),path+': missing iframe source verification');
+  assert.ok(addition.includes("e.origin!==childOrigin"),path+': missing child origin verification');
+  assert.ok(addition.includes("window.parent.postMessage"),path+': missing bidirectional language update');
+  assert.ok(addition.includes("b.blur();folded(false);select("),path+': selector focus blocks collapse');
+  assert.ok(addition.includes("Object.prototype.hasOwnProperty.call(tr,text)"),path+': old-browser compatibility missing');
+  assert.ok(!/\\b(?:fetch|XMLHttpRequest|sendBeacon|eval)\\s*\\(/.test(addition),path+': unexpected remote call or dynamic code');
   assert.ok(addition.includes("e.origin!=='https://dr-accesorios-rd.web.app'"),path+': origin must be verified');
+  assert.ok(addition.includes("lang:choice"),path+': raw choice must sync across the iframe');
   assert.ok(addition.includes(".event-title,.event-description"),path+': user events must be excluded');
   const inner=addition.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(inner,path+': missing standalone JS');

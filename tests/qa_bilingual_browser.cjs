@@ -140,11 +140,11 @@ async function run(engineName,engine,mobile){
       for(let i=0;i<50&&el.textContent!=='ComicCon Dominican Republic 2026';i++)await new Promise(r=>setTimeout(r,50));
     });
     assert.equal(await frame.locator('#qa-real-event-card .event-title').innerText(),englishTitle);
-    assert.equal(await frame.locator('#qa-real-event-card .event-description').innerText(),englishDescription);
+    assert.equal(await frame.locator('#qa-real-event-card .event-description').textContent(),englishDescription);
     assert.equal(await frame.locator('#qa-real-event-card .event-place').innerText(),'Puerto San Souci');
     await choose(frame,'es');
     assert.equal(await frame.locator('#qa-real-event-card .event-title').innerText(),realTitle);
-    assert.equal(await frame.locator('#qa-real-event-card .event-description').innerText(),realDescription);
+    assert.equal(await frame.locator('#qa-real-event-card .event-description').textContent(),realDescription);
     await choose(frame,'en');
     assert.equal(await frame.locator('#qa-real-event-card .event-title').innerText(),englishTitle);
     await frame.locator('#qa-real-event-card').evaluate(el=>el.remove());

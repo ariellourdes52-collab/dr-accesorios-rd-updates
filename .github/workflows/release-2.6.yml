@@ -93,7 +93,7 @@ jobs:
           
           ### 💬 Una comunidad más conectada
           • Telegram se suma al carrusel Social y al menú Social y comunidad.
-          • Accede a Beehiiv para seguir de cerca las novedades y suscribirte a las noticias.
+          • Suscríbete por correo electrónico para recibir nuestras noticias y novedades.
           
           ### ✨ Todo lo que ya disfrutas, ahora en una experiencia más completa
           • DR Audio, DR Radar, lectura sin conexión, favoritos, comentarios y funciones de noticias siguen formando parte de la aplicación.
@@ -144,7 +144,7 @@ jobs:
             "versionName": "2.6",
             "forceUpdate": false,
             "downloadUrl": "https://github.com/ariellourdes52-collab/dr-accesorios-rd-updates/releases/latest/download/dr-accesorios-rd.apk",
-            "changelog": "📰 Noticias con miniaturas y experiencia más visual\n❤️ Favoritos en etiquetas para tus temas preferidos\n💬 Comentarios y likes para participar\n📅 DR Agenda con miniaturas y fichas de eventos\n📍 Ubicación, distancias y acceso a Google Maps\n🗓️ Agrega eventos a Google Calendar\n🔍 Fotos ampliables con zoom y agenda actualizable\n🔔 Notificaciones de eventos con apertura directa\n✈️ Telegram en Social y acceso a Beehiiv\n🎧 DR Audio y 📡 DR Radar siguen contigo"
+            "changelog": "📰 Noticias con miniaturas y experiencia más visual\n❤️ Favoritos en etiquetas para tus temas preferidos\n💬 Comentarios y likes para participar\n📅 DR Agenda con miniaturas y fichas de eventos\n📍 Ubicación, distancias y acceso a Google Maps\n🗓️ Agrega eventos a Google Calendar\n🔍 Fotos ampliables con zoom y agenda actualizable\n🔔 Notificaciones de eventos con apertura directa\n✉️ Suscríbete por correo electrónico y conecta con Telegram\n🎧 DR Audio y 📡 DR Radar siguen contigo"
           }
           JSON
 

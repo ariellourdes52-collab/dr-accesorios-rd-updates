@@ -55,3 +55,37 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
           DR_PREVIEW_SITE_MODE: AUDIT_ONLY
         run: python tests/audit_bilingual_preview_hosting.py
+
+  preview-channel-publish:
+    name: Preview channels PR41 only - never live
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: [static-qa, browser-qa, preview-hosting-audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    permissions:
+      contents: read
+    concurrency:
+      group: dr-pr41-bilingual-firebase-preview-only
+      cancel-in-progress: false
+    env:
+      DR_PREVIEW_MODE: QA41_PREVIEW_ONLY
+      DR_QA_BRANCH: ${{ github.head_ref }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated preview dependencies and syntax gate
+        run: |
+          python -m py_compile scripts/qa_bilingual_preview_channels.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+          mkdir -p "$RUNNER_TEMP/dr-preview-cli"
+          npm install --prefix "$RUNNER_TEMP/dr-preview-cli" --no-save --no-package-lock firebase-tools@14.21.0
+      - name: Create ONLY non-live expiring preview channels and guarded static bundles
+        run: python scripts/qa_bilingual_preview_channels.py prepare
+      - name: Publish Agenda ONLY to preview channel
+        run: |
+          "$RUNNER_TEMP/dr-preview-cli/node_modules/.bin/firebase" hosting:channel:deploy qa-bilingual-pr41 --project dr-accesorios-rd --config "$RUNNER_TEMP/dr-pr41-agenda.firebase.json" --non-interactive --expires 7d
+      - name: Publish Web App ONLY to preview channel
+        run: |
+          "$RUNNER_TEMP/dr-preview-cli/node_modules/.bin/firebase" hosting:channel:deploy qa-bilingual-pr41 --project dr-accesorios-rd --config "$RUNNER_TEMP/dr-pr41-web.firebase.json" --non-interactive --expires 7d
+      - name: Verify preview URLs and both unchanged LIVE releases
+        run: python scripts/qa_bilingual_preview_channels.py verify

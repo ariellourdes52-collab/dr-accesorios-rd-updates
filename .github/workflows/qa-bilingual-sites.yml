@@ -108,3 +108,22 @@ jobs:
           python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
       - name: Check exact LIVE inventories, source parity and existing event languages
         run: python tests/preflight_bilingual_production.py
+
+  full-live-overlay-audit:
+    name: Audit exact LIVE bytes with overlay (GET only)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    env:
+      DR_PROD_CANDIDATE: READ_ONLY
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install read-only hosting library
+        run: |
+          python -m py_compile tests/audit_full_bilingual_candidate.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Check exact LIVE hashes and unchanged configuration; no writes
+        run: python tests/audit_full_bilingual_candidate.py

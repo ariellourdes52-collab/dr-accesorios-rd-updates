@@ -85,6 +85,41 @@ class EnglishAudioTests(unittest.TestCase):
         self.assertEqual(result["schemaVersion"], 3)
         self.assertEqual(result["entries"][0]["customLegacyField"], "preserved")
 
+    def test_subsequent_spanish_generation_preserves_english_fields(self):
+        # Existing Spanish generator runs every few minutes. After English is
+        # present, refreshing Female/Male must never strip English metadata.
+        import generate_shared_dr_audio as es
+        article = copy.deepcopy(self.article)
+        hashes = {
+            voice: es.voice_hash(article["text"], voice)
+            for voice in ("female", "male")
+        }
+        article["voiceHashes"] = hashes
+        article["audioIds"] = {
+            voice: hashes[voice][:28] for voice in hashes
+        }
+        old = copy.deepcopy(self.index["entries"][0])
+        old.update({
+            "femaleContentHash": hashes["female"],
+            "maleContentHash": hashes["male"],
+            "audioEnglishUrl": "https://host/dr-audio/english.m4a",
+            "audioEnglishPath": "/dr-audio/english.m4a",
+            "englishContentHash": "original-english-hash",
+            "englishVoice": "Achernar",
+            "englishBytes": 78903,
+            "englishLanguage": "en",
+        })
+        refreshed = es.refresh_article_entry(old, article)
+        for key in (
+            "audioEnglishUrl", "audioEnglishPath", "englishContentHash",
+            "englishVoice", "englishBytes", "englishLanguage",
+        ):
+            self.assertEqual(refreshed[key], old[key], key)
+        self.assertEqual(refreshed["audioFemaleUrl"], old["audioFemaleUrl"])
+        self.assertEqual(refreshed["audioMaleUrl"], old["audioMaleUrl"])
+        self.assertEqual(refreshed["customLegacyField"], "preserved")
+        self.assertEqual(self.index["entries"][1]["title"], "Historical")
+
     def test_scan_never_calls_gemini_or_audio_and_never_mutates_catalog(self):
         with (patch.object(sys, "argv", ["english", "--mode", "scan"]),
               patch.object(en, "load_live_index", return_value=self.index),

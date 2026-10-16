@@ -78,7 +78,8 @@ def patch(original,addon,site,path):
     must(original.count(b"</body>")==1 and original.count(b"<body")>=1,"ambiguous live HTML body "+site+path)
     must(EXPECTED_MARKER.encode("utf-8") not in original,"live translation already present, stop to avoid duplicate")
     out=original.replace(b"</body>",addon.encode("utf-8")+b"</body>")
-    must(out.split(addon.encode("utf-8"))==[original.split(b"</body>")[0],original.split(b"</body>")[1].join([b"</body>"])],"the original bytes must remain unchanged")
+    before,closing,after=original.partition(b"</body>")
+    must(out==before+addon.encode("utf-8")+closing+after,"the original bytes must remain unchanged")
     must(len(out)<1_000_000,"new HTML exceeds size limit")
     return out
 def audit():

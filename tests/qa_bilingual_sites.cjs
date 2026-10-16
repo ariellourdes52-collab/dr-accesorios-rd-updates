@@ -26,7 +26,10 @@ for(const path of paths){
   assert.ok(!/\b(?:fetch|XMLHttpRequest|sendBeacon|eval)\s*\(/.test(addition),path+': unexpected remote call or dynamic code');
   assert.ok(addition.includes("e.origin!=='https://dr-accesorios-rd.web.app'"),path+': origin must be verified');
   assert.ok(addition.includes("lang:choice"),path+': raw choice must sync across the iframe');
-  assert.ok(addition.includes(".event-title,.event-description"),path+': user events must be excluded');
+  assert.ok(addition.includes(".event-place"),path+': real place names must remain excluded');
+  assert.ok(addition.includes("ComicCon República Dominicana 2026") && addition.includes("ComicCon Dominican Republic 2026"),path+': approved event title translation missing');
+  assert.ok(addition.includes("Dos días de cultura geek") && addition.includes("Two days of geek culture"),path+': approved event description translation missing');
+  assert.ok(!addition.includes("new Function(") && !addition.includes("innerHTML=event."),path+': no dynamic code injection');
   const inner=addition.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(inner,path+': missing standalone JS');
   new vm.Script(inner[1],{filename:path+':bilingual-ui'});

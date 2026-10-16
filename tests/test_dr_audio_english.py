@@ -255,7 +255,8 @@ class EnglishAudioTests(unittest.TestCase):
                   patch.object(en, "generate_wav", side_effect=DemandError("503")) as tts):
                 en.main()
                 translation.assert_called_once()
-                tts.assert_called_once()
+                # TTS retries exactly twice on 503 before deferring.
+                self.assertEqual(tts.call_count, 2)
                 transcripts = list(cache_path.glob("*.en.txt"))
                 self.assertEqual(len(transcripts), 1)
                 self.assertEqual(transcripts[0].read_text(), translated)

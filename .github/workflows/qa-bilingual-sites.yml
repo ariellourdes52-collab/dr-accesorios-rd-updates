@@ -89,3 +89,22 @@ jobs:
           "$RUNNER_TEMP/dr-preview-cli/node_modules/.bin/firebase" hosting:channel:deploy qa-bilingual-pr41 --project dr-accesorios-rd --config "$RUNNER_TEMP/dr-pr41-web.firebase.json" --non-interactive --expires 7d
       - name: Verify preview URLs and both unchanged LIVE releases
         run: python scripts/qa_bilingual_preview_channels.py verify
+
+  production-inventory-preflight:
+    name: Audit LIVE inventory (read only, never deploy)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    env:
+      DR_PROD_CHECK: READ_ONLY
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only preflight requirements
+        run: |
+          python -m py_compile tests/preflight_bilingual_production.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Check exact LIVE inventories, source parity and existing event languages
+        run: python tests/preflight_bilingual_production.py

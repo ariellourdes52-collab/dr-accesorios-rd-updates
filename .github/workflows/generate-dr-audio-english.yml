@@ -4,6 +4,13 @@ on:
   # Five minutes after the existing Spanish 10-minute watchdog.
   schedule:
     - cron: '8,18,28,38,48,58 * * * *'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/generate_dr_audio_english.py'
+      - 'scripts/deploy_dr_audio_english.py'
+      - '.github/workflows/generate-dr-audio-english.yml'
   pull_request:
     paths:
       - 'scripts/generate_dr_audio_english.py'
@@ -20,6 +27,10 @@ on:
         description: 'One older English article if newest five completed (0 or 1)'
         required: false
         default: '0'
+      scheduler_guard:
+        description: 'Internal English watchdog: protect from duplicate TTS attempts'
+        required: false
+        default: 'false'
 
 permissions:
   contents: read
@@ -127,7 +138,7 @@ jobs:
     needs: verify
     outputs:
       ready: ${{ steps.prepared.outputs.ready }}
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'GENERATE-DR-AUDIO-EN')
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'GENERATE-DR-AUDIO-EN')
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -154,6 +165,13 @@ jobs:
           key: dr-audio-en-quota-${{ steps.quota-date.outputs.date }}-${{ github.run_id }}
           restore-keys: |
             dr-audio-en-quota-${{ steps.quota-date.outputs.date }}-
+      - name: Restore English-only last TTS attempt guard
+        uses: actions/cache/restore@v4
+        with:
+          path: .dr-audio-english-state/last-tts-attempt.json
+          key: dr-audio-en-attempt-${{ github.run_id }}
+          restore-keys: |
+            dr-audio-en-attempt-
       - name: Restore unpublished English audio after failed release
         uses: actions/cache/restore@v4
         with:
@@ -167,6 +185,7 @@ jobs:
           GITHUB_REF: '${{ github.ref }}'
           EVENT_NAME: '${{ github.event_name }}'
           MANUAL_BACKFILL: '${{ inputs.historical_backfill }}'
+          SCHEDULER_GUARD: '${{ inputs.scheduler_guard }}'
         shell: bash
         run: |
           set -euo pipefail
@@ -195,6 +214,12 @@ jobs:
             --scan-posts "$SCAN_POSTS" \
             --historical-backfill "$BACKFILL" \
             $OPPORTUNISTIC
+      - name: Save independent English scheduler guard
+        if: always() && hashFiles('.dr-audio-english-state/last-tts-attempt.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .dr-audio-english-state/last-tts-attempt.json
+          key: dr-audio-en-attempt-${{ github.run_id }}
       - name: Save newly detected independent English quota cooldown
         if: always() && hashFiles('.dr-audio-english-state/.new-quota') != ''
         uses: actions/cache/save@v4

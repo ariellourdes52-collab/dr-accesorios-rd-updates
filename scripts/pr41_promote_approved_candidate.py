@@ -129,25 +129,28 @@ def release(session,site,version):
           payload={"message":"Approved PR41 bilingual UI-only release; original application logic preserved"})
     must((r.get("version") or {}).get("name")==version,
          "release response version mismatch for "+site)
-def verify(session,site,expected):
+def verify(session,site,expected,rollback=False):
     for attempt in range(15):
         current=current_live(session,site)
         if current==expected:break
         if attempt<14:time.sleep(3)
     must(current==expected,"LIVE API version not updated "+site)
-    if site==APP:
-        route="/radar-alertas/index.html"
-        require_text=STATUS_EN
-    else:
-        route="/agenda/index.html"
-        require_text="DR_SITE_BILINGUAL_UI_QA_V1"
+    route="/radar-alertas/index.html" if site==APP else "/agenda/index.html"
+    require_text=STATUS_EN if site==APP else "DR_SITE_BILINGUAL_UI_QA_V1"
+    oldhash=None
+    if rollback:
+        _,files=fetch_version(session,expected,site)
+        oldhash=files[route]
     for attempt in range(15):
         resp=requests.get("https://"+site+".web.app"+route,timeout=35,
                           headers={"Cache-Control":"no-cache"},allow_redirects=False)
-        if resp.status_code==200 and require_text in resp.text:break
+        correct=resp.status_code==200 and (
+            oldhash in audit.gzip_hashes(resp.content) if rollback
+            else require_text in resp.text
+        )
+        if correct:break
         if attempt<14:time.sleep(3)
-    must(resp.status_code==200 and require_text in resp.text,
-         "PUBLIC HTML did not reflect approved candidate in time "+site)
+    must(correct,"PUBLIC HTML did not reflect "+("rollback" if rollback else "approved candidate")+" in time "+site)
     print("PRODUCTION VERIFIED "+site+" version="+expected.rsplit("/",1)[-1],flush=True)
 def main():
     guard()
@@ -174,7 +177,7 @@ def main():
             try:
                 if current_live(session,site)==new:
                     release(session,site,old)
-                    verify(session,site,old)
+                    verify(session,site,old,rollback=True)
                     print("GUARDED ROLLBACK OK "+site,flush=True)
                 else:
                     print("ROLLBACK SKIPPED: "+site+" updated externally; would overwrite another release",

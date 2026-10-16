@@ -20,3 +20,23 @@ jobs:
           fetch-depth: 0
       - name: Verify addon-only diff and JavaScript syntax
         run: node tests/qa_bilingual_sites.cjs
+
+  browser-qa:
+    name: Offline Chromium and WebKit (no deploy)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/dr-webapp-agenda-ui-i18n-qa-20261015'
+    needs: static-qa
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install test-only Playwright outside repository
+        run: |
+          mkdir -p "$RUNNER_TEMP/dr-browser-qa"
+          npm install --prefix "$RUNNER_TEMP/dr-browser-qa" --no-save --no-package-lock playwright@1.56.1
+          "$RUNNER_TEMP/dr-browser-qa/node_modules/.bin/playwright" install --with-deps chromium webkit
+      - name: Exercise isolated HTML and mock events without requests to production
+        env:
+          NODE_PATH: ${{ runner.temp }}/dr-browser-qa/node_modules
+        run: node tests/qa_bilingual_browser.cjs

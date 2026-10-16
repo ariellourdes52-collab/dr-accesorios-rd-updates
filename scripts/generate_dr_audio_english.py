@@ -16,7 +16,7 @@ from generate_shared_dr_audio import (
 
 VOICE_KEY = "english"
 VOICE_NAME = VOICE_CONFIGS["female"]["name"]
-TRANSLATION_MODEL = "gemini-2.5-flash-lite"
+TRANSLATION_MODEL = "gemini-3.5-flash-lite"
 PUBLISH_CONFIRM = "GENERATE-DR-AUDIO-EN"
 ENGLISH_STYLE = (
     "Professional female technology news presenter. Natural, clear American "

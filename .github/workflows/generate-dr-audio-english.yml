@@ -81,6 +81,8 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import sys
+          sys.path.insert(0, "scripts")
           from google.oauth2 import service_account
           from google.auth.transport.requests import AuthorizedSession
           from deploy_dr_audio_english import SITE_ID, SITE_LOOKUP, SPANISH_SITE_ID

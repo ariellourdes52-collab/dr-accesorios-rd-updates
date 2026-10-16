@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -149,6 +150,29 @@ def verify_translation(original: str, translated: str) -> str:
     return text
 
 
+def retry_english_503(operation, *, max_attempts: int = 3):
+    """Bounded retry for transient Gemini 503 only; never retry 429/quota.
+
+    Keep the English-only workflow independent. No retry on malformed
+    translations, invalid credentials, or permanent Gemini errors.
+    """
+    if max_attempts < 1 or max_attempts > 3:
+        raise ValueError("English 503 retry attempts must be between 1 and 3")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return operation()
+        except Exception as error:
+            if getattr(error, "status_code", None) != 503 or attempt == max_attempts:
+                raise
+            delay = 5 if attempt == 1 else 15
+            print(
+                f"English Gemini 503 transient demand; retry "
+                f"{attempt + 1}/{max_attempts} after {delay}s.",
+                flush=True,
+            )
+            time.sleep(delay)
+
+
 def translate_article(client: genai.Client, spanish_text: str) -> str:
     prompt = (
         "Translate this entire Spanish technology news article to fluent US "
@@ -158,11 +182,11 @@ def translate_article(client: genai.Client, spanish_text: str) -> str:
         "Nintendo Switch exactly, translate 'incauta' contextually as 'seizes'. "
         "Return only complete English narration.\n\n" + spanish_text
     )
-    result = client.models.generate_content(
+    result = retry_english_503(lambda: client.models.generate_content(
         model=TRANSLATION_MODEL,
         contents=prompt,
         config={"temperature": 0.1, "max_output_tokens": 8192},
-    )
+    ))
     return verify_translation(spanish_text, str(result.text or ""))
 
 
@@ -290,7 +314,8 @@ def main() -> None:
             flush=True,
         )
         return
-    mark_english_tts_attempt()
+    # The eight-minute guard is for synthesis only: translating text cannot
+    # incur TTS duplication. Mark only immediately before an actual TTS call.
     client = genai.Client(api_key=key)
     audio_dir.mkdir(parents=True, exist_ok=True)
 
@@ -323,7 +348,11 @@ def main() -> None:
         print("Reusing English M4A cached from an unsuccessful release.")
     else:
         try:
-            wav = generate_wav(client, transcript, VOICE_KEY)
+            mark_english_tts_attempt()
+            wav = retry_english_503(
+                lambda: generate_wav(client, transcript, VOICE_KEY),
+                max_attempts=2,
+            )
         except Exception as error:
             if pause_english_quota(error) or tts_timeout_error(error):
                 print("English TTS deferred; Spanish unaffected.")

@@ -31,6 +31,8 @@ VOICE_NAME = VOICE_CONFIGS["female"]["name"]
 PUBLISH_CONFIRM = "GENERATE-DR-AUDIO-EN"
 ENGLISH_QUOTA_STATE = Path(".dr-audio-english-state/gemini-daily-quota.json")
 ENGLISH_TTS_ATTEMPT_STATE = Path(".dr-audio-english-state/last-tts-attempt.json")
+# Cache English transcripts independently of Spanish TTS and of deploy artifacts.
+ENGLISH_TRANSLATION_CACHE_DIR = Path(".dr-audio-english-translations")
 ENGLISH_MIN_TTS_INTERVAL_SECONDS = 8 * 60
 TEMPORARY_QUOTA_COOLDOWN_MINUTES = 20
 ENGLISH_STYLE = (
@@ -171,6 +173,14 @@ def retry_english_503(operation, *, max_attempts: int = 3):
                 flush=True,
             )
             time.sleep(delay)
+
+
+def english_temporary_503(error: Exception) -> bool:
+    """Gemini model overload is transient; not a quota reset or permanent error."""
+    return getattr(error, "status_code", None) == 503 or bool(
+        re.search(r"\\b503\\b", str(error)) and
+        ("unavailable" in str(error).lower() or "high demand" in str(error).lower())
+    )
 
 
 def translate_article(client: genai.Client, spanish_text: str) -> str:
@@ -324,20 +334,30 @@ def main() -> None:
     source_digest = hashlib.sha256(
         (article["url"] + "\n" + article["text"]).encode("utf-8")
     ).hexdigest()[:28]
-    transcript_path = audio_dir / (source_digest + ".en.txt")
-    if transcript_path.is_file():
+    transcript_path = ENGLISH_TRANSLATION_CACHE_DIR / (source_digest + ".en.txt")
+    # Accept existing prepared transcripts saved by older failed-deploy snapshots.
+    legacy_transcript_path = audio_dir / (source_digest + ".en.txt")
+    reusable_transcript = (
+        transcript_path if transcript_path.is_file() else legacy_transcript_path
+    )
+    if reusable_transcript.is_file():
         transcript = verify_translation(
-            article["text"], transcript_path.read_text(encoding="utf-8")
+            article["text"], reusable_transcript.read_text(encoding="utf-8")
         )
         print("Reusing previously prepared English translation.")
     else:
         try:
             transcript = translate_article(client, article["text"])
         except Exception as error:
-            if pause_english_quota(error) or tts_timeout_error(error):
-                print("English translation deferred; Spanish unaffected.")
+            if (pause_english_quota(error) or tts_timeout_error(error)
+                    or english_temporary_503(error)):
+                print("English translation deferred after transient Gemini issue; "
+                      "next scheduled run will retry. Spanish unaffected.", flush=True)
                 return
             raise
+    # Persist only fully validated translations; never cache incomplete model output.
+    transcript_path.parent.mkdir(parents=True, exist_ok=True)
+    if not transcript_path.is_file():
         transcript_path.write_text(transcript, encoding="utf-8")
 
     file_path = audio_dir / (english_digest(transcript)[:28] + ".m4a")
@@ -354,8 +374,11 @@ def main() -> None:
                 max_attempts=2,
             )
         except Exception as error:
-            if pause_english_quota(error) or tts_timeout_error(error):
-                print("English TTS deferred; Spanish unaffected.")
+            if (pause_english_quota(error) or tts_timeout_error(error)
+                    or english_temporary_503(error)):
+                print("English TTS deferred after transient Gemini issue; "
+                      "cached translation kept for next run. Spanish unaffected.",
+                      flush=True)
                 return
             raise
         wav_to_m4a(wav, file_path)

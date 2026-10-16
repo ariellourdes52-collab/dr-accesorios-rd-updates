@@ -142,6 +142,7 @@ async function run(engineName,engine,mobile){
     assert.equal(await frame.locator('#qa-real-event-card .event-title').innerText(),englishTitle);
     assert.equal(await frame.locator('#qa-real-event-card .event-description').textContent(),englishDescription);
     assert.equal(await frame.locator('#qa-real-event-card .event-place').innerText(),'Puerto San Souci');
+    if(await frame.locator('#event-dialog').evaluate(el=>el.open))await frame.locator('#dialog-close').click();
     await choose(frame,'es');
     assert.equal(await frame.locator('#qa-real-event-card .event-title').innerText(),realTitle);
     assert.equal(await frame.locator('#qa-real-event-card .event-description').textContent(),realDescription);

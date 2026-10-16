@@ -82,6 +82,7 @@ jobs:
           • Favoritos en etiquetas para organizar y encontrar fácilmente los temas que más te gustan.
           
           ### 📅 DR Agenda: descubre lo que pasa cerca de ti
+          • DR Agenda ahora está integrado en DR Ahora: accede a los eventos desde la pantalla principal, junto a tus noticias y funciones favoritas.
           • Eventos reales con miniaturas, fotografías y detalles útiles en cada ficha.
           • Consulta lugares y distancias con opciones de ubicación y acceso a Google Maps.
           • Guarda tus planes en Google Calendar con los datos del evento precargados.
@@ -144,7 +145,7 @@ jobs:
             "versionName": "2.6",
             "forceUpdate": false,
             "downloadUrl": "https://github.com/ariellourdes52-collab/dr-accesorios-rd-updates/releases/latest/download/dr-accesorios-rd.apk",
-            "changelog": "📰 Noticias con miniaturas y experiencia más visual\n❤️ Favoritos en etiquetas para tus temas preferidos\n💬 Comentarios y likes para participar\n📅 DR Agenda con miniaturas y fichas de eventos\n📍 Ubicación, distancias y acceso a Google Maps\n🗓️ Agrega eventos a Google Calendar\n🔍 Fotos ampliables con zoom y agenda actualizable\n🔔 Notificaciones de eventos con apertura directa\n✉️ Suscríbete por correo electrónico y conecta con Telegram\n🎧 DR Audio y 📡 DR Radar siguen contigo"
+            "changelog": "📰 Noticias con miniaturas y experiencia más visual\n❤️ Favoritos en etiquetas para tus temas preferidos\n💬 Comentarios y likes para participar\n📅 DR Agenda integrado en DR Ahora, con miniaturas y eventos\n📍 Ubicación, distancias y acceso a Google Maps\n🗓️ Agrega eventos a Google Calendar\n🔍 Fotos ampliables con zoom y agenda actualizable\n🔔 Notificaciones de eventos con apertura directa\n✉️ Suscríbete por correo electrónico y conecta con Telegram\n🎧 DR Audio y 📡 DR Radar siguen contigo"
           }
           JSON
 

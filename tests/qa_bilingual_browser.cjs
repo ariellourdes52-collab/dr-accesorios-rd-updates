@@ -80,9 +80,12 @@ async function run(engineName,engine,mobile){
     await frame.locator('.event-title').first().waitFor({timeout:12000});
     assert.equal(await frame.locator('.event-title').first().innerText(),fixture.events[0].title);
     assert.equal(await frame.locator('.event-description').first().innerText(),fixture.events[0].description);
+    await frame.locator('.event-date').first().evaluate(async el=>{for(let i=0;i<50&&!el.textContent.includes('November');i++)await new Promise(r=>setTimeout(r,80));});
+    assert.match(await frame.locator('.event-date').first().innerText(),/November 20, 2034, 4:00 PM/);
     if(await frame.locator('#event-dialog').evaluate(el=>el.open))await frame.locator('#dialog-close').click();
     await frame.locator('#dr-site-language [data-lang="es"]').click();
     await page.waitForFunction(()=>document.querySelector('header strong')?.textContent==='DR Agenda');
+    assert.match(await frame.locator('.event-date').first().innerText(),/noviembre/);
     await frame.locator('#dr-site-language [data-lang="en"]').click();
     await page.waitForFunction(()=>document.querySelector('header strong')?.textContent==='DR Events');
     await frame.locator('#search-events').fill('unmatched-query-x');
@@ -104,7 +107,8 @@ async function run(engineName,engine,mobile){
     assert.ok(await page.locator('#history').count(),'Notification history still exists');
     // Original event-date string is intentionally not overwritten by UI translation layer.
     const dateText=await frame.locator('.event-date').first().innerText();
-    assert.ok(dateText.length>8,'The engine still renders the event date');
+    assert.match(dateText,/November 20, 2034, 4:00 PM/,'UI date must be localized to English');
+    assert.match(await frame.locator('#dialog-meta').innerText(),/November 20, 2034, 4:00 PM/,'Dialog date must match');
     const severe=errorText.filter(x=>/DR_SITE_BILINGUAL|SyntaxError|Maximum call stack|Too much recursion/.test(x));
     assert.equal(severe.length,0,'No serious translation JS error: '+severe.join(' ; '));
     console.log('PASS '+engineName+' '+(mobile?'mobile':'desktop')+' real-browser QA; source event untouched; date='+dateText);

@@ -50,10 +50,13 @@ def main():
    exact=(original==r.content)
    prefix=(r.content.find(b"DR_SITE_BILINGUAL_UI_QA_V1")>=0)
    print("PAGE "+site+path+": matches main source="+str(exact)+" | bilingual already deployed="+str(prefix)+" | len="+str(len(r.content)),flush=True)
+   print("STRUCTURE "+path+": "+", ".join(k+"="+str(("id=\""+k+"\"") in r.text) for k in ("activate","viewer","event-grid","event-dialog","history")),flush=True)
   if site=="dr-accesorios-rd-agenda":
    r=requests.get("https://"+site+".web.app/agenda/events.json",timeout=30)
    must(r.status_code==200,"live events not readable")
    cat=r.json();must(cat.get("schemaVersion")==1 and isinstance(cat.get("events"),list),"catalog unexpected")
    print("LIVE EVENTS: count="+str(len(cat["events"]))+" | revision="+str(cat.get("revision"))+" | translated fields found="+str(sum(bool(e.get("titleEn") or e.get("title_en") or e.get("translations")) for e in cat["events"])),flush=True)
+   for event in cat["events"][:5]:
+    print("PUBLIC EVENT ID="+str(event.get("id"))+" | title="+json.dumps(event.get("title",""),ensure_ascii=False)+" | description="+json.dumps(event.get("description",""),ensure_ascii=False)[:2000],flush=True)
  print("READ ONLY COMPLETE. Production unchanged.",flush=True)
 if __name__=="__main__":main()

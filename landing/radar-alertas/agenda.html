@@ -117,6 +117,52 @@ button.saved{color:#b61050;border-color:#b61050}a.btn{border-radius:11px;backgro
     if(!webapp&&!agenda&&!wrapper)return;
     const KEY='dr-site-ui-lang-1', allowed=['auto','es','en'], original=new WeakMap(), lastWrite=new WeakMap();
     const tr={
+      "Para completar la configuración activa Web Push para DR Radar, sismos, nuevas publicaciones y los eventos de DR Agenda que el administrador anuncie. Las notificaciones sociales son opcionales.":"To finish setup, enable Web Push for DR Radar, earthquakes, new posts and DR Events announcements. Social notifications are optional.",
+      "Abre esta página en":"Open this page in",
+      "Toca":"Tap",
+      "Compartir":"Share",
+      "Elige":"Choose",
+      "Añadir a pantalla de inicio":"Add to Home Screen",
+      "Abre":"Open",
+      "desde el nuevo icono.":"from the new icon.",
+      "Pulsa":"Tap",
+      "Activar alertas 24/7":"Enable 24/7 alerts",
+      "Instala esta web app para acceder rápidamente a noticias, DR Radar y comunidad.":"Install this web app for quick access to news, DR Radar and the community.",
+      "Instala la web app para acceder rápidamente a noticias, DR Radar y comunidad.":"Install the web app for quick access to news, DR Radar and the community.",
+      "Instala la web app en tu PC para tener acceso directo a noticias, DR Radar y comunidad.":"Install the web app on your PC for quick access to news, DR Radar and the community.",
+      "📲 Instalar DR Accesorios RD en Android":"📲 Install DR Accesorios RD on Android",
+      "💻 Instalar DR Accesorios RD en Windows":"💻 Install DR Accesorios RD on Windows",
+      "✅ DR Accesorios RD ya está instalada":"✅ DR Accesorios RD is already installed",
+      "Puedes usar el icono instalado para entrar a DR Accesorios RD y recibir tus alertas 24/7.":"Use the installed icon to open DR Accesorios RD and receive 24/7 alerts.",
+      "📲 Añade DR Accesorios RD a inicio primero":"📲 Add DR Accesorios RD to your Home Screen first",
+      "Descubre los próximos eventos, estrenos y lanzamientos. Los nuevos avisos de Agenda utilizan la misma suscripción Web Push; no necesitas instalar otra app.":"Explore upcoming events, premieres and releases. DR Events alerts use your existing Web Push subscription; no extra app is required.",
+      "Si quieres, conecta la misma cuenta de Google que usas para comentar y recibe respuestas, likes y actividad de tus conversaciones. No es necesario para usar Radar ni recibir nuevas publicaciones.":"Optionally connect the Google account you use for comments to receive replies, likes and conversation activity. This is not required for DR Radar or new-post alerts.",
+      "DR Radar consulta los feeds cada 30 segundos desde un servicio independiente y envía únicamente alertas nuevas. La alerta que ya estaba activa al iniciar el servicio se usa como referencia y no se reenvía.":"DR Radar checks feeds every 30 seconds through an independent service and sends only new alerts. An alert already active when the service starts is used as a reference and is not resent.",
+      "No se pudo completar el acceso con Google.":"Google sign-in could not be completed.",
+      "Vinculando tus notificaciones sociales…":"Linking your social notifications…",
+      "✅ Cuenta social conectada":"✅ Social account connected",
+      "Sociales activas.":"Social notifications active.",
+      "Recibirás respuestas, likes y actividad asociada a esta cuenta. Abriendo DR Accesorios RD…":"You will receive replies, likes and activity linked to this account. Opening DR Accesorios RD…",
+      "Vincular cuenta social":"Link social account",
+      "No se pudo vincular la cuenta social.":"The social account could not be linked.",
+      "Comprueba que las alertas 24/7 estén activas y vuelve a intentarlo.":"Check that 24/7 alerts are enabled and try again.",
+      "Eventos y lanzamientos":"Events and releases",
+      "Agenda actualizada desde DR Accesorios RD. Los avisos de Agenda se reciben con las notificaciones de la Web App activadas.":"Events are updated by DR Accesorios RD. DR Events alerts arrive when Web App notifications are enabled.",
+      "Últimos avisos recibidos en este dispositivo. Puedes guardarlos para consultarlos después. Este historial es local y no modifica los eventos del servidor.":"Recent alerts received on this device. Save them to review later. This history stays on your device and does not change server events.",
+      "Consultando avisos guardados…":"Loading saved alerts…",
+      "No se pudo consultar el historial local. El catálogo de eventos sigue disponible.":"The local alert history could not be loaded. The events catalog is still available.",
+      "DR Accesorios RD · iPhone y iPad":"DR Accesorios RD · iPhone and iPad",
+      "Lanzamientos, estrenos de cine, gaming y experiencias que vale la pena tener en el radar. Todo reunido en un solo lugar.":"Technology launches, movie premieres, gaming and experiences worth tracking, all in one place.",
+      "Estamos preparando eventos verificados. Cuando publiquemos el siguiente, aparecerá aquí automáticamente.":"We are preparing verified events. The next one will appear here as soon as it is published.",
+      "Conoce nuestro bot de Telegram ↗":"Discover our Telegram bot ↗",
+      "DR Agenda es un servicio de DR Accesorios RD. Los horarios publicados corresponden a República Dominicana.":"DR Events is a service by DR Accesorios RD. Published times follow the Dominican Republic time zone.",
+      "Revisa tu conexión e inténtalo de nuevo. Los demás servicios de DR Accesorios RD siguen disponibles.":"Check your connection and try again. Other DR Accesorios RD services remain available.",
+      "Filtrar por categoría":"Filter by category",
+      "Enlaces principales":"Main links",
+      "Resumen de la agenda":"Events summary",
+      "Cerrar detalle":"Close event details",
+      "Catálogo DR Agenda":"DR Events catalog",
+      "Evento en línea":"Online event",
       'DR Agenda':'DR Events','DR AGENDA':'DR EVENTS',
       'DR Radar · Alertas 24/7':'DR Radar · 24/7 Alerts',
       'Web Push para recibir alertas aunque cierres el navegador.':'Web Push alerts even when your browser is closed.',
@@ -169,19 +215,23 @@ button.saved{color:#b61050;border-color:#b61050}a.btn{border-radius:11px;backgro
     if(allowed.includes(incoming))choice=incoming;
     const locale=()=>choice==='auto'?(String(navigator.languages?.[0]||navigator.language||'es').toLowerCase().startsWith('en')?'en':'es'):choice;
     const excluded='script,style,textarea,input,pre,code,[contenteditable],.event-title,.event-description,.event-place,#dialog-title,#dialog-description,.notice strong,.notice .title';
+    const attrOriginal=new WeakMap(),attrLast=new WeakMap();
+    const attrTr={'Filtrar por categoría':'Filter by category','Enlaces principales':'Main links','Resumen de la agenda':'Events summary','Cerrar detalle':'Close event details','Catálogo DR Agenda':'DR Events catalog'};
     const box=document.createElement('div');box.id='dr-site-language';
     box.setAttribute('data-dr-no-translate','true');
     box.innerHTML='<div class="options"><button data-lang="auto" type="button">Auto</button><button data-lang="es" type="button">ES</button><button data-lang="en" type="button">EN</button></div><button class="toggle" type="button" aria-expanded="true" aria-label="Collapse language selector">›</button>';
     const style=document.createElement('style');
-    style.textContent='#dr-site-language{position:fixed;top:max(10px,env(safe-area-inset-top));right:10px;z-index:2147480000;background:#fff;border:1px solid #edc9d9;border-radius:13px;padding:4px;display:flex;gap:3px;box-shadow:0 3px 15px #0002;color:#8a2b51;font:700 12px system-ui,Arial}#dr-site-language .options{display:flex;gap:3px}#dr-site-language button{border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;padding:7px 8px;min-height:29px;cursor:pointer}#dr-site-language button[aria-pressed="true"]{background:#bc1e59;color:#fff}#dr-site-language .toggle{background:#fce9f0;border:1px solid #efcfdb}#dr-site-language.folded .options{display:none}#dr-site-language.folded .toggle{background:#bc1e59;color:#fff}#dr-site-language button:focus-visible{outline:2px solid #333;outline-offset:2px}';
+    style.textContent='#dr-site-language{position:fixed;top:max(10px,env(safe-area-inset-top));right:10px;z-index:2147480000;background:#fff;border:1px solid #edc9d9;border-radius:13px;padding:4px;display:flex;gap:3px;box-shadow:0 3px 15px #0002;color:#8a2b51;font:700 12px system-ui,Arial}#dr-site-language .options{display:flex;gap:3px}#dr-site-language button{border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;padding:7px 8px;min-height:29px;cursor:pointer}#dr-site-language button[aria-pressed="true"]{background:#bc1e59;color:#fff}#dr-site-language .toggle{background:#fce9f0;border:1px solid #efcfdb}#dr-site-language.folded .options{display:none}#dr-site-language.folded .toggle{background:#bc1e59;color:#fff}#dr-site-language button:focus-visible{outline:2px solid #333;outline-offset:2px}@media(prefers-color-scheme:dark){#dr-site-language{background:#20202c;border-color:#78415a;color:#ffe4ee}#dr-site-language .toggle{background:#4c2536;border-color:#78415a}}';
     document.head.append(style);document.body.append(box);
     let pending=false,collapseTimer=null;
-    const folded=(yes)=>{box.classList.toggle('folded',yes);const b=box.querySelector('.toggle');b.textContent=yes?'🌐':'›';b.setAttribute('aria-expanded',String(!yes));};
-    const later=()=>{clearTimeout(collapseTimer);collapseTimer=setTimeout(()=>{if(!box.matches(':hover')&&!box.contains(document.activeElement))folded(true);},4500);};
+    const folded=(yes)=>{box.classList.toggle('folded',yes);const b=box.querySelector('.toggle');const label=yes?'🌐':'›';if(b.textContent!==label)b.textContent=label;b.setAttribute('aria-expanded',String(!yes));b.setAttribute('aria-label',locale()==='en'?(yes?'Expand language selector':'Collapse language selector'):(yes?'Expandir selector de idioma':'Contraer selector de idioma'));};
+    const later=()=>{clearTimeout(collapseTimer);collapseTimer=setTimeout(()=>{if(!box.contains(document.activeElement))folded(true);},4500);};
+    const childOrigin='https://dr-accesorios-rd-agenda.web.app',parentOrigin='https://dr-accesorios-rd.web.app';
+    const relay=()=>{if(wrapper?.contentWindow)wrapper.contentWindow.postMessage({type:'dr-site-language-v1',lang:choice},childOrigin);};
     const select=(v,store)=>{
       if(!allowed.includes(v))return;choice=v;
       if(store)try{localStorage.setItem(KEY,v);}catch(_){}
-      apply();later();
+      apply();relay();later();
     };
     function apply(){
       const english=locale()==='en';
@@ -193,14 +243,24 @@ button.saved{color:#b61050;border-color:#b61050}a.btn{border-radius:11px;backgro
         if(!original.has(n)||(now!==original.get(n)&&now!==lastWrite.get(n)))original.set(n,now);
         const source=original.get(n),text=source.trim();
         const dynamic=text.match(/^(\d+) eventos disponibles\.$/u);
-        const translated=english?(Object.hasOwn(tr,text)?tr[text]:(dynamic?dynamic[1]+' events available.':text)):text;
+        const translated=english?(Object.prototype.hasOwnProperty.call(tr,text)?tr[text]:(dynamic?dynamic[1]+' events available.':text)):text;
         const target=text&&translated!==text?source.replace(text,translated):source;
         if(now!==target){lastWrite.set(n,target);n.nodeValue=target;}
       }
       const search=document.getElementById('search-events');
       if(search)search.placeholder=english?'Search for an event…':'Buscar un evento…';
       for(const b of box.querySelectorAll('button[data-lang]'))b.setAttribute('aria-pressed',String(b.dataset.lang===choice));
-      if(wrapper?.contentWindow)wrapper.contentWindow.postMessage({type:'dr-site-language-v1',lang:locale()},'https://dr-accesorios-rd-agenda.web.app');
+      for(const el of document.querySelectorAll('[aria-label],iframe[title]')){
+        for(const attr of ['aria-label','title']){
+          if(!el.hasAttribute(attr))continue;
+          const now=el.getAttribute(attr),prior=attrOriginal.get(el)||{};
+          if(!(attr in prior)|| (now!==prior[attr]&&now!==(attrLast.get(el)||{})[attr]))prior[attr]=now;
+          attrOriginal.set(el,prior);
+          const source=prior[attr],target=english&&Object.prototype.hasOwnProperty.call(attrTr,source)?attrTr[source]:source;
+          if(now!==target){const written=attrLast.get(el)||{};written[attr]=target;attrLast.set(el,written);el.setAttribute(attr,target);}
+        }
+      }
+      folded(box.classList.contains('folded'));
     }
     const toggle=box.querySelector('.toggle');
     toggle.addEventListener('click',()=>{const previous=box.classList.contains('folded');folded(!previous);if(previous)later();else clearTimeout(collapseTimer);});
@@ -208,15 +268,28 @@ button.saved{color:#b61050;border-color:#b61050}a.btn{border-radius:11px;backgro
     box.addEventListener('pointerleave',later);
     box.addEventListener('focusin',()=>{folded(false);clearTimeout(collapseTimer);});
     box.addEventListener('focusout',later);
-    for(const b of box.querySelectorAll('[data-lang]'))b.addEventListener('click',()=>{folded(false);select(b.dataset.lang,true);});
+    for(const b of box.querySelectorAll('[data-lang]'))b.addEventListener('click',()=>{b.blur();folded(false);select(b.dataset.lang,true);if(agenda&&window.parent!==window)window.parent.postMessage({type:'dr-site-language-v1',lang:choice},parentOrigin);});
     if(agenda)window.addEventListener('message',e=>{
-      if(e.source!==parent||e.origin!=='https://dr-accesorios-rd.web.app'||e.data?.type!=='dr-site-language-v1'||!['en','es'].includes(e.data.lang))return;
+      if(e.source!==parent||e.origin!=='https://dr-accesorios-rd.web.app'||e.data?.type!=='dr-site-language-v1'||!allowed.includes(e.data.lang))return;
       select(e.data.lang,false);
     });
-    if(wrapper)wrapper.addEventListener('load',apply);
-    function schedule(){if(pending)return;pending=true;queueMicrotask(()=>{pending=false;apply();});}
+    if(wrapper){
+      wrapper.addEventListener('load',relay);
+      window.addEventListener('message',e=>{
+        if(e.source!==wrapper.contentWindow||e.origin!==childOrigin||e.data?.type!=='dr-site-language-v1'||!allowed.includes(e.data.lang))return;
+        select(e.data.lang,true);
+      });
+    }
+    window.addEventListener('storage',e=>{if(e.key===KEY&&allowed.includes(e.newValue))select(e.newValue,false);});
+    function schedule(records){
+      // Ignore our own text rewrites: prevents translation-triggered refresh loops.
+      if(!records.some(r=>r.type==='childList'||(r.type==='characterData'&&r.target.nodeValue!==lastWrite.get(r.target))))return;
+      if(pending)return;
+      pending=true;
+      requestAnimationFrame(()=>{pending=false;apply();});
+    }
     new MutationObserver(schedule).observe(document.body,{childList:true,characterData:true,subtree:true});
-    apply();later();
+    apply();relay();later();
   })();
   </script>
 </body>

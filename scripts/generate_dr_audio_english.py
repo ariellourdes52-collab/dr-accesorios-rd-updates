@@ -29,6 +29,8 @@ VOICE_KEY = "english"
 VOICE_NAME = VOICE_CONFIGS["female"]["name"]
 PUBLISH_CONFIRM = "GENERATE-DR-AUDIO-EN"
 ENGLISH_QUOTA_STATE = Path(".dr-audio-english-state/gemini-daily-quota.json")
+ENGLISH_TTS_ATTEMPT_STATE = Path(".dr-audio-english-state/last-tts-attempt.json")
+ENGLISH_MIN_TTS_INTERVAL_SECONDS = 8 * 60
 TEMPORARY_QUOTA_COOLDOWN_MINUTES = 20
 ENGLISH_STYLE = (
     "Professional female technology news presenter. Natural, clear American "
@@ -89,6 +91,41 @@ def pause_english_quota(error: Exception, state_path: Path = ENGLISH_QUOTA_STATE
         flush=True,
     )
     return True
+
+
+
+def english_recent_tts_attempt(
+    state_path: Path = ENGLISH_TTS_ATTEMPT_STATE,
+    now: datetime | None = None,
+) -> bool:
+    """Only the English cooldown cache is read. A delayed duplicate cron skips."""
+    if not state_path.exists():
+        return False
+    try:
+        data = json.loads(state_path.read_text(encoding="utf-8"))
+        raw = str(data.get("attemptedAt") or "")
+        attempted = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if attempted.tzinfo is None:
+            attempted = attempted.replace(tzinfo=timezone.utc)
+        current = now or datetime.now(timezone.utc)
+        age = (current - attempted.astimezone(timezone.utc)).total_seconds()
+        return 0 <= age < ENGLISH_MIN_TTS_INTERVAL_SECONDS
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def mark_english_tts_attempt(
+    state_path: Path = ENGLISH_TTS_ATTEMPT_STATE,
+    now: datetime | None = None,
+) -> None:
+    """Prevent duplicate English TTS billing without touching Spanish state."""
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    current = now or datetime.now(timezone.utc)
+    state_path.write_text(
+        json.dumps({"attemptedAt": current.astimezone(timezone.utc).isoformat()},
+                   indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def english_digest(transcript: str) -> str:
@@ -203,11 +240,14 @@ def main() -> None:
     args = parser.parse_args()
 
     event = os.environ.get("EVENT_NAME", "").strip()
+    scheduler_guard = os.environ.get("SCHEDULER_GUARD", "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
     authorized = (
         os.environ.get("GITHUB_ACTIONS") == "true"
         and os.environ.get("GITHUB_REF") == "refs/heads/main"
         and (
-            event == "schedule"
+            event in {"schedule", "push"}
             or (event == "workflow_dispatch" and args.confirm == PUBLISH_CONFIRM)
         )
     )
@@ -243,6 +283,14 @@ def main() -> None:
     key = os.environ.get("GEMINI_API_KEY_DR_AUDIO_EN", "").strip()
     if not key:
         raise RuntimeError("The dedicated English API key is missing")
+    if (event == "schedule" or scheduler_guard) and english_recent_tts_attempt():
+        print(
+            "English scheduler guard: TTS was attempted in the previous 8 minutes; "
+            "skipping duplicate attempt. Spanish unaffected.",
+            flush=True,
+        )
+        return
+    mark_english_tts_attempt()
     client = genai.Client(api_key=key)
     audio_dir.mkdir(parents=True, exist_ok=True)
 

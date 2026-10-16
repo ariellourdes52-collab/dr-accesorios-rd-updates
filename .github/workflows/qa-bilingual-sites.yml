@@ -1,0 +1,22 @@
+name: QA bilingual Web App and Agenda (no deploy)
+on:
+  push:
+    branches: [feature/dr-webapp-agenda-ui-i18n-qa-20261015]
+  pull_request:
+    paths:
+      - 'landing/radar-alertas/index.html'
+      - 'landing/radar-alertas/agenda.html'
+      - 'agenda_site/agenda/index.html'
+      - 'tests/qa_bilingual_sites.cjs'
+permissions:
+  contents: read
+jobs:
+  static-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify addon-only diff and JavaScript syntax
+        run: node tests/qa_bilingual_sites.cjs

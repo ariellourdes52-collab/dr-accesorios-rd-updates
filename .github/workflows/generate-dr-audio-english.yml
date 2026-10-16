@@ -5,7 +5,7 @@ on:
     paths:
       - 'scripts/generate_dr_audio_english.py'
       - 'scripts/deploy_shared_dr_audio.py'
-      - 'tests/test_dr_audio_english.py'
+      - 'tests/test_dr_audio_english*.py'
       - '.github/workflows/generate-dr-audio-english.yml'
   workflow_dispatch:
     inputs:
@@ -35,7 +35,7 @@ jobs:
       - name: Verify English code offline without Gemini or Firebase
         run: |
           python -m py_compile scripts/generate_dr_audio_english.py scripts/deploy_shared_dr_audio.py
-          python -m unittest discover -s tests -p 'test_dr_audio_english.py' -v
+          python -m unittest discover -s tests -p 'test_dr_audio_english*.py' -v
 
   english:
     needs: verify

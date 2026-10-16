@@ -1,0 +1,70 @@
+name: DR Audio English female (isolated)
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/generate_dr_audio_english.py'
+      - 'scripts/deploy_shared_dr_audio.py'
+      - 'tests/test_dr_audio_english.py'
+      - '.github/workflows/generate-dr-audio-english.yml'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type GENERATE-DR-AUDIO-EN for ONE new English female audio'
+        required: true
+        default: 'NO'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-accesorios-rd-production-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install offline test dependencies
+        run: python -m pip install --disable-pip-version-check --quiet google-genai google-auth requests beautifulsoup4 httpx
+      - name: Verify English code offline without Gemini or Firebase
+        run: |
+          python -m py_compile scripts/generate_dr_audio_english.py scripts/deploy_shared_dr_audio.py
+          python -m unittest discover -s tests -p 'test_dr_audio_english.py' -v
+
+  english:
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'GENERATE-DR-AUDIO-EN'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install production TTS dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --quiet google-genai google-auth requests beautifulsoup4 httpx
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+      - name: Generate one English narration; Spanish stays unchanged
+        env:
+          GEMINI_API_KEY_DR_AUDIO_EN: '${{ secrets.GEMINI_API_KEY_DR_AUDIO_EN }}'
+          GITHUB_REF: '${{ github.ref }}'
+        run: |
+          python scripts/generate_dr_audio_english.py \
+            --mode generate \
+            --confirm GENERATE-DR-AUDIO-EN \
+            --output dr_audio_english_build
+      - name: Deploy English overlay preserving live Hosting files
+        if: hashFiles('dr_audio_english_build/dr-audio/index.json') != ''
+        env:
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+        run: python scripts/deploy_shared_dr_audio.py dr_audio_english_build

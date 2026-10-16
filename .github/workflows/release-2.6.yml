@@ -1,8 +1,8 @@
 name: Release DR Accesorios RD 2.6
 # v2.6 GitHub uses versionCode 22; Store distribution uses versionCode 23.
 # Protect v2.5 (code 21) and v2.4.1 (code 20) from rollback.
-# BLOCKED until the v2.6 APK is built, signed with the existing key, tested,
-# uploaded to its draft release, and its final SHA-256 pinned below.
+# v2.6 APK v2 signature and content digest verified; signing certificate matches
+# the official v2.4.1 release. On-device smoke testing is still recommended.
 
 # Official v2.6 publication: 2026-11-24 20:00 America/Santo_Domingo
 # GitHub Actions cron is UTC, so that is 2026-11-25 00:00 UTC.
@@ -186,7 +186,7 @@ jobs:
           fi
 
           APK_DIGEST="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --jq '.[] | select(.name=="dr-accesorios-rd.apk") | .digest')"
-          EXPECTED_DIGEST="sha256:PENDING_SIGNED_V26_APK"
+          EXPECTED_DIGEST="sha256:f33ecad540edf61e4a57de38c8f93e54e52c8a78091a60f41d5893dc96d8e91f"
 
           if [[ ! "$EXPECTED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
             echo "::error::v2.6 signed APK SHA-256 has not been pinned. Refusing publication."

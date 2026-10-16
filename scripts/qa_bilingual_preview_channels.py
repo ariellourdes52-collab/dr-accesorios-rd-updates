@@ -134,6 +134,7 @@ def prepare_assets(session,urls):
     for name in ("index.html","agenda.html"):
         html=source_web(name).decode("utf-8")
         html=exact_replace(html,parent_pair,new_pair,"preview origins "+name)
+        html=exact_replace(html,"e.origin!==\x27https://dr-accesorios-rd.web.app\x27","e.origin!==\x27"+weborigin+"\x27","preview message source origin "+name)
         if name=="agenda.html":
             html=html.replace("https://dr-accesorios-rd-agenda.web.app/agenda/",agenda+"/agenda/")
             require(agenda+"/agenda/" in html,"iframe must use Agenda preview")
@@ -155,6 +156,7 @@ def prepare_assets(session,urls):
     webfiles["/robots.txt"]="User-agent: *\nDisallow: /\n"
     agenda_html=source_agenda("agenda/index.html").decode("utf-8")
     agenda_html=exact_replace(agenda_html,parent_pair,new_pair,"Agenda cross-frame origins")
+    agenda_html=exact_replace(agenda_html,"e.origin!==\x27https://dr-accesorios-rd.web.app\x27","e.origin!==\x27"+weborigin+"\x27","Agenda preview message source origin")
     agenda_html=meta_guard(agenda_html,agendaorigin,allow_fetch=True)
     js=source_agenda("agenda/app.js").decode("utf-8")
     js=js.replace("https://dr-accesorios-rd-agenda.web.app/agenda/",agenda+"/agenda/")
@@ -203,6 +205,8 @@ def verify(session):
             if attempt<11:time.sleep(5)
         require(resp is not None and resp.status_code==200,"preview HTTP "+str(resp.status_code if resp is not None else -1)+" for "+site)
         require("DR_SITE_BILINGUAL_UI_QA_V1" in resp.text,"preview translation missing from "+site)
+        expected_parent="e.origin!==\x27"+snapshot["urls"][WEB]+"\x27"
+        require(expected_parent in resp.text,"preview parent-message origin guard missing from "+site)
         require("noindex" in resp.text,"noindex missing from preview")
     print("QA PREVIEW RELEASE VERIFIED — no LIVE channel changes",flush=True)
     print("WEBAPP QA URL: "+snapshot["urls"][WEB]+"/radar-alertas/index.html",flush=True)

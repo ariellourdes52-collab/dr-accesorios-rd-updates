@@ -179,6 +179,15 @@ jobs:
           key: dr-audio-english-pending-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             dr-audio-english-pending-
+      # Like Spanish partial-TTS cache, preserve validated English translations.
+      # Unique cache keys and an isolated directory prevent cross-language state.
+      - name: Restore validated English translations
+        uses: actions/cache/restore@v4
+        with:
+          path: .dr-audio-english-translations
+          key: dr-audio-en-translations-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            dr-audio-en-translations-
       - name: Generate ONE English narration; Spanish READ ONLY
         env:
           GEMINI_API_KEY_DR_AUDIO_EN: '${{ secrets.GEMINI_API_KEY_DR_AUDIO_EN }}'
@@ -214,6 +223,12 @@ jobs:
             --scan-posts "$SCAN_POSTS" \
             --historical-backfill "$BACKFILL" \
             $OPPORTUNISTIC
+      - name: Save validated English translations for future Gemini 503/TTS recovery
+        if: always() && hashFiles('.dr-audio-english-translations/*.en.txt') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .dr-audio-english-translations
+          key: dr-audio-en-translations-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Save independent English scheduler guard
         if: always() && hashFiles('.dr-audio-english-state/last-tts-attempt.json') != ''
         uses: actions/cache/save@v4

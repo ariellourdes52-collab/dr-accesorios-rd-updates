@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/android-google-alertas-sismicas-200-regiones-2026.html",
   "title": "Android amplía sus alertas sísmicas a más de 200 regiones",
   "jpeg_sha256": "3e95900105ad63cb2aaafcaf279bcb85cbb070f789ae0251f9e8c313fdcc9273",
   "caption_sha256": "7e8e984a74fb9d44ccf906e96d73e8d89aecea00ff6d4fd23554f53258395c86",
-  "created_at": "2026-10-16T23:02:38.107591+00:00"
+  "created_at": "2026-10-16T23:02:38.107591+00:00",
+  "container_id": "17993189256110510"
 }

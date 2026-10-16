@@ -42,6 +42,13 @@ async function waitText(locator,expected){
   const t=await locator.textContent();
   assert.ok(t.includes(expected),'Expected "'+expected+'", got: '+t);
 }
+async function choose(scope,lang){
+  const overlay=scope.locator('#dr-site-language');
+  if(await overlay.evaluate(el=>el.classList.contains('folded'))){
+    await scope.locator('#dr-site-language .toggle').click();
+  }
+  await scope.locator('#dr-site-language [data-lang="'+lang+'"]').click();
+}
 async function run(engineName,engine,mobile){
   const browser=await engine.launch({headless:true});
   try{
@@ -58,12 +65,12 @@ async function run(engineName,engine,mobile){
     const errorText=[];
     page.on('pageerror',error=>{errorText.push(error.message)});
     await page.goto(webOrigin+'/radar-alertas/index.html',{waitUntil:'domcontentloaded'});
-    await page.locator('#dr-site-language [data-lang="en"]').click();
+    await choose(page,'en');
     await page.waitForFunction(()=>document.querySelector('.head h1')?.textContent.includes('24/7 Alerts'));
     assert.match(await page.locator('.body .lead').innerText(),/Enable essential/);
-    await page.locator('#dr-site-language [data-lang="es"]').click();
+    await choose(page,'es');
     await page.waitForFunction(()=>document.querySelector('.head h1')?.textContent.includes('Alertas 24/7'));
-    await page.locator('#dr-site-language [data-lang="en"]').click();
+    await choose(page,'en');
     await page.waitForFunction(()=>document.querySelector('.head h1')?.textContent.includes('24/7 Alerts'));
     await page.waitForTimeout(4800);
     assert.ok(await page.locator('#dr-site-language').evaluate(e=>e.classList.contains('folded')),'Autocollapse 4.5 seconds');
@@ -74,7 +81,7 @@ async function run(engineName,engine,mobile){
     await page.goto(webOrigin+'/radar-alertas/agenda.html?evento=evt-qa-comiccon',{waitUntil:'domcontentloaded'});
     const frame=page.frameLocator('#viewer');
     await frame.locator('#dr-site-language [data-lang="en"]').waitFor({timeout:20000});
-    await page.locator('#dr-site-language [data-lang="en"]').click();
+    await choose(page,'en');
     await page.waitForFunction(()=>document.querySelector('header strong')?.textContent==='DR Events');
     await frame.locator('#search-events').waitFor({timeout:12000});
     await frame.locator('.event-title').first().waitFor({timeout:12000});
@@ -83,10 +90,10 @@ async function run(engineName,engine,mobile){
     await frame.locator('.event-date').first().evaluate(async el=>{for(let i=0;i<50&&!el.textContent.includes('November');i++)await new Promise(r=>setTimeout(r,80));});
     assert.match(await frame.locator('.event-date').first().innerText(),/November 20, 2034, 4:00 PM/);
     if(await frame.locator('#event-dialog').evaluate(el=>el.open))await frame.locator('#dialog-close').click();
-    await frame.locator('#dr-site-language [data-lang="es"]').click();
+    await choose(frame,'es');
     await page.waitForFunction(()=>document.querySelector('header strong')?.textContent==='DR Agenda');
     assert.match(await frame.locator('.event-date').first().innerText(),/noviembre/);
-    await frame.locator('#dr-site-language [data-lang="en"]').click();
+    await choose(frame,'en');
     await page.waitForFunction(()=>document.querySelector('header strong')?.textContent==='DR Events');
     await frame.locator('#search-events').fill('unmatched-query-x');
     await frame.locator('#empty-heading').waitFor({state:'visible',timeout:12000});

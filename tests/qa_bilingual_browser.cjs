@@ -79,6 +79,7 @@ async function run(engineName,engine,mobile){
     await frame.locator('.event-title').first().waitFor({timeout:12000});
     assert.equal(await frame.locator('.event-title').first().innerText(),fixture.events[0].title);
     assert.equal(await frame.locator('.event-description').first().innerText(),fixture.events[0].description);
+    if(await frame.locator('#event-dialog').evaluate(el=>el.open))await frame.locator('#dialog-close').click();
     await frame.locator('#dr-site-language [data-lang="es"]').click();
     await page.waitForFunction(()=>document.querySelector('header strong')?.textContent==='DR Agenda');
     await frame.locator('#dr-site-language [data-lang="en"]').click();

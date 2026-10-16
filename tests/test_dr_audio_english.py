@@ -193,11 +193,81 @@ class EnglishAudioTests(unittest.TestCase):
                   patch.object(en, "tts_timeout_error", return_value=False),
                   patch.object(en, "mark_english_tts_attempt") as tts_marker,
                   patch.object(en, "generate_wav") as tts):
-                with self.assertRaises(DemandError):
-                    en.main()
+                en.main()  # Transient 503 is deferred, not a failed workflow.
                 tts_marker.assert_not_called()
                 tts.assert_not_called()
         self.assertEqual(self.spanish, original_spanish)
+
+    def test_503_translation_never_marks_tts_or_caches_bad_output(self):
+        class DemandError(Exception):
+            status_code = 503
+
+        self.assertTrue(en.english_temporary_503(DemandError("UNAVAILABLE")))
+        self.assertTrue(en.english_temporary_503(Exception("503 UNAVAILABLE")))
+        self.assertFalse(en.english_temporary_503(Exception("429 RESOURCE_EXHAUSTED")))
+        self.assertFalse(en.english_temporary_503(ValueError("Bad translation")))
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_path = Path(tmp) / "english-only"
+            env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main",
+                   "EVENT_NAME": "schedule", "GEMINI_API_KEY_DR_AUDIO_EN": "test"}
+            with (patch.dict("os.environ", env),
+                  patch.object(en, "ENGLISH_TRANSLATION_CACHE_DIR", cache_path),
+                  patch.object(sys, "argv", ["english", "--mode", "generate",
+                                           "--output", str(Path(tmp) / "build")]),
+                  patch.object(en, "english_quota_blocked_until", return_value=None),
+                  patch.object(en, "load_live_index", return_value=self.spanish),
+                  patch.object(en, "load_english_index", return_value=self.english),
+                  patch.object(en, "parse_feed", return_value=[self.article]),
+                  patch.object(en, "english_recent_tts_attempt", return_value=False),
+                  patch.object(en, "translate_article", side_effect=DemandError("503")),
+                  patch.object(en.genai, "Client"),
+                  patch.object(en, "mark_english_tts_attempt") as marker,
+                  patch.object(en, "generate_wav") as tts):
+                en.main()
+            marker.assert_not_called()
+            tts.assert_not_called()
+            self.assertFalse(cache_path.exists())
+
+    def test_503_tts_preserves_english_translation_for_next_run(self):
+        class DemandError(Exception):
+            status_code = 503
+
+        translated = "The FBI seizes devices. Apple AirTag made news. " * 13
+        env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main",
+               "EVENT_NAME": "schedule", "GEMINI_API_KEY_DR_AUDIO_EN": "test"}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cache_path = root / "english-transcripts"
+            output_path = root / "prepared"
+            es_snapshot = copy.deepcopy(self.spanish)
+            with (patch.dict("os.environ", env),
+                  patch.object(sys, "argv", ["english", "--mode", "generate",
+                                           "--output", str(output_path)]),
+                  patch.object(en, "ENGLISH_TRANSLATION_CACHE_DIR", cache_path),
+                  patch.object(en, "english_quota_blocked_until", return_value=None),
+                  patch.object(en, "load_live_index", return_value=self.spanish),
+                  patch.object(en, "load_english_index", return_value=self.english),
+                  patch.object(en, "parse_feed", return_value=[self.article]),
+                  patch.object(en, "english_recent_tts_attempt", return_value=False),
+                  patch.object(en.genai, "Client"),
+                  patch.object(en, "mark_english_tts_attempt"),
+                  patch.object(en, "translate_article", return_value=translated) as translation,
+                  patch.object(en, "generate_wav", side_effect=DemandError("503")) as tts):
+                en.main()
+                translation.assert_called_once()
+                tts.assert_called_once()
+                transcripts = list(cache_path.glob("*.en.txt"))
+                self.assertEqual(len(transcripts), 1)
+                self.assertEqual(transcripts[0].read_text(), translated)
+                self.assertFalse((output_path / "dr-audio/index.json").exists())
+                with (patch.object(en, "translate_article",
+                                   side_effect=AssertionError("Duplicate translation")),
+                      patch.object(en, "generate_wav", return_value=b"WAV"),
+                      patch.object(en, "wav_to_m4a",
+                                   side_effect=lambda wav, p: p.write_bytes(b"A" * 2048))):
+                    en.main()
+                self.assertTrue((output_path / "dr-audio/index.json").is_file())
+                self.assertEqual(self.spanish, es_snapshot)
 
     def test_english_quota_cache_is_separate_and_time_bounded(self):
         from datetime import datetime, timedelta, timezone

@@ -118,17 +118,30 @@ jobs:
               )
               age_seconds = (now - created.astimezone(timezone.utc)).total_seconds()
 
-              if age_seconds < 8 * 60:
+              # A finished failed run is NOT a successful scheduler wake-up.
+              # Recover it after a 5-minute floor (unless a newer English
+              # workflow is already active); protect against retry storms.
+              failed = newest.get("conclusion") in {"failure", "timed_out"}
+              if failed and age_seconds < 5 * 60:
                   print(
-                      "Primary English English DR Audio workflow ran recently: "
+                      "Primary English DR Audio failed recently: "
+                      f"run #{newest.get('run_number')} started "
+                      f"{int(age_seconds)}s ago. Wait for retry floor."
+                  )
+                  raise SystemExit(0)
+
+              if not failed and age_seconds < 8 * 60:
+                  print(
+                      "Primary English DR Audio workflow ran recently: "
                       f"run #{newest.get('run_number')} started "
                       f"{int(age_seconds)}s ago. No watchdog dispatch needed."
                   )
                   raise SystemExit(0)
 
               print(
-                  "Primary English DR Audio scheduler is stale: "
-                  f"last run #{newest.get('run_number')} started "
+                  ("Primary English DR Audio failed; controlled recovery: "
+                   if failed else "Primary English DR Audio scheduler is stale: ")
+                  + f"last run #{newest.get('run_number')} started "
                   f"{int(age_seconds)}s ago."
               )
           else:

@@ -137,6 +137,68 @@ class EnglishAudioTests(unittest.TestCase):
             feed, spanish, english, historical_backfill=False,
         ))
 
+    def test_gemini_503_retries_bounded_without_touching_quota(self):
+        class DemandError(Exception):
+            status_code = 503
+
+        counter = {"calls": 0}
+
+        def eventual_success():
+            counter["calls"] += 1
+            if counter["calls"] < 3:
+                raise DemandError("503 UNAVAILABLE")
+            return "English content"
+
+        with patch.object(en.time, "sleep") as sleep:
+            self.assertEqual(en.retry_english_503(eventual_success), "English content")
+        self.assertEqual(counter["calls"], 3)
+        self.assertEqual([x.args[0] for x in sleep.call_args_list], [5, 15])
+
+        counter["calls"] = 0
+        with patch.object(en.time, "sleep") as sleep:
+            with self.assertRaises(DemandError):
+                en.retry_english_503(
+                    lambda: (_ for _ in ()).throw(DemandError("503")), max_attempts=2
+                )
+        sleep.assert_called_once_with(5)
+
+        with patch.object(en.time, "sleep") as sleep:
+            with self.assertRaisesRegex(Exception, "429"):
+                en.retry_english_503(
+                    lambda: (_ for _ in ()).throw(Exception("429 quota"))
+                )
+        sleep.assert_not_called()
+
+    def test_translation_failure_does_not_mark_tts_or_touch_spanish(self):
+        class DemandError(Exception):
+            status_code = 503
+
+        env = {"GITHUB_ACTIONS": "true",
+               "GITHUB_REF": "refs/heads/main",
+               "EVENT_NAME": "schedule",
+               "GEMINI_API_KEY_DR_AUDIO_EN": "dummy-test-key"}
+        original_spanish = copy.deepcopy(self.spanish)
+        with tempfile.TemporaryDirectory() as tmp:
+            with (patch.dict("os.environ", env),
+                  patch.object(sys, "argv", [
+                      "english", "--mode", "generate", "--output", tmp,
+                  ]),
+                  patch.object(en, "english_quota_blocked_until", return_value=None),
+                  patch.object(en, "load_live_index", return_value=self.spanish),
+                  patch.object(en, "load_english_index", return_value=self.english),
+                  patch.object(en, "parse_feed", return_value=[self.article]),
+                  patch.object(en, "english_recent_tts_attempt", return_value=False),
+                  patch.object(en, "translate_article", side_effect=DemandError("503")),
+                  patch.object(en, "pause_english_quota", return_value=False),
+                  patch.object(en, "tts_timeout_error", return_value=False),
+                  patch.object(en, "mark_english_tts_attempt") as tts_marker,
+                  patch.object(en, "generate_wav") as tts):
+                with self.assertRaises(DemandError):
+                    en.main()
+                tts_marker.assert_not_called()
+                tts.assert_not_called()
+        self.assertEqual(self.spanish, original_spanish)
+
     def test_english_quota_cache_is_separate_and_time_bounded(self):
         from datetime import datetime, timedelta, timezone
         with tempfile.TemporaryDirectory() as tmp:
@@ -246,6 +308,9 @@ class EnglishAudioTests(unittest.TestCase):
                       (workflows / "generate-dr-audio.yml").read_text())
         self.assertNotIn("TARGET_WORKFLOW: generate-dr-audio.yml", en_wd)
         self.assertNotIn("dr-audio-scheduler-watchdog\n", en_wd)
+        self.assertIn('newest.get("conclusion") in {"failure", "timed_out"}', en_wd)
+        self.assertIn("if failed and age_seconds < 5 * 60:", en_wd)
+        self.assertIn("if not failed and age_seconds < 8 * 60:", en_wd)
         self.assertIn("group: dr-audio-english-scheduler-watchdog", en_wd)
         self.assertIn("group: dr-audio-english-independent-release", en)
 

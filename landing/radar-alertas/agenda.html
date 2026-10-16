@@ -117,6 +117,9 @@ button.saved{color:#b61050;border-color:#b61050}a.btn{border-radius:11px;backgro
     if(!webapp&&!agenda&&!wrapper)return;
     const KEY='dr-site-ui-lang-1', allowed=['auto','es','en'], original=new WeakMap(), lastWrite=new WeakMap();
     const tr={
+      "ComicCon República Dominicana 2026":"ComicCon Dominican Republic 2026",
+      "📅 Fecha: Jueves 15 de octubre de 2026\n📍 Lugar: Cines de República Dominicana; horarios por confirmar en cartelera\n\nLa nueva película basada en el famoso videojuego de lucha reúne a Ryu, Ken y Chun-Li. Recomendado para la comunidad gamer.":"📅 Date: Thursday, October 15, 2026\n📍 Location: Cinemas across the Dominican Republic; screening times to be confirmed.\n\nThe new movie based on the iconic fighting game brings together Ryu, Ken and Chun-Li. Recommended for gaming fans.",
+      "📅 Fecha: Sábado 24 y domingo 25 de octubre de 2026\n📍 Lugar: Puerto San Souci, Santo Domingo Este\n\nDos días de cultura geek, videojuegos, cosplay, cómics, anime e invitados especiales. Entrada general por un día desde RD$1,900 según Uepa Tickets; los precios pueden cambiar.":"📅 Date: Saturday, October 24 and Sunday, October 25, 2026\n📍 Location: Puerto San Souci, Santo Domingo Este\n\nTwo days of geek culture, video games, cosplay, comics, anime and special guests. One-day general admission starts at RD$1,900 according to Uepa Tickets; prices may change.",
       "No hay coincidencias.":"No matches found.",
       "Prueba otra categoría o cambia los términos de búsqueda.":"Try another category or different search terms.",
       "Evento":"Event",
@@ -224,7 +227,7 @@ button.saved{color:#b61050;border-color:#b61050}a.btn{border-radius:11px;backgro
     const incoming=new URLSearchParams(location.search).get('lang');
     if(allowed.includes(incoming))choice=incoming;
     const locale=()=>choice==='auto'?(String(navigator.languages?.[0]||navigator.language||'es').toLowerCase().startsWith('en')?'en':'es'):choice;
-    const excluded='script,style,textarea,input,pre,code,[contenteditable],.event-title,.event-description,.event-place,#dialog-title,#dialog-description,.notice strong,.notice .title';
+    const excluded='script,style,textarea,input,pre,code,[contenteditable],.event-place,.notice strong,.notice .title';
     const attrOriginal=new WeakMap(),attrLast=new WeakMap();
     const attrTr={'DR Accesorios RD, DR Agenda':'DR Accesorios RD, DR Events','Filtrar por categoría':'Filter by category','Enlaces principales':'Main links','Resumen de la agenda':'Events summary','Cerrar detalle':'Close event details','Catálogo DR Agenda':'DR Events catalog'};
     const box=document.createElement('div');box.id='dr-site-language';

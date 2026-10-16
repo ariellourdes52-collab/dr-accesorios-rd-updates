@@ -70,35 +70,50 @@ jobs:
           RELEASE_ID="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.tag_name=="2.6") | .id' | head -n 1)"
 
           cat > /tmp/v26-body.md <<'BODY'
-          DR Accesorios RD v2.6 — DR Agenda: eventos, ubicación y avisos 📅
+          DR Accesorios RD v2.6 — DR Agenda y comunidad conectada 📅
           
-          Versión preparada con el alcance trabajado hasta el domingo 11 de octubre de 2026.
+          Actualización preparada a partir de las mejoras desarrolladas el 10 y 11 de octubre de 2026, integrando la ampliación de Social y comunidad con DR Agenda y sus notificaciones.
           
-          • 📅 DR Agenda: eventos de tecnología, cine, gaming y actividades locales, con información desde Firebase Hosting.
-          • 🔔 Notificaciones FCM de eventos, integradas al Centro de Notificaciones y apertura de las fichas.
-          • 📍 GPS al entrar a DR Agenda, con distancia estimada al evento y enlaces a Google Maps.
-          • 🖼️ Fotografías de eventos completas y visor ampliable con zoom de hasta 5 aumentos.
-          • 🗓️ Agregar eventos a Google Calendar con los datos precargados.
-          • 🔄 Deslizar para actualizar la lista de eventos; sin eventos ficticios.
-          • ✈️ Integración de la información de eventos con Telegram y enlaces de ubicación (servicio del bot distribuido por separado).
-          • 🎧 DR Audio, 📡 DR Radar, noticias, comunidad, favoritos, lectura y notificaciones existentes conservados.
+          ### ✈️ Social y comunidad: primeras mejoras de v2.6
+          • Telegram se incorpora como cuarta opción del carrusel Social del Inicio.
+          • Menú «Social y comunidad» ampliado con accesos a Telegram y Beehiiv para consultar la comunidad y suscribirse a las noticias.
+          • Navegación e integración de estos accesos dentro de la experiencia existente, sin eliminar las redes y funciones sociales anteriores.
           
-          Edición GitHub: versionName 2.6, versionCode 22, con actualizador integrado.
-          Edición Store: versionName 2.6, versionCode 23, separada; no forma parte de este lanzamiento.
+          ### 📅 DR Agenda: eventos y experiencias cercanas
+          • Sección DR Agenda en Menú con diseño Material 3, eventos reales, fotografías, fechas y horarios adaptados a República Dominicana.
+          • Catálogo de eventos servido desde Firebase Hosting secundario; sin eventos ficticios ni dependencia de Firebase Blaze o Railway para Agenda.
+          • Ubicación al abrir Agenda, con opciones de localización precisa, aproximada o manual y cálculo de distancia a eventos.
+          • Filtros de cercanía, enlaces de ubicación y navegación hacia Google Maps.
+          • Fotografías de eventos a tamaño completo, sin recortes y con visor ampliable y zoom de hasta 5 aumentos.
+          • Acceso para agregar eventos a Google Calendar con la información del evento precargada.
+          • Actualización de la lista de eventos mediante gesto de deslizar.
+          
+          ### 🔔 Notificaciones de eventos
+          • Notificaciones FCM de DR Agenda integradas en el Centro de Notificaciones, con apertura directa al evento.
+          • Recepción de avisos incluso cuando la aplicación está cerrada, conforme a las pruebas del 11 de octubre.
+          • Entrega reforzada con prioridad HIGH, WorkManager acelerado, verificación de suscripción y control de duplicados.
+          • Margen de hasta 15 minutos para eventos recién finalizados, evitando descartar avisos relevantes antes de tiempo.
+          
+          ### 🛡️ Continuidad, compatibilidad y distribución
+          • Se conservan DR Audio, DR Radar, lector de noticias, comentarios, respuestas, favoritos, lectura offline y servicios Firebase existentes.
+          • El bot de Telegram y la web de DR Agenda son servicios complementarios y se actualizan por separado; esta edición incorpora sus accesos e integración Android.
+          • Edición GitHub: versionName 2.6 y versionCode 22, con actualizador GitHub/Firebase.
+          • Edición Store: versionName 2.6 y versionCode 23, sin actualizador externo, con publicación independiente de este lanzamiento.
           
           **Lanzamiento programado:** 24 de noviembre de 2026, 8:00 p. m. (República Dominicana).
           
           ---
           
           **Archivo:** `dr-accesorios-rd.apk`
-          **SHA-256:** pendiente de fijar tras compilar, firmar y probar el APK definitivo de GitHub v2.6.
+          **Estado de validación:** falta compilar, firmar, instalar/probar y adjuntar el APK Release definitivo de GitHub v2.6.
+          **SHA-256:** pendiente de fijar tras validar el APK definitivo; el workflow bloquea la publicación hasta entonces.
           BODY
 
           if [ -z "$RELEASE_ID" ]; then
             gh api --method POST "/repos/${GITHUB_REPOSITORY}/releases" \
               -f tag_name="2.6" \
               -f target_commitish="main" \
-              -f name="DR Accesorios RD v2.6 — DR Agenda, eventos y ubicación 📅" \
+              -f name="DR Accesorios RD v2.6 — DR Agenda y comunidad conectada 📅" \
               -F draft=true \
               -F prerelease=false \
               --raw-field body="$(cat /tmp/v26-body.md)"
@@ -115,7 +130,7 @@ jobs:
 
           gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             --raw-field tag_name="2.6" \
-            --raw-field name="DR Accesorios RD v2.6 — DR Agenda, eventos y ubicación 📅" \
+            --raw-field name="DR Accesorios RD v2.6 — DR Agenda y comunidad conectada 📅" \
             --raw-field body="$(cat /tmp/v26-body.md)"
 
           echo "Draft 2.6 metadata synchronized."
@@ -137,7 +152,7 @@ jobs:
             "versionName": "2.6",
             "forceUpdate": false,
             "downloadUrl": "https://github.com/ariellourdes52-collab/dr-accesorios-rd-updates/releases/latest/download/dr-accesorios-rd.apk",
-            "changelog": "📅 DR Agenda con eventos reales y detalles completos\n🔔 Alertas FCM de eventos en el Centro de Notificaciones\n📍 GPS, distancias y Google Maps desde Agenda\n🖼️ Fotos de eventos ampliables con zoom\n🗓️ Google Calendar con datos del evento\n🔄 Deslizar para actualizar Agenda\n🎧 DR Audio y 📡 DR Radar preservados\n📰 Noticias, comunidad y lectura sin cambios regresivos"
+            "changelog": "✈️ Telegram en carrusel Social y menú de comunidad\n📩 Acceso a Beehiiv desde Social y comunidad\n📅 DR Agenda con eventos reales, fichas y horarios RD\n📍 GPS automático/manual, distancias y Google Maps\n🖼️ Fotografías sin recorte y zoom de hasta 5×\n🗓️ Agregar eventos a Google Calendar\n🔔 Alertas FCM Agenda con apertura directa y mayor fiabilidad\n🔄 Deslizar para actualizar Agenda\n🎧 DR Audio, 📡 DR Radar, noticias y comunidad preservados"
           }
           JSON
 

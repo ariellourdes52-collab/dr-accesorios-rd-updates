@@ -2,8 +2,8 @@ name: Release DR Accesorios RD 2.5
 # v2.5 must use versionCode 21 because v2.4.1 is versionCode 20.
 # Final publication remains blocked until the rebuilt APK SHA-256 is locked below.
 
-# Official v2.5 publication: 2026-12-02 20:00 America/Santo_Domingo
-# GitHub Actions cron is UTC, so that is 2026-12-03 00:00 UTC.
+# Official v2.5 publication: 2026-11-04 20:00 America/Santo_Domingo
+# GitHub Actions cron is UTC, so that is 2026-11-05 00:00 UTC.
 on:
   push:
     branches:
@@ -11,7 +11,7 @@ on:
     paths:
       - '.github/workflows/release-2.5.yml'
   schedule:
-    - cron: '0 0 3 12 *'
+    - cron: '0 0 5 11 *'
   workflow_dispatch:
     inputs:
       confirm:
@@ -40,7 +40,7 @@ jobs:
         run: |
           proceed=false
 
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y-%m-%d)" = "2026-12-03" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y-%m-%d)" = "2026-11-05" ]; then
             proceed=true
           fi
 
@@ -100,7 +100,7 @@ jobs:
 
           La v2.5 no busca llenar la app de funciones nuevas por llenar. Es una evolución de calidad: más Compose, más coherencia, más seguridad, más fluidez y una base más preparada para lo que viene después.
 
-          **Lanzamiento programado:** 2 de diciembre de 2026, 8:00 p. m. (República Dominicana).
+          **Lanzamiento programado:** 4 de noviembre de 2026, 8:00 p. m. (República Dominicana).
 
           ---
 

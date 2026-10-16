@@ -23,7 +23,7 @@ jobs:
 
   browser-qa:
     name: Offline Chromium and WebKit (no deploy)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/dr-webapp-agenda-ui-i18n-qa-20261015'
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015'
     needs: static-qa
     runs-on: ubuntu-latest
     timeout-minutes: 20

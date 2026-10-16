@@ -23,7 +23,7 @@ for(const path of paths){
   assert.ok(addition.includes("window.parent.postMessage"),path+': missing bidirectional language update');
   assert.ok(addition.includes("b.blur();folded(false);select("),path+': selector focus blocks collapse');
   assert.ok(addition.includes("Object.prototype.hasOwnProperty.call(tr,text)"),path+': old-browser compatibility missing');
-  assert.ok(!/\\b(?:fetch|XMLHttpRequest|sendBeacon|eval)\\s*\\(/.test(addition),path+': unexpected remote call or dynamic code');
+  assert.ok(!/\b(?:fetch|XMLHttpRequest|sendBeacon|eval)\s*\(/.test(addition),path+': unexpected remote call or dynamic code');
   assert.ok(addition.includes("e.origin!=='https://dr-accesorios-rd.web.app'"),path+': origin must be verified');
   assert.ok(addition.includes("lang:choice"),path+': raw choice must sync across the iframe');
   assert.ok(addition.includes(".event-title,.event-description"),path+': user events must be excluded');

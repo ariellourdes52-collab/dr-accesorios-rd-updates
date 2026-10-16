@@ -5,7 +5,7 @@ prepare: validate both sites and live snapshots, create TTL channels, build isol
 verify:  validate preview pages and unchanged live releases.
 """
 from __future__ import annotations
-import json, os, re, sys, stat
+import json, os, re, sys, stat, time
 from pathlib import Path
 from urllib.parse import urlparse
 import requests
@@ -186,8 +186,22 @@ def verify(session):
         preview_url=snapshot["urls"][site]
         channel=api(session,"GET",f"sites/{site}/channels/{CHANNEL}")
         require(channel_url(channel,site)==preview_url and channel.get("release"),"preview release absent")
-        resp=requests.get(preview_url+path,timeout=25,allow_redirects=False)
-        require(resp.status_code==200,"preview HTTP "+str(resp.status_code)+" for "+site)
+        version=(channel["release"].get("version") or {}).get("name","")
+        require("/sites/"+site+"/versions/" in "/"+version,"preview version belongs to another site")
+        manifest=api(session,"GET",version+"/files",params={"status":"ACTIVE","pageSize":1000})
+        assets={entry.get("path") for entry in manifest.get("files",[])}
+        expected_file="/agenda/index.html" if site==AGENDA else "/radar-alertas/index.html"
+        require(expected_file in assets,"preview manifest missing HTML file "+expected_file)
+        print("Preview manifest OK: "+site+" total assets "+str(len(assets)),flush=True)
+        resp=None
+        for attempt in range(12):
+            resp=requests.get(preview_url+path,timeout=25,allow_redirects=False)
+            if resp.status_code==200:break
+            if resp.status_code not in (404,503):break
+            print("Preview propagation: "+site+" returned HTTP "+str(resp.status_code)+
+                  " (attempt "+str(attempt+1)+"/12)",flush=True)
+            if attempt<11:time.sleep(5)
+        require(resp is not None and resp.status_code==200,"preview HTTP "+str(resp.status_code if resp is not None else -1)+" for "+site)
         require("DR_SITE_BILINGUAL_UI_QA_V1" in resp.text,"preview translation missing from "+site)
         require("noindex" in resp.text,"noindex missing from preview")
     print("QA PREVIEW RELEASE VERIFIED — no LIVE channel changes",flush=True)

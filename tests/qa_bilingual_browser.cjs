@@ -43,11 +43,18 @@ async function waitText(locator,expected){
   assert.ok(t.includes(expected),'Expected "'+expected+'", got: '+t);
 }
 async function choose(scope,lang){
+  const option=scope.locator('#dr-site-language [data-lang="'+lang+'"]');
+  // If already selected (possibly persisted from the Web App on the same origin),
+  // no click is needed, even if the selector has collapsed.
+  if(await option.getAttribute('aria-pressed')==='true')return;
   const overlay=scope.locator('#dr-site-language');
-  if(await overlay.evaluate(el=>el.classList.contains('folded'))){
-    await scope.locator('#dr-site-language .toggle').click();
+  for(let attempt=0;attempt<3;attempt++){
+    if(await overlay.evaluate(el=>el.classList.contains('folded'))){
+      await scope.locator('#dr-site-language .toggle').click();
+    }
+    try{await option.click({timeout:3000});return;}
+    catch(error){if(attempt===2)throw error;}
   }
-  await scope.locator('#dr-site-language [data-lang="'+lang+'"]').click();
 }
 async function run(engineName,engine,mobile){
   const browser=await engine.launch({headless:true});

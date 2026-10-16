@@ -127,3 +127,26 @@ jobs:
           python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
       - name: Check exact LIVE hashes and unchanged configuration; no writes
         run: python tests/audit_full_bilingual_candidate.py
+
+  full-manifest-preview-qa:
+    name: Full LIVE-preserving bilingual preview (never LIVE)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015'
+    needs: [static-qa, browser-qa, full-live-overlay-audit, production-inventory-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    permissions:
+      contents: read
+    concurrency:
+      group: dr-pr41-full-manifest-preview-only
+      cancel-in-progress: false
+    env:
+      DR_FULL_QA_PREVIEW: PREVIEW_ONLY
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile guarded candidate scripts and install API-only dependencies
+        run: |
+          python -m py_compile scripts/pr41_full_live_preserving_preview.py tests/audit_full_bilingual_candidate.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Create full-file preview channels only, with original LIVE config and hashes
+        run: python scripts/pr41_full_live_preserving_preview.py

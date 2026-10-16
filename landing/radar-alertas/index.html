@@ -622,6 +622,13 @@
       if(store)try{localStorage.setItem(KEY,v);}catch(_){}
       apply();relay();later();
     };
+    // UI-only date formatting. Original event timestamps and DR timezone are untouched.
+    const monthEN={enero:'January',febrero:'February',marzo:'March',abril:'April',mayo:'May',junio:'June',julio:'July',agosto:'August',septiembre:'September',octubre:'October',noviembre:'November',diciembre:'December'};
+    const englishDate=source=>{
+      const m=source.match(/^(◷\s*)?(\d{1,2}) de ([a-zá]+) de (\d{4}),\s*(\d{1,2}:\d{2})\s*([ap])\.\s*m\.$/iu);
+      if(!m||!Object.prototype.hasOwnProperty.call(monthEN,m[3].toLowerCase()))return null;
+      return (m[1]||'')+monthEN[m[3].toLowerCase()]+' '+m[2]+', '+m[4]+', '+m[5]+' '+m[6].toUpperCase()+'M';
+    };
     function apply(){
       const english=locale()==='en';
       document.documentElement.lang=english?'en':'es-DO';
@@ -632,7 +639,8 @@
         if(!original.has(n)||(now!==original.get(n)&&now!==lastWrite.get(n)))original.set(n,now);
         const source=original.get(n),text=source.trim();
         const dynamic=text.match(/^(\d+) eventos disponibles\.$/u);
-        const translated=english?(Object.prototype.hasOwnProperty.call(tr,text)?tr[text]:(dynamic?dynamic[1]+' events available.':text)):text;
+        const enDate=english&&n.parentElement.closest('.event-date,#dialog-meta')?englishDate(text):null;
+        const translated=english?(Object.prototype.hasOwnProperty.call(tr,text)?tr[text]:(dynamic?dynamic[1]+' events available.':(enDate||text))):text;
         const target=text&&translated!==text?source.replace(text,translated):source;
         if(now!==target){lastWrite.set(n,target);n.nodeValue=target;}
       }

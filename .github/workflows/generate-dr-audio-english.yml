@@ -71,6 +71,43 @@ jobs:
           PY
 
 
+      - name: Check English Firebase Hosting site permissions (read-only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+          from deploy_dr_audio_english import SITE_ID, SITE_LOOKUP, SPANISH_SITE_ID
+
+          assert SITE_ID != SPANISH_SITE_ID
+          secret = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
+          if not secret:
+              raise SystemExit("Firebase service account secret unavailable")
+          credentials = service_account.Credentials.from_service_account_info(
+              json.loads(secret),
+              scopes=["https://www.googleapis.com/auth/firebase.hosting.readonly"],
+          )
+          url = "https://firebasehosting.googleapis.com/v1beta1/" + SITE_LOOKUP
+          response = AuthorizedSession(credentials).get(url, timeout=35)
+          if response.status_code != 200:
+              raise SystemExit(f"English site permissions/identity check failed: HTTP {response.status_code}")
+          site = response.json()
+          name = str(site.get("name") or "")
+          if not name.endswith("/sites/" + SITE_ID):
+              raise SystemExit("Firebase returned an unexpected Hosting site")
+          default_url = str(site.get("defaultUrl") or "")
+          if default_url and "https://" + SITE_ID + ".web.app" != default_url:
+              raise SystemExit("Firebase English Hosting site URL mismatch")
+          print("English Hosting site exists and is readable; no write operations")
+          PY
+
+
   english_generate:
     needs: verify
     outputs:

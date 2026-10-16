@@ -148,7 +148,7 @@ def prepare_assets(session,urls):
     for name in ("icon-app-192.png","apple-touch-icon-180.png"):
         public_url="https://dr-accesorios-rd.web.app/radar-alertas/"+name
         original=requests.get(public_url,timeout=25,allow_redirects=False)
-        require(original.status_code==200 and original.content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+        require(original.status_code==200 and original.content.startswith(b"\x89PNG\r\n\x1a\n")
                 and len(original.content)<2000000,"could not retrieve the original icon: "+name)
         webfiles["/radar-alertas/"+name]=original.content
     webfiles["/index.html"]='<meta name="robots" content="noindex"><a href="/radar-alertas/index.html">QA Web App</a>'

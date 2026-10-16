@@ -59,8 +59,9 @@ def gzip_hashes(contents):
     return hashes
 def addon_for(src):
     raw=(ROOT/src).read_text(encoding="utf-8")
-    must(raw.count(EXPECTED_MARKER)==1,"nonunique addon marker "+src)
-    mid=raw.index(EXPECTED_MARKER)
+    signature="/* DR_SITE_BILINGUAL_UI_QA_V1:"
+    must(raw.count(signature)==1,"nonunique addon script comment "+src)
+    mid=raw.index(signature)
     begin=raw.rfind("<script>",0,mid)
     end=raw.find("</script>",mid)
     must(begin>=0 and end>mid,"malformed bilingual script "+src)

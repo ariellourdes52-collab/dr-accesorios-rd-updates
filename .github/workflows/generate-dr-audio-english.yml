@@ -67,4 +67,4 @@ jobs:
         if: hashFiles('dr_audio_english_build/dr-audio/index.json') != ''
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/deploy_shared_dr_audio.py dr_audio_english_build
+        run: python scripts/deploy_shared_dr_audio.py dr_audio_english_build --english-overlay

@@ -75,6 +75,12 @@ async function run(engineName,engine,mobile){
     await choose(page,'en');
     await page.waitForFunction(()=>document.querySelector('.head h1')?.textContent.includes('24/7 Alerts'));
     assert.match(await page.locator('.body .lead').innerText(),/Enable essential/);
+
+    // The original status manager stays untouched. Assert dynamic Web Push text works in EN/ES.
+    await page.locator('#status').evaluate(el=>{el.textContent="Falta activar Web Push para recibir Radar, sismos, nuevas publicaciones y avisos de DR Agenda.";});
+    await page.waitForFunction(target=>document.querySelector('#status')?.textContent===target,"Enable Web Push to receive DR Radar, earthquake alerts, new posts and DR Events notifications.");
+    assert.equal(await page.locator('#status').textContent(),"Enable Web Push to receive DR Radar, earthquake alerts, new posts and DR Events notifications.");
+
     await choose(page,'es');
     await page.waitForFunction(()=>document.querySelector('.head h1')?.textContent.includes('Alertas 24/7'));
     await choose(page,'en');

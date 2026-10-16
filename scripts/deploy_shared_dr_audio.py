@@ -54,62 +54,9 @@ def catalog_for_change_detection(value: dict) -> dict:
     return stable
 
 
-def assert_english_overlay_preserved(live_catalog: dict, index: dict) -> None:
-    """Fail closed if English deploy alters any Spanish voice, history or metadata."""
-    allowed_entry_keys = {
-        "audioEnglishUrl", "audioEnglishPath", "englishContentHash",
-        "englishVoice", "englishBytes", "englishRenderModel",
-        "englishLanguage", "englishTitle",
-    }
-    allowed_index_keys = {"latestEnglishReady"}
-
-    def without_english(value: dict) -> dict:
-        clean = copy.deepcopy(value)
-        for key in allowed_index_keys:
-            clean.pop(key, None)
-        for item in clean.get("entries", []):
-            for key in allowed_entry_keys:
-                item.pop(key, None)
-        return clean
-
-    require(
-        without_english(index) == without_english(live_catalog),
-        "English overlay would mutate Spanish fields, history, metadata "
-        "or entry order. Aborting without publishing.",
-    )
-    require(
-        len(index.get("entries", [])) == len(live_catalog.get("entries", [])),
-        "English overlay would change historical article count.",
-    )
-    require(
-        all(
-            (not old_entry.get("audioEnglishPath"))
-            or (
-                new_entry.get("audioEnglishPath") == old_entry["audioEnglishPath"]
-                and new_entry.get("audioEnglishUrl") == old_entry.get("audioEnglishUrl")
-            )
-            for old_entry, new_entry in zip(
-                live_catalog.get("entries", []), index.get("entries", [])
-            )
-        ),
-        "English overlay would replace previously generated English audio.",
-    )
-
-
-def preserve_existing_audio_assets(expected: dict, old_files: dict) -> None:
-    """English overlay retains every Hosting DR Audio asset, even orphaned ones."""
-    for path, digest in old_files.items():
-        if path.startswith("/dr-audio/") and path != "/dr-audio/index.json":
-            expected[path] = digest
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("build_dir", nargs="?", default="dr_audio_build")
-    parser.add_argument(
-        "--english-overlay", action="store_true",
-        help="Reject all Spanish/catalog mutations and preserve every existing M4A.",
-    )
     args = parser.parse_args()
 
     build_dir = Path(args.build_dir)
@@ -212,10 +159,6 @@ def main() -> None:
             if candidate.exists():
                 local_audio_files[male_path] = candidate.read_bytes()
             elif male_path not in old_files:
-                require(
-                    not args.english_overlay,
-                    "English overlay refuses missing historical male audio: " + male_path,
-                )
                 # Never publish a catalog entry that points to a 404.
                 # Once removed, the next generator run sees that male voice as
                 # missing and regenerates it according to the normal priority/quota.
@@ -226,26 +169,12 @@ def main() -> None:
                 remove_male_fields(entry)
                 stripped_missing_male += 1
 
-        # New optional third voice. Never delete English history or alias it
-        # to Spanish files; fail closed if a referenced asset is unavailable.
-        english_path = valid_audio_path(entry.get("audioEnglishPath"))
-        if english_path:
-            candidate = audio_dir / Path(english_path).name
-            if candidate.exists():
-                local_audio_files[english_path] = candidate.read_bytes()
-            else:
-                require(
-                    english_path in old_files,
-                    f"Referenced English Hosting audio missing: {english_path}",
-                )
-
-    if not args.english_overlay:
-        latest_count = min(int(index.get("latestCount") or 0), len(entries))
-        index["latestMaleReady"] = sum(
-            1
-            for entry in entries[:latest_count]
-            if valid_audio_path(entry.get("audioMalePath"))
-        )
+    latest_count = min(int(index.get("latestCount") or 0), len(entries))
+    index["latestMaleReady"] = sum(
+        1
+        for entry in entries[:latest_count]
+        if valid_audio_path(entry.get("audioMalePath"))
+    )
 
     if stripped_missing_male:
         print(
@@ -292,9 +221,6 @@ def main() -> None:
                 "Live DR Audio catalog is not valid JSON"
             ) from error
 
-        if args.english_overlay:
-            assert_english_overlay_preserved(live_catalog, index)
-
         catalog_changed = (
             catalog_for_change_detection(index)
             != catalog_for_change_detection(live_catalog)
@@ -307,7 +233,7 @@ def main() -> None:
 
     referenced_audio_paths: set[str] = set()
     for entry in entries:
-        for key in ("audioPath", "audioFemalePath", "audioMalePath", "audioEnglishPath"):
+        for key in ("audioPath", "audioFemalePath", "audioMalePath"):
             path = valid_audio_path(entry.get(key))
             if path:
                 referenced_audio_paths.add(path)
@@ -328,14 +254,9 @@ def main() -> None:
         for path, digest in old_files.items()
         if not path.startswith("/dr-audio/")
     }
-    if args.english_overlay:
-        # Copy *all* existing shared audio assets, even no longer referenced by
-        # index.json. Do not silently trim user history in an English deploy.
-        preserve_existing_audio_assets(expected, old_files)
-    else:
-        for path in referenced_audio_paths:
-            if path in old_files and path not in local_files:
-                expected[path] = old_files[path]
+    for path in referenced_audio_paths:
+        if path in old_files and path not in local_files:
+            expected[path] = old_files[path]
 
     compressed_by_hash: dict[str, bytes] = {}
     for path, raw in local_files.items():

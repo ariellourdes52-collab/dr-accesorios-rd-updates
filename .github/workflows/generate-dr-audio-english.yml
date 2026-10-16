@@ -17,10 +17,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: dr-accesorios-rd-production-release
-  cancel-in-progress: false
-
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -75,8 +71,13 @@ jobs:
           PY
 
 
-  english:
+  english_generate:
     needs: verify
+    outputs:
+      ready: ${{ steps.prepared.outputs.ready }}
+    concurrency:
+      group: dr-audio-english-tts
+      cancel-in-progress: false
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'GENERATE-DR-AUDIO-EN'
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -101,8 +102,47 @@ jobs:
             --mode generate \
             --confirm GENERATE-DR-AUDIO-EN \
             --output dr_audio_english_build
+      - name: Detect prepared English audio
+        id: prepared
+        shell: bash
+        run: |
+          if [[ -s "dr_audio_english_build/dr-audio/index.json" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No English audio candidate. Nothing to publish."
+          fi
+      - name: Preserve prepared English audio until safe publish
+        if: steps.prepared.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-audio-english-ready
+          path: dr_audio_english_build/dr-audio/
+          if-no-files-found: error
+          retention-days: 1
+
+  english_deploy:
+    needs: english_generate
+    if: needs.english_generate.result == 'success' && needs.english_generate.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      # Only short Firebase release locks Spanish DR Audio; TTS has separate
+      # concurrency and never blocks scheduled Spanish generation.
+      group: dr-accesorios-rd-production-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deploy dependencies
+        run: python -m pip install --disable-pip-version-check --quiet google-auth requests
+      - uses: actions/download-artifact@v4
+        with:
+          name: dr-audio-english-ready
+          path: dr_audio_english_build/dr-audio/
       - name: Deploy English overlay preserving live Hosting files
-        if: hashFiles('dr_audio_english_build/dr-audio/index.json') != ''
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         run: python scripts/deploy_shared_dr_audio.py dr_audio_english_build --english-overlay

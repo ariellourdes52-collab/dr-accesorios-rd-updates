@@ -126,8 +126,12 @@ def main() -> None:
 
     # Confirm that this is a real dedicated Firebase Hosting site.
     site = api("GET", SITE)
-    require(site.get("name") == SITE,
-            "Dedicated English Hosting site is not provisioned; no deploy")
+    # Firebase may return either sites/<id> or projects/<project>/sites/<id>.
+    actual_site_name = str(site.get("name") or "")
+    require(
+        actual_site_name == SITE or actual_site_name.endswith("/" + SITE),
+        "Dedicated English Hosting site is not provisioned; no deploy",
+    )
 
     def active():
         channel = api("GET", SITE + "/channels/live")

@@ -123,6 +123,31 @@ async function run(engineName,engine,mobile){
     const dateText=await frame.locator('.event-date').first().innerText();
     assert.match(dateText,/November 20, 2034, 4:00 PM/,'UI date must be localized to English');
     assert.match(await frame.locator('#dialog-meta').innerText(),/November 20, 2034, 4:00 PM/,'Dialog date must match');
+
+    // Verify visual-only localization of two real cards without mutating the catalog.
+    const realTitle='ComicCon República Dominicana 2026';
+    const englishTitle='ComicCon Dominican Republic 2026';
+    const realDescription='📅 Fecha: Sábado 24 y domingo 25 de octubre de 2026\\n📍 Lugar: Puerto San Souci, Santo Domingo Este\\n\\nDos días de cultura geek, videojuegos, cosplay, cómics, anime e invitados especiales. Entrada general por un día desde RD$1,900 según Uepa Tickets; los precios pueden cambiar.';
+    const englishDescription='📅 Date: Saturday, October 24 and Sunday, October 25, 2026\\n📍 Location: Puerto San Souci, Santo Domingo Este\\n\\nTwo days of geek culture, video games, cosplay, comics, anime and special guests. One-day general admission starts at RD$1,900 according to Uepa Tickets; prices may change.';
+    await frame.locator('#event-grid').evaluate((grid,{realTitle,realDescription})=>{
+      const sample=document.createElement('article');sample.id='qa-real-event-card';
+      sample.innerHTML='<h3 class="event-title"></h3><p class="event-description"></p><p class="event-place">Puerto San Souci</p>';
+      sample.querySelector('.event-title').textContent=realTitle;
+      sample.querySelector('.event-description').textContent=realDescription;
+      grid.append(sample);
+    },{realTitle,realDescription});
+    await frame.locator('#qa-real-event-card .event-title').evaluate(async(el)=>{
+      for(let i=0;i<50&&el.textContent!=='ComicCon Dominican Republic 2026';i++)await new Promise(r=>setTimeout(r,50));
+    });
+    assert.equal(await frame.locator('#qa-real-event-card .event-title').innerText(),englishTitle);
+    assert.equal(await frame.locator('#qa-real-event-card .event-description').innerText(),englishDescription);
+    assert.equal(await frame.locator('#qa-real-event-card .event-place').innerText(),'Puerto San Souci');
+    await choose(frame,'es');
+    assert.equal(await frame.locator('#qa-real-event-card .event-title').innerText(),realTitle);
+    assert.equal(await frame.locator('#qa-real-event-card .event-description').innerText(),realDescription);
+    await choose(frame,'en');
+    assert.equal(await frame.locator('#qa-real-event-card .event-title').innerText(),englishTitle);
+    await frame.locator('#qa-real-event-card').evaluate(el=>el.remove());
     const severe=errorText.filter(x=>/DR_SITE_BILINGUAL|SyntaxError|Maximum call stack|Too much recursion/.test(x));
     assert.equal(severe.length,0,'No serious translation JS error: '+severe.join(' ; '));
     console.log('PASS '+engineName+' '+(mobile?'mobile':'desktop')+' real-browser QA; source event untouched; date='+dateText);

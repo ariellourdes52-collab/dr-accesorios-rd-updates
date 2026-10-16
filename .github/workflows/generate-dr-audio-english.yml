@@ -1,6 +1,9 @@
 name: DR Audio English female (isolated)
 
 on:
+  # Five minutes after the existing Spanish 10-minute watchdog.
+  schedule:
+    - cron: '8,18,28,38,48,58 * * * *'
   pull_request:
     paths:
       - 'scripts/generate_dr_audio_english.py'
@@ -13,9 +16,19 @@ on:
         description: 'Type GENERATE-DR-AUDIO-EN for ONE new English female audio'
         required: true
         default: 'NO'
+      historical_backfill:
+        description: 'One older English article if newest five completed (0 or 1)'
+        required: false
+        default: '0'
 
 permissions:
   contents: read
+
+# ONE English-only queue covering BOTH generation and Hosting publication.
+# NEVER use the Spanish production release group.
+concurrency:
+  group: dr-audio-english-independent-release
+  cancel-in-progress: false
 
 jobs:
   verify:
@@ -114,10 +127,7 @@ jobs:
     needs: verify
     outputs:
       ready: ${{ steps.prepared.outputs.ready }}
-    concurrency:
-      group: dr-audio-english-tts
-      cancel-in-progress: false
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'GENERATE-DR-AUDIO-EN'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'GENERATE-DR-AUDIO-EN')
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -132,15 +142,65 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y ffmpeg
           fi
-      - name: Generate one English narration; Spanish stays unchanged
+      - name: Compute English quota date in Pacific timezone
+        id: quota-date
+        shell: bash
+        run: |
+          echo "date=$(TZ=America/Los_Angeles date -d '5 minutes ago' +%F)" >> "$GITHUB_OUTPUT"
+      - name: Restore independent English quota cooldown
+        uses: actions/cache/restore@v4
+        with:
+          path: .dr-audio-english-state/gemini-daily-quota.json
+          key: dr-audio-en-quota-${{ steps.quota-date.outputs.date }}-${{ github.run_id }}
+          restore-keys: |
+            dr-audio-en-quota-${{ steps.quota-date.outputs.date }}-
+      - name: Restore unpublished English audio after failed release
+        uses: actions/cache/restore@v4
+        with:
+          path: dr_audio_english_build/dr-audio
+          key: dr-audio-english-pending-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            dr-audio-english-pending-
+      - name: Generate ONE English narration; Spanish READ ONLY
         env:
           GEMINI_API_KEY_DR_AUDIO_EN: '${{ secrets.GEMINI_API_KEY_DR_AUDIO_EN }}'
           GITHUB_REF: '${{ github.ref }}'
+          EVENT_NAME: '${{ github.event_name }}'
+          MANUAL_BACKFILL: '${{ inputs.historical_backfill }}'
+        shell: bash
         run: |
+          set -euo pipefail
+          BACKFILL="${MANUAL_BACKFILL:-0}"
+          OPPORTUNISTIC=""
+          SCAN_POSTS=20
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            BACKFILL=0
+            LA_TIME="$(TZ=America/Los_Angeles date +%H:%M)"
+            if [[ "${LA_TIME%%:*}" == "23" && 10#${LA_TIME##*:} -ge 45 ]]; then
+              BACKFILL=1
+              OPPORTUNISTIC="--opportunistic-backfill"
+              SCAN_POSTS=500
+            fi
+          elif [[ "$BACKFILL" == "1" ]]; then
+            SCAN_POSTS=500
+          fi
+          if ! [[ "$BACKFILL" =~ ^[01]$ ]]; then
+            echo "Only 0 or 1 historical article allowed per run"
+            exit 2
+          fi
           python scripts/generate_dr_audio_english.py \
             --mode generate \
             --confirm GENERATE-DR-AUDIO-EN \
-            --output dr_audio_english_build
+            --output dr_audio_english_build \
+            --scan-posts "$SCAN_POSTS" \
+            --historical-backfill "$BACKFILL" \
+            $OPPORTUNISTIC
+      - name: Save newly detected independent English quota cooldown
+        if: always() && hashFiles('.dr-audio-english-state/.new-quota') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .dr-audio-english-state/gemini-daily-quota.json
+          key: dr-audio-en-quota-${{ steps.quota-date.outputs.date }}-${{ github.run_id }}
       - name: Detect prepared English audio
         id: prepared
         shell: bash
@@ -165,10 +225,6 @@ jobs:
     if: needs.english_generate.result == 'success' && needs.english_generate.outputs.ready == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    concurrency:
-      # Dedicated Hosting SITE and queue. Never compete for Spanish workflow locks.
-      group: dr-audio-english-hosting-deploy
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -184,3 +240,9 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         run: python scripts/deploy_dr_audio_english.py dr_audio_english_build
+      - name: Cache unpublished English M4A on failed deploy
+        if: ${{ failure() && hashFiles('dr_audio_english_build/dr-audio/*.m4a') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: dr_audio_english_build/dr-audio
+          key: dr-audio-english-pending-${{ github.run_id }}-${{ github.run_attempt }}

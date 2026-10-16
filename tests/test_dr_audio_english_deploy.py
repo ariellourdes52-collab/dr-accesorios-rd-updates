@@ -93,5 +93,29 @@ class EnglishDeploySafetyTests(unittest.TestCase):
                 deploy.plan_assets({"/dr-audio/new.m4a": "sha"}, path, self.updated)
 
 
+    def test_repeated_english_releases_keep_headers_idempotent(self):
+        config = {
+            "headers": [
+                {"glob": "/keep.txt", "headers": {"X-Unrelated": "stay"}},
+                {"glob": "/dr-audio/index.json", "headers": {"Old": "stale"}},
+            ],
+        }
+        deploy.set_english_headers(config)
+        initial = copy.deepcopy(config)
+        deploy.set_english_headers(config)
+        self.assertEqual(config, initial)
+        self.assertEqual(len(config["headers"]), 3)
+        self.assertEqual(config["headers"][0]["glob"], "/keep.txt")
+        self.assertNotIn("Old", config["headers"][1]["headers"])
+        self.assertEqual(config["headers"][1]["glob"], "/dr-audio/index.json")
+        self.assertEqual(config["headers"][2]["glob"], "/dr-audio/**")
+
+    def test_english_identity_rejects_similar_but_wrong_site(self):
+        from unittest.mock import patch
+        with patch.object(deploy, "SITE_ID", "dr-accesorios-rd-audio-en-test"):
+            with self.assertRaisesRegex(RuntimeError, "EXACT"):
+                deploy.validate_site_identity()
+
+
 if __name__ == "__main__":
     unittest.main()

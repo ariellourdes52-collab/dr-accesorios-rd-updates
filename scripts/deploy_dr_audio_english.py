@@ -38,8 +38,8 @@ def require(condition: bool, message: str) -> None:
 def validate_site_identity() -> None:
     require(bool(SITE_ID) and SITE_ID != SPANISH_SITE_ID,
             "English Hosting site must NEVER be the existing Spanish site")
-    require(SITE_ID.startswith("dr-accesorios-rd-audio-en"),
-            "Refusing to deploy English outside the dedicated Hosting site")
+    require(SITE_ID == "dr-accesorios-rd-audio-en",
+            "Refusing to deploy English outside the EXACT dedicated Hosting site")
     require(ENGLISH_PUBLIC_BASE == "https://" + SITE_ID + ".web.app",
             "English URL/site mismatch")
 
@@ -95,6 +95,29 @@ def plan_assets(current_files: dict[str, str], audio_dir: Path, index: dict) -> 
         "/dr-audio/index.json": json.dumps(index, ensure_ascii=False, indent=2).encode("utf-8") + b"\n",
         audio_path: raw,
     }
+
+
+
+def set_english_headers(config: dict) -> None:
+    """Idempotent English-site headers without touching any unrelated rule."""
+    headers = config.setdefault("headers", [])
+    require(isinstance(headers, list), "Invalid English site header config")
+    protected_globs = {"/dr-audio/index.json", "/dr-audio/**"}
+    headers[:] = [
+        rule for rule in headers
+        if rule.get("glob") not in protected_globs
+    ]
+    headers.extend([
+        {"glob": "/dr-audio/index.json", "headers": {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Access-Control-Allow-Origin": "*"
+        }},
+        {"glob": "/dr-audio/**", "headers": {
+            "Cache-Control": "public, max-age=604800, immutable",
+            "Access-Control-Allow-Origin": "*"
+        }}
+    ])
+
 
 
 def main() -> None:
@@ -194,17 +217,7 @@ def main() -> None:
 
     config = copy.deepcopy(old_config)
     # Define headers only for this English site; never alter Spanish config.
-    headers = config.setdefault("headers", [])
-    headers.extend([
-        {"glob": "/dr-audio/index.json", "headers": {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Access-Control-Allow-Origin": "*"
-        }},
-        {"glob": "/dr-audio/**", "headers": {
-            "Cache-Control": "public, max-age=604800, immutable",
-            "Access-Control-Allow-Origin": "*"
-        }}
-    ])
+    set_english_headers(config)
 
     require(active() == (prior_release, prior_version),
             "English site changed concurrently; abort")

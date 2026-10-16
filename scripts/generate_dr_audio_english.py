@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,8 @@ from google import genai
 from generate_shared_dr_audio import (
     MODEL, LATEST_REQUIRED, RENDER_MODEL, VOICE_CONFIGS, canonical_url,
     generate_wav, load_live_index, parse_feed, wav_to_m4a,
+    quota_exhausted_error, daily_quota_exhausted_error,
+    next_gemini_daily_reset_iso, parse_blocked_until, tts_timeout_error,
 )
 
 # Dedicated Firebase Hosting SITE, NOT the production Spanish Hosting site.
@@ -25,6 +28,8 @@ TRANSLATION_MODEL = "gemini-3.5-flash-lite"
 VOICE_KEY = "english"
 VOICE_NAME = VOICE_CONFIGS["female"]["name"]
 PUBLISH_CONFIRM = "GENERATE-DR-AUDIO-EN"
+ENGLISH_QUOTA_STATE = Path(".dr-audio-english-state/gemini-daily-quota.json")
+TEMPORARY_QUOTA_COOLDOWN_MINUTES = 20
 ENGLISH_STYLE = (
     "Professional female technology news presenter. Natural, clear American "
     "English; warm and conversational delivery, smooth newsroom cadence and "
@@ -50,6 +55,40 @@ def load_english_index() -> dict[str, Any]:
     if value.get("language") != "en":
         raise RuntimeError("English catalog language mismatch")
     return value
+
+
+
+def english_quota_blocked_until(state_path: Path = ENGLISH_QUOTA_STATE) -> datetime | None:
+    """Separate from .dr-audio-state used by Spanish. No cross-language cooldown."""
+    if not state_path.exists():
+        return None
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    return parse_blocked_until(str(state.get("blockedUntil") or ""))
+
+
+def pause_english_quota(error: Exception, state_path: Path = ENGLISH_QUOTA_STATE) -> bool:
+    """On English-key 429, stop retry storms; never write Spanish quota state."""
+    if not quota_exhausted_error(error):
+        return False
+    daily = daily_quota_exhausted_error(error)
+    blocked_until = (
+        next_gemini_daily_reset_iso() if daily
+        else (datetime.now(timezone.utc) +
+              timedelta(minutes=TEMPORARY_QUOTA_COOLDOWN_MINUTES)).isoformat()
+    )
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps({
+        "blockedUntil": blocked_until,
+        "reason": "english_gemini_daily_quota" if daily else "english_gemini_rate_limit",
+        "key": "GEMINI_API_KEY_DR_AUDIO_EN",
+    }, indent=2) + "\n", encoding="utf-8")
+    (state_path.parent / ".new-quota").write_text("new\n", encoding="utf-8")
+    print(
+        f"English-only Gemini quota cooldown until {blocked_until}; "
+        "will retry automatically. Spanish quota and audio are untouched.",
+        flush=True,
+    )
+    return True
 
 
 def english_digest(transcript: str) -> str:
@@ -91,10 +130,10 @@ def translate_article(client: genai.Client, spanish_text: str) -> str:
 
 
 def eligible_article(
-    feed: list[dict], spanish_index: dict, english_index: dict
+    feed: list[dict], spanish_index: dict, english_index: dict,
+    historical_backfill: bool = False,
 ) -> dict | None:
-    # Spanish is READ ONLY, used only to ensure that both existing voices
-    # receive priority, and that these articles already exist in the library.
+    # Spanish index is read-only. Both Spanish voices MUST exist first.
     spanish_by_url = {
         canonical_url(str(e.get("url") or "")): e
         for e in spanish_index.get("entries", []) if isinstance(e, dict)
@@ -103,15 +142,25 @@ def eligible_article(
         canonical_url(str(e.get("url") or ""))
         for e in english_index.get("entries", []) if isinstance(e, dict)
     }
-    for article in feed[:LATEST_REQUIRED]:
-        if article["url"] in existing_en_urls:
-            continue
-        spanish = spanish_by_url.get(article["url"])
-        if not spanish:
-            continue
-        if not spanish.get("audioFemaleUrl") or not spanish.get("audioMaleUrl"):
-            continue
-        return article
+
+    def spanish_ready(article: dict) -> bool:
+        spanish = spanish_by_url.get(canonical_url(article["url"]), {})
+        return bool(spanish.get("audioFemaleUrl") and spanish.get("audioMaleUrl"))
+
+    latest = feed[:LATEST_REQUIRED]
+    for article in latest:
+        if canonical_url(article["url"]) not in existing_en_urls and spanish_ready(article):
+            return article
+
+    # Historical English fill is optional and LOW PRIORITY. Never backfill
+    # while any newest article is awaiting English or the Spanish voices.
+    if not historical_backfill or any(
+        canonical_url(article["url"]) not in existing_en_urls for article in latest
+    ):
+        return None
+    for article in feed[LATEST_REQUIRED:]:
+        if canonical_url(article["url"]) not in existing_en_urls and spanish_ready(article):
+            return article
     return None
 
 
@@ -142,49 +191,100 @@ def extend_index(index: dict, article: dict, english_text: str, audio_path: Path
     return updated
 
 
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="dr_audio_english_build")
     parser.add_argument("--mode", choices=("scan", "generate"), default="scan")
     parser.add_argument("--confirm", default="")
+    parser.add_argument("--scan-posts", type=int, default=20)
+    parser.add_argument("--historical-backfill", type=int, choices=(0, 1), default=0)
+    parser.add_argument("--opportunistic-backfill", action="store_true")
     args = parser.parse_args()
 
-    if args.mode == "generate" and (
-        args.confirm != PUBLISH_CONFIRM
-        or os.environ.get("GITHUB_ACTIONS") != "true"
-        or os.environ.get("GITHUB_REF") != "refs/heads/main"
-    ):
-        raise RuntimeError("Manual production confirmation from main required")
+    event = os.environ.get("EVENT_NAME", "").strip()
+    authorized = (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        and os.environ.get("GITHUB_REF") == "refs/heads/main"
+        and (
+            event == "schedule"
+            or (event == "workflow_dispatch" and args.confirm == PUBLISH_CONFIRM)
+        )
+    )
+    if args.mode == "generate" and not authorized:
+        raise RuntimeError("English generation requires schedule from main or manual confirmation")
 
-    spanish = load_live_index()  # GET only! Never publishes or writes ES.
+    audio_dir = Path(args.output) / "dr-audio"
+    if args.mode == "generate":
+        # A previous failed release can restore old M4As, but never republish its
+        # stale index.json if today's scan decides to skip generation.
+        (audio_dir / "index.json").unlink(missing_ok=True)
+        blocked = english_quota_blocked_until()
+        if blocked:
+            print(f"English Gemini cooldown active until {blocked.isoformat()}; no TTS.")
+            return
+
+    spanish = load_live_index()  # GET only, never publish or mutate Spanish.
     if not spanish.get("entries"):
         raise RuntimeError("Spanish catalog unavailable; skip English")
     english = load_english_index()
-    article = eligible_article(parse_feed(20), spanish, english)
+    feed = parse_feed(args.scan_posts)
+    historical = bool(args.historical_backfill)
+    article = eligible_article(feed, spanish, english, historical_backfill=historical)
     if article is None:
         print("No eligible English news; Spanish and English data unchanged.")
         return
-    print("English candidate:", article["title"])
+    role = "historical" if article not in feed[:LATEST_REQUIRED] else "latest"
+    print(f"English {role} candidate:", article["title"])
     if args.mode == "scan":
-        print("SCAN ONLY, no TTS, translation or Firebase writes")
+        print("SCAN ONLY, no Gemini calls or Firebase writes")
         return
 
     key = os.environ.get("GEMINI_API_KEY_DR_AUDIO_EN", "").strip()
     if not key:
         raise RuntimeError("The dedicated English API key is missing")
     client = genai.Client(api_key=key)
-    transcript = translate_article(client, article["text"])
-    audio_dir = Path(args.output) / "dr-audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
+
+    # Keep a translation of a failed English release for a retry. The cache
+    # key includes the original content, so changed articles never reuse it.
+    source_digest = hashlib.sha256(
+        (article["url"] + "\n" + article["text"]).encode("utf-8")
+    ).hexdigest()[:28]
+    transcript_path = audio_dir / (source_digest + ".en.txt")
+    if transcript_path.is_file():
+        transcript = verify_translation(
+            article["text"], transcript_path.read_text(encoding="utf-8")
+        )
+        print("Reusing previously prepared English translation.")
+    else:
+        try:
+            transcript = translate_article(client, article["text"])
+        except Exception as error:
+            if pause_english_quota(error) or tts_timeout_error(error):
+                print("English translation deferred; Spanish unaffected.")
+                return
+            raise
+        transcript_path.write_text(transcript, encoding="utf-8")
+
     file_path = audio_dir / (english_digest(transcript)[:28] + ".m4a")
     VOICE_CONFIGS[VOICE_KEY] = {
         "name": VOICE_NAME, "style": ENGLISH_STYLE, "label": "English"
     }
-    if not file_path.exists() or file_path.stat().st_size <= 1024:
-        wav_to_m4a(generate_wav(client, transcript, VOICE_KEY), file_path)
+    if file_path.exists() and file_path.stat().st_size > 1024:
+        print("Reusing English M4A cached from an unsuccessful release.")
+    else:
+        try:
+            wav = generate_wav(client, transcript, VOICE_KEY)
+        except Exception as error:
+            if pause_english_quota(error) or tts_timeout_error(error):
+                print("English TTS deferred; Spanish unaffected.")
+                return
+            raise
+        wav_to_m4a(wav, file_path)
 
-    # Re-read only the English catalog before publication preparation:
-    # never overwrite English records created during generation.
+    # Re-check the English catalog immediately before preparing the overlay.
+    # Any concurrent English publication fails closed, never overwrites history.
     current_en = load_english_index()
     if current_en != english:
         raise RuntimeError("English catalog changed; fail closed")
@@ -193,7 +293,7 @@ def main() -> None:
         json.dumps(updated, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    print("New English file prepared; no change to Spanish Hosting.")
+    print("ONE new English file prepared; Spanish generator, quota and Hosting unchanged.")
 
 if __name__ == "__main__":
     main()

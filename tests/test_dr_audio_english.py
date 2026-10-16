@@ -227,6 +227,58 @@ class EnglishAudioTests(unittest.TestCase):
         self.assertIn("scripts/deploy_dr_audio_english.py", workflow)
         self.assertNotIn("scripts/deploy_shared_dr_audio.py", workflow)
 
+    def test_english_watchdog_matches_spanish_backup_without_crossing_schedules(self):
+        workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
+        en_wd = (workflows / "dr-audio-english-scheduler-watchdog.yml").read_text()
+        es_wd = (workflows / "dr-audio-scheduler-watchdog.yml").read_text()
+        en = (workflows / "generate-dr-audio-english.yml").read_text()
+        self.assertIn("TARGET_WORKFLOW: generate-dr-audio-english.yml", en_wd)
+        self.assertIn('"confirm": "GENERATE-DR-AUDIO-EN"', en_wd)
+        self.assertIn('"historical_backfill": "0"', en_wd)
+        self.assertIn('"scheduler_guard": "true"', en_wd)
+        self.assertIn('run.get("head_branch") == "main"', en_wd)
+        self.assertIn('run.get("event") in {"schedule", "push", "workflow_dispatch"}', en_wd)
+        self.assertIn("per_page=100", en_wd)
+        self.assertIn("2,12,22,32,42,52 * * * *", en_wd)
+        self.assertIn("7,17,27,37,47,57 * * * *", es_wd)
+        self.assertIn("8,18,28,38,48,58 * * * *", en)
+        self.assertIn("3,13,23,33,43,53 * * * *",
+                      (workflows / "generate-dr-audio.yml").read_text())
+        self.assertNotIn("TARGET_WORKFLOW: generate-dr-audio.yml", en_wd)
+        self.assertNotIn("dr-audio-scheduler-watchdog\n", en_wd)
+        self.assertIn("group: dr-audio-english-scheduler-watchdog", en_wd)
+        self.assertIn("group: dr-audio-english-independent-release", en)
+
+    def test_english_attempt_marker_is_json_and_only_en_state(self):
+        import json
+        from datetime import datetime, timedelta, timezone
+        with tempfile.TemporaryDirectory() as tmp:
+            now = datetime(2026, 10, 16, 5, 40, tzinfo=timezone.utc)
+            path = Path(tmp) / ".dr-audio-english-state/last-tts-attempt.json"
+            es_marker = Path(tmp) / ".dr-audio-state/last-tts-attempt.json"
+            es_marker.parent.mkdir()
+            es_marker.write_text("KEEP-SPANISH", encoding="utf-8")
+            self.assertFalse(en.english_recent_tts_attempt(path, now))
+            en.mark_english_tts_attempt(path, now)
+            self.assertEqual(json.loads(path.read_text())["attemptedAt"], now.isoformat())
+            self.assertTrue(en.english_recent_tts_attempt(path, now + timedelta(minutes=7)))
+            self.assertFalse(en.english_recent_tts_attempt(path, now + timedelta(minutes=8)))
+            self.assertFalse(en.english_recent_tts_attempt(path, now + timedelta(minutes=20)))
+            self.assertEqual(es_marker.read_text(), "KEEP-SPANISH")
+
+    def test_english_push_trigger_and_cache_never_share_spanish_resources(self):
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/generate-dr-audio-english.yml").read_text()
+        self.assertIn("  push:\n    branches:\n      - main", workflow)
+        self.assertIn("  schedule:", workflow)
+        self.assertIn("SCHEDULER_GUARD:", workflow)
+        self.assertIn("dr-audio-en-attempt-", workflow)
+        self.assertIn(".dr-audio-english-state/last-tts-attempt.json", workflow)
+        self.assertIn("GEMINI_API_KEY_DR_AUDIO_EN", workflow)
+        self.assertNotIn("group: dr-accesorios-rd-production-release", workflow)
+        self.assertNotIn("scripts/deploy_shared_dr_audio.py", workflow)
+        self.assertNotIn("scripts/generate_shared_dr_audio.py'\n", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

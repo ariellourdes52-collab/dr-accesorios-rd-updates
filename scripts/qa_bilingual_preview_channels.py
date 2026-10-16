@@ -137,13 +137,20 @@ def prepare_assets(session,urls):
         if name=="agenda.html":
             html=html.replace("https://dr-accesorios-rd-agenda.web.app/agenda/",agenda+"/agenda/")
             require(agenda+"/agenda/" in html,"iframe must use Agenda preview")
+        html=html.replace('<link rel="manifest" href="/radar-alertas/manifest.webmanifest">','')
         html=meta_guard(html,weborigin,allow_fetch=False,frame_origin=agendaorigin)
         # Actions that would request real permissions, login or subscriptions are disabled only in preview copies.
         css='<style>#activate,#deactivate,#socialButton,#installButton{pointer-events:none!important;opacity:.48!important}</style>'
         html=exact_replace(html,"</head>",css+"</head>","preview sensitive actions disabled")
         webfiles["/radar-alertas/"+name]=html
+    # These official PWA icons are stored on the live Hosting site, not in GitHub.
+    # Copy only the original public PNG bytes, never redraw or alter the brand logo.
     for name in ("icon-app-192.png","apple-touch-icon-180.png"):
-        webfiles["/radar-alertas/"+name]=source_web(name)
+        public_url="https://dr-accesorios-rd.web.app/radar-alertas/"+name
+        original=requests.get(public_url,timeout=25,allow_redirects=False)
+        require(original.status_code==200 and original.content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+                and len(original.content)<2000000,"could not retrieve the original icon: "+name)
+        webfiles["/radar-alertas/"+name]=original.content
     webfiles["/index.html"]='<meta name="robots" content="noindex"><a href="/radar-alertas/index.html">QA Web App</a>'
     webfiles["/robots.txt"]="User-agent: *\nDisallow: /\n"
     agenda_html=source_agenda("agenda/index.html").decode("utf-8")

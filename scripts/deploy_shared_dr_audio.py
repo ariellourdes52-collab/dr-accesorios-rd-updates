@@ -169,6 +169,19 @@ def main() -> None:
                 remove_male_fields(entry)
                 stripped_missing_male += 1
 
+        # New optional third voice. Never delete English history or alias it
+        # to Spanish files; fail closed if a referenced asset is unavailable.
+        english_path = valid_audio_path(entry.get("audioEnglishPath"))
+        if english_path:
+            candidate = audio_dir / Path(english_path).name
+            if candidate.exists():
+                local_audio_files[english_path] = candidate.read_bytes()
+            else:
+                require(
+                    english_path in old_files,
+                    f"Referenced English Hosting audio missing: {english_path}",
+                )
+
     latest_count = min(int(index.get("latestCount") or 0), len(entries))
     index["latestMaleReady"] = sum(
         1
@@ -233,7 +246,7 @@ def main() -> None:
 
     referenced_audio_paths: set[str] = set()
     for entry in entries:
-        for key in ("audioPath", "audioFemalePath", "audioMalePath"):
+        for key in ("audioPath", "audioFemalePath", "audioMalePath", "audioEnglishPath"):
             path = valid_audio_path(entry.get(key))
             if path:
                 referenced_audio_paths.add(path)

@@ -1,86 +1,94 @@
-"""Offline safety checks: English deploy must not alter Spanish catalog/history."""
+"""Deployment regression tests: isolated English Firebase Hosting SITE."""
 import copy
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-import deploy_shared_dr_audio as deploy
+import deploy_dr_audio_english as deploy
+import generate_dr_audio_english as en
 
 
 class EnglishDeploySafetyTests(unittest.TestCase):
     def setUp(self):
-        self.live = {
-            "schemaVersion": 3, "generatedAt": "2026-10-15T00:00:00Z",
-            "historyCount": 3, "latestMaleReady": 2,
-            "entries": [
-                {
-                    "url": "https://blog.example/a",
-                    "title": "Article A",
-                    "audioUrl": "https://host/dr-audio/female.m4a",
-                    "audioFemaleUrl": "https://host/dr-audio/female.m4a",
-                    "audioMaleUrl": "https://host/dr-audio/male.m4a",
-                    "femaleContentHash": "originalfemale",
-                    "maleContentHash": "originalmale",
-                },
-                {"url": "https://blog.example/older", "title": "Older female",
-                 "audioUrl": "https://host/dr-audio/legacy.m4a"},
-                {"url": "https://blog.example/oldest", "title": "Oldest",
-                 "audioUrl": "https://host/dr-audio/oldest.m4a"},
-            ],
+        self.old = {
+            "schemaVersion": 1, "language": "en",
+            "entries": [{
+                "url": "https://blog.example/old",
+                "title": "Previous English story",
+                "audioEnglishPath": "/dr-audio/old.m4a",
+                "audioEnglishUrl": en.ENGLISH_PUBLIC_BASE + "/dr-audio/old.m4a",
+                "englishLanguage": "en",
+            }]
         }
+        self.updated = copy.deepcopy(self.old)
+        self.updated["entries"].insert(0, {
+            "url": "https://blog.example/new",
+            "title": "Latest English story",
+            "audioEnglishPath": "/dr-audio/new.m4a",
+            "audioEnglishUrl": en.ENGLISH_PUBLIC_BASE + "/dr-audio/new.m4a",
+            "englishLanguage": "en",
+        })
 
-    def test_new_english_fields_only_allowed(self):
-        updated = copy.deepcopy(self.live)
-        updated["entries"][0]["audioEnglishPath"] = "/dr-audio/english.m4a"
-        updated["entries"][0]["audioEnglishUrl"] = "https://host/dr-audio/english.m4a"
-        updated["latestEnglishReady"] = 1
-        deploy.assert_english_overlay_preserved(self.live, updated)
-        self.assertEqual(self.live["historyCount"], 3)
+    def test_site_is_dedicated_to_english_never_spanish(self):
+        deploy.validate_site_identity()
+        self.assertNotEqual(deploy.SITE_ID, deploy.SPANISH_SITE_ID)
+        self.assertNotEqual(deploy.SITE, "sites/dr-accesorios-rd")
+        self.assertEqual(deploy.SITE_ID, en.ENGLISH_SITE_ID)
 
-    def test_spanish_male_or_female_link_cannot_change(self):
-        for key in ("audioUrl", "audioFemaleUrl", "audioMaleUrl",
-                    "femaleContentHash", "maleContentHash"):
-            with self.subTest(key=key):
-                altered = copy.deepcopy(self.live)
-                altered["entries"][0][key] = "overwrite"
-                with self.assertRaisesRegex(RuntimeError, "Spanish fields"):
-                    deploy.assert_english_overlay_preserved(self.live, altered)
+    def test_incremental_deploy_preserves_existing_english_history(self):
+        deploy.validate_english_catalog(self.old, self.updated)
+        self.assertEqual(len(self.old["entries"]), 1)
+        self.assertEqual(len(self.updated["entries"]), 2)
 
-    def test_history_entries_cannot_be_removed_or_reordered(self):
-        altered = copy.deepcopy(self.live)
-        altered["entries"].pop(1)
+    def test_refuse_history_removal_or_reorder(self):
+        changed = copy.deepcopy(self.updated)
+        changed["entries"][1]["title"] = "Modified"
+        with self.assertRaisesRegex(RuntimeError, "changed or reordered"):
+            deploy.validate_english_catalog(self.old, changed)
+        changed = copy.deepcopy(self.updated)
+        changed["entries"].pop()
         with self.assertRaises(RuntimeError):
-            deploy.assert_english_overlay_preserved(self.live, altered)
-        altered = copy.deepcopy(self.live)
-        altered["entries"].reverse()
+            deploy.validate_english_catalog(self.old, changed)
+
+    def test_refuse_spanish_audio_fields_and_wrong_site_url(self):
+        bad = copy.deepcopy(self.updated)
+        bad["entries"][0]["audioFemaleUrl"] = "https://spanish.example/file.m4a"
+        with self.assertRaisesRegex(RuntimeError, "Spanish"):
+            deploy.validate_english_catalog(self.old, bad)
+        bad = copy.deepcopy(self.updated)
+        bad["entries"][0]["audioEnglishUrl"] = "https://dr-accesorios-rd.web.app/overwrite.m4a"
+        with self.assertRaisesRegex(RuntimeError, "separate English site"):
+            deploy.validate_english_catalog(self.old, bad)
+
+    def test_refuse_changes_to_metadata(self):
+        modified = copy.deepcopy(self.updated)
+        modified["schemaVersion"] = 99
         with self.assertRaises(RuntimeError):
-            deploy.assert_english_overlay_preserved(self.live, altered)
+            deploy.validate_english_catalog(self.old, modified)
+        modified = copy.deepcopy(self.updated)
+        modified["otherMetadata"] = "unexpected"
+        with self.assertRaisesRegex(RuntimeError, "metadata"):
+            deploy.validate_english_catalog(self.old, modified)
 
-    def test_previous_english_audio_cannot_be_replaced(self):
-        existing = copy.deepcopy(self.live)
-        existing["entries"][0]["audioEnglishUrl"] = "https://host/dr-audio/original-en.m4a"
-        existing["entries"][0]["audioEnglishPath"] = "/dr-audio/original-en.m4a"
-        changed = copy.deepcopy(existing)
-        changed["entries"][0]["audioEnglishPath"] = "/dr-audio/replaced-en.m4a"
-        with self.assertRaisesRegex(RuntimeError, "replace"):
-            deploy.assert_english_overlay_preserved(existing, changed)
+    def test_deploy_payload_contains_only_english_manifest_and_new_audio(self):
+        with tempfile.TemporaryDirectory() as directory:
+            audio_dir = Path(directory)
+            (audio_dir / "new.m4a").write_bytes(b"A" * 2048)
+            files = deploy.plan_assets(
+                {"/dr-audio/old.m4a": "existing-sha", "/keep.txt": "keep-sha"},
+                audio_dir, self.updated,
+            )
+        self.assertEqual(set(files), {"/dr-audio/index.json", "/dr-audio/new.m4a"})
+        self.assertNotIn("/dr-audio/old.m4a", files)
 
-    def test_all_old_audio_files_preserved_even_orphans(self):
-        old_files = {
-            "/dr-audio/index.json": "catalog_old",
-            "/dr-audio/female.m4a": "SHA_F",
-            "/dr-audio/male.m4a": "SHA_M",
-            "/dr-audio/forgotten-archive.m4a": "SHA_ARCHIVE",
-            "/robots.txt": "SHA_ROBOTS",
-        }
-        expected = {"/robots.txt": "SHA_ROBOTS"}
-        deploy.preserve_existing_audio_assets(expected, old_files)
-        self.assertEqual(expected["/dr-audio/female.m4a"], "SHA_F")
-        self.assertEqual(expected["/dr-audio/male.m4a"], "SHA_M")
-        self.assertEqual(expected["/dr-audio/forgotten-archive.m4a"], "SHA_ARCHIVE")
-        self.assertNotIn("/dr-audio/index.json", expected)
-        self.assertEqual(expected["/robots.txt"], "SHA_ROBOTS")
+    def test_immutable_old_audio_name_never_overwritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path / "new.m4a").write_bytes(b"B" * 2048)
+            with self.assertRaisesRegex(RuntimeError, "overwrite"):
+                deploy.plan_assets({"/dr-audio/new.m4a": "sha"}, path, self.updated)
 
 
 if __name__ == "__main__":

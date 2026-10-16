@@ -24,7 +24,8 @@ from generate_shared_dr_audio import canonical_url
 
 SPANISH_SITE_ID = "dr-accesorios-rd"
 SITE_ID = ENGLISH_SITE_ID
-SITE = "sites/" + SITE_ID
+SITE = "sites/" + SITE_ID  # version/release/channel operations
+SITE_LOOKUP = "projects/-/sites/" + SITE_ID  # projects.sites.get REST URI
 BASE = "https://firebasehosting.googleapis.com/v1beta1/"
 SCOPES = ["https://www.googleapis.com/auth/firebase.hosting"]
 
@@ -125,7 +126,7 @@ def main() -> None:
         raise RuntimeError("Firebase API exhausted retries")
 
     # Confirm that this is a real dedicated Firebase Hosting site.
-    site = api("GET", SITE)
+    site = api("GET", SITE_LOOKUP)
     # Firebase may return either sites/<id> or projects/<project>/sites/<id>.
     actual_site_name = str(site.get("name") or "")
     require(

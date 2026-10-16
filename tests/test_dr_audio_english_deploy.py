@@ -36,6 +36,8 @@ class EnglishDeploySafetyTests(unittest.TestCase):
         self.assertNotEqual(deploy.SITE_ID, deploy.SPANISH_SITE_ID)
         self.assertNotEqual(deploy.SITE, "sites/dr-accesorios-rd")
         self.assertEqual(deploy.SITE_ID, en.ENGLISH_SITE_ID)
+        self.assertEqual(deploy.SITE_LOOKUP, "projects/-/sites/" + en.ENGLISH_SITE_ID)
+        self.assertNotEqual(deploy.SITE_LOOKUP, "projects/-/sites/" + deploy.SPANISH_SITE_ID)
 
     def test_incremental_deploy_preserves_existing_english_history(self):
         deploy.validate_english_catalog(self.old, self.updated)

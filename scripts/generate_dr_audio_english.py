@@ -178,7 +178,7 @@ def retry_english_503(operation, *, max_attempts: int = 3):
 def english_temporary_503(error: Exception) -> bool:
     """Gemini model overload is transient; not a quota reset or permanent error."""
     return getattr(error, "status_code", None) == 503 or bool(
-        re.search(r"\\b503\\b", str(error)) and
+        re.search(r"\b503\b", str(error)) and
         ("unavailable" in str(error).lower() or "high demand" in str(error).lower())
     )
 

@@ -1,0 +1,186 @@
+name: DR Audio English female (isolated)
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/generate_dr_audio_english.py'
+      - 'scripts/deploy_dr_audio_english.py'
+      - 'tests/test_dr_audio_english*.py'
+      - '.github/workflows/generate-dr-audio-english.yml'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type GENERATE-DR-AUDIO-EN for ONE new English female audio'
+        required: true
+        default: 'NO'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install offline test dependencies
+        run: python -m pip install --disable-pip-version-check --quiet google-genai google-auth requests beautifulsoup4 httpx
+      - name: Verify English code offline without Gemini or Firebase
+        run: |
+          python -m py_compile scripts/generate_dr_audio_english.py scripts/deploy_dr_audio_english.py
+          python -m unittest discover -s tests -p 'test_dr_audio_english*.py' -v
+      - name: Verify dedicated English key can access required models (no generation)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          ENGLISH_KEY: '${{ secrets.GEMINI_API_KEY_DR_AUDIO_EN }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          key = os.getenv("ENGLISH_KEY", "").strip()
+          if not key:
+              raise SystemExit("English-only GitHub secret missing or empty")
+          models = (
+              "gemini-3.8-flash-lite-tts",
+              "gemini-3.5-flash-lite",
+          )
+          for model in models:
+              url = "https://generativelanguage.googleapis.com/v1beta/models/" + model
+              req = urllib.request.Request(
+                  url, headers={"x-goog-api-key": key, "Accept": "application/json"}
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=25) as response:
+                      data = json.load(response)
+                      if str(data.get("name", "")).split("/")[-1] != model:
+                          raise ValueError("Unexpected Gemini model metadata")
+                      print(f"English-only API key: model {model} accessible (HTTP 200)")
+              except urllib.error.HTTPError as error:
+                  raise SystemExit(
+                      f"English-only key cannot access {model}: HTTP {error.code}"
+                  ) from None
+          print("Metadata checks only; zero TTS/translation requests; no deploy")
+          PY
+
+
+      - name: Check English Firebase Hosting site permissions (read-only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          sys.path.insert(0, "scripts")
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+          from deploy_dr_audio_english import SITE_ID, SITE_LOOKUP, SPANISH_SITE_ID
+
+          assert SITE_ID != SPANISH_SITE_ID
+          secret = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
+          if not secret:
+              raise SystemExit("Firebase service account secret unavailable")
+          credentials = service_account.Credentials.from_service_account_info(
+              json.loads(secret),
+              scopes=["https://www.googleapis.com/auth/firebase.hosting.readonly"],
+          )
+          url = "https://firebasehosting.googleapis.com/v1beta1/" + SITE_LOOKUP
+          response = AuthorizedSession(credentials).get(url, timeout=35)
+          if response.status_code != 200:
+              raise SystemExit(f"English site permissions/identity check failed: HTTP {response.status_code}")
+          site = response.json()
+          name = str(site.get("name") or "")
+          if not name.endswith("/sites/" + SITE_ID):
+              raise SystemExit("Firebase returned an unexpected Hosting site")
+          default_url = str(site.get("defaultUrl") or "")
+          if default_url and "https://" + SITE_ID + ".web.app" != default_url:
+              raise SystemExit("Firebase English Hosting site URL mismatch")
+          print("English Hosting site exists and is readable; no write operations")
+          PY
+
+
+  english_generate:
+    needs: verify
+    outputs:
+      ready: ${{ steps.prepared.outputs.ready }}
+    concurrency:
+      group: dr-audio-english-tts
+      cancel-in-progress: false
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'GENERATE-DR-AUDIO-EN'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install production TTS dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --quiet google-genai google-auth requests beautifulsoup4 httpx
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+      - name: Generate one English narration; Spanish stays unchanged
+        env:
+          GEMINI_API_KEY_DR_AUDIO_EN: '${{ secrets.GEMINI_API_KEY_DR_AUDIO_EN }}'
+          GITHUB_REF: '${{ github.ref }}'
+        run: |
+          python scripts/generate_dr_audio_english.py \
+            --mode generate \
+            --confirm GENERATE-DR-AUDIO-EN \
+            --output dr_audio_english_build
+      - name: Detect prepared English audio
+        id: prepared
+        shell: bash
+        run: |
+          if [[ -s "dr_audio_english_build/dr-audio/index.json" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No English audio candidate. Nothing to publish."
+          fi
+      - name: Preserve prepared English audio until safe publish
+        if: steps.prepared.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-audio-english-ready
+          path: dr_audio_english_build/dr-audio/
+          if-no-files-found: error
+          retention-days: 1
+
+  english_deploy:
+    needs: english_generate
+    if: needs.english_generate.result == 'success' && needs.english_generate.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      # Dedicated Hosting SITE and queue. Never compete for Spanish workflow locks.
+      group: dr-audio-english-hosting-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deploy dependencies
+        run: python -m pip install --disable-pip-version-check --quiet google-genai google-auth requests beautifulsoup4 httpx
+      - uses: actions/download-artifact@v4
+        with:
+          name: dr-audio-english-ready
+          path: dr_audio_english_build/dr-audio/
+      - name: Deploy English overlay preserving live Hosting files
+        env:
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+        run: python scripts/deploy_dr_audio_english.py dr_audio_english_build

@@ -40,3 +40,18 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/dr-browser-qa/node_modules
         run: node tests/qa_bilingual_browser.cjs
+
+  preview-hosting-audit:
+    name: Validate Hosting identities (GET only)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install read-only Google auth client
+        run: python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Audit both Hosting destinations without mutations
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_PREVIEW_SITE_MODE: AUDIT_ONLY
+        run: python tests/audit_bilingual_preview_hosting.py

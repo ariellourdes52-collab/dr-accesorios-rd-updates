@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/tesla-roadster-vuela-presentacion-spacex-2026.html",
   "title": "Tesla Roadster vuela: así fue su histórica presentación",
   "image_sha256": "6dda75ad1c8653a8a0c1c54afe1be1c5dd01fad13c577710df881c7746e55f15",
   "caption_sha256": "b196627a18f6db4f1758db21a90d8b5f8f3ce75de36e584a8f509793773a0b2c",
   "created_at": "2026-10-16T13:09:09.721941+00:00",
-  "container_id": "18181867624429315"
+  "container_id": "18181867624429315",
+  "instagram_media_id": "18026856269699973",
+  "completed_at": "2026-10-16T13:09:19.264755+00:00"
 }

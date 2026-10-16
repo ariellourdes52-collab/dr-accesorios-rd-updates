@@ -4,7 +4,7 @@ on:
   schedule:
     # Independent EN backup, offset 4 minutes after EN primary :08/:18/... .
     # Different minutes from the ES primary and ES watchdog schedules.
-    - cron: '12,22,32,42,52,2 * * * *'
+    - cron: '2,12,22,32,42,52 * * * *'
   workflow_dispatch:
   push:
     branches:
@@ -78,9 +78,16 @@ jobs:
                   ) from error
 
           runs = request_json(
-              f"{api}/actions/workflows/{workflow}/runs?per_page=20"
+              f"{api}/actions/workflows/{workflow}/runs?per_page=100"
           ) or {}
-          workflow_runs = list(runs.get("workflow_runs") or [])
+          # Unlike the Spanish workflow, the English one also runs PR
+          # test jobs. They are NOT production wake-ups and MUST NOT
+          # suppress recovery when the English scheduler is stale.
+          workflow_runs = [
+              run for run in (runs.get("workflow_runs") or [])
+              if run.get("head_branch") == "main"
+              and run.get("event") in {"schedule", "push", "workflow_dispatch"}
+          ]
 
           active = [
               run

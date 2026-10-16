@@ -123,7 +123,7 @@ def mark_english_tts_attempt(
     current = now or datetime.now(timezone.utc)
     state_path.write_text(
         json.dumps({"attemptedAt": current.astimezone(timezone.utc).isoformat()},
-                   indent=2) + "\\n",
+                   indent=2) + "\n",
         encoding="utf-8",
     )
 

@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'scripts/generate_dr_audio_english.py'
-      - 'scripts/deploy_shared_dr_audio.py'
+      - 'scripts/deploy_dr_audio_english.py'
       - 'tests/test_dr_audio_english*.py'
       - '.github/workflows/generate-dr-audio-english.yml'
   workflow_dispatch:
@@ -30,7 +30,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check --quiet google-genai google-auth requests beautifulsoup4 httpx
       - name: Verify English code offline without Gemini or Firebase
         run: |
-          python -m py_compile scripts/generate_dr_audio_english.py scripts/deploy_shared_dr_audio.py
+          python -m py_compile scripts/generate_dr_audio_english.py scripts/deploy_dr_audio_english.py
           python -m unittest discover -s tests -p 'test_dr_audio_english*.py' -v
       - name: Verify dedicated English key can access required models (no generation)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
@@ -127,9 +127,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
-      # Only short Firebase release locks Spanish DR Audio; TTS has separate
-      # concurrency and never blocks scheduled Spanish generation.
-      group: dr-accesorios-rd-production-release
+      # Dedicated Hosting SITE and queue. Never compete for Spanish workflow locks.
+      group: dr-audio-english-hosting-deploy
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
@@ -137,7 +136,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install deploy dependencies
-        run: python -m pip install --disable-pip-version-check --quiet google-auth requests
+        run: python -m pip install --disable-pip-version-check --quiet google-genai google-auth requests beautifulsoup4 httpx
       - uses: actions/download-artifact@v4
         with:
           name: dr-audio-english-ready
@@ -145,4 +144,4 @@ jobs:
       - name: Deploy English overlay preserving live Hosting files
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/deploy_shared_dr_audio.py dr_audio_english_build --english-overlay
+        run: python scripts/deploy_dr_audio_english.py dr_audio_english_build

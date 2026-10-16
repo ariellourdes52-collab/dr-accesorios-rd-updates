@@ -24,7 +24,8 @@ const urls=new Map([
   [agendaOrigin+'/agenda/styles.css',['agenda_site/agenda/styles.css','text/css']]
 ]);
 async function offline(route){
-  const u=route.request().url();
+  const requestURL=new URL(route.request().url());
+  const u=requestURL.origin+requestURL.pathname;
   if(u===agendaOrigin+'/agenda/events.json'){
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(fixture)});
   }

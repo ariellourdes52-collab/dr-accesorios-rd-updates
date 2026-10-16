@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   approved-release:
-    if: github.event.head_commit.message == 'release(pr41): approved one-time bilingual production promotion' && github.ref == 'refs/heads/feature/dr-webapp-agenda-ui-i18n-qa-20261015' && github.repository == 'ariellourdes52-collab/dr-accesorios-rd-updates'
+    if: false # Disabled: workflow file is not registered from a non-default branch. Use existing PR41 QA workflow only.
     name: Verify approved candidate then promote Agenda and Web App with rollback
     runs-on: ubuntu-latest
     timeout-minutes: 15

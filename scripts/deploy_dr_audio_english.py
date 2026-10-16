@@ -134,7 +134,15 @@ def main() -> None:
     )
 
     def active():
-        channel = api("GET", SITE + "/channels/live")
+        try:
+            channel = api("GET", SITE + "/channels/live")
+        except requests.HTTPError as error:
+            # A newly created English Hosting site may not yet have a live
+            # channel or release. Only HTTP 404 counts as an empty site.
+            response = getattr(error, "response", None)
+            if response is None or response.status_code != 404:
+                raise
+            return "", ""
         release = channel.get("release")
         if not release:
             return "", ""

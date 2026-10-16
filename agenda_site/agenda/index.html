@@ -69,6 +69,16 @@
     if(!webapp&&!agenda&&!wrapper)return;
     const KEY='dr-site-ui-lang-1', allowed=['auto','es','en'], original=new WeakMap(), lastWrite=new WeakMap();
     const tr={
+      "No hay coincidencias.":"No matches found.",
+      "Prueba otra categoría o cambia los términos de búsqueda.":"Try another category or different search terms.",
+      "Evento":"Event",
+      "Promociones":"Promotions",
+      "Conferencias":"Conferences",
+      "Evento DR Agenda":"DR Events entry",
+      "⌖  Evento en línea":"⌖  Online event",
+      "⌖  Lugar por confirmar":"⌖  Venue to be confirmed",
+      "◷ Hora de República Dominicana":"◷ Dominican Republic time",
+      "DR Accesorios RD, DR Agenda":"DR Accesorios RD, DR Events",
       "Para completar la configuración activa Web Push para DR Radar, sismos, nuevas publicaciones y los eventos de DR Agenda que el administrador anuncie. Las notificaciones sociales son opcionales.":"To finish setup, enable Web Push for DR Radar, earthquakes, new posts and DR Events announcements. Social notifications are optional.",
       "Abre esta página en":"Open this page in",
       "Toca":"Tap",
@@ -168,7 +178,7 @@
     const locale=()=>choice==='auto'?(String(navigator.languages?.[0]||navigator.language||'es').toLowerCase().startsWith('en')?'en':'es'):choice;
     const excluded='script,style,textarea,input,pre,code,[contenteditable],.event-title,.event-description,.event-place,#dialog-title,#dialog-description,.notice strong,.notice .title';
     const attrOriginal=new WeakMap(),attrLast=new WeakMap();
-    const attrTr={'Filtrar por categoría':'Filter by category','Enlaces principales':'Main links','Resumen de la agenda':'Events summary','Cerrar detalle':'Close event details','Catálogo DR Agenda':'DR Events catalog'};
+    const attrTr={'DR Accesorios RD, DR Agenda':'DR Accesorios RD, DR Events','Filtrar por categoría':'Filter by category','Enlaces principales':'Main links','Resumen de la agenda':'Events summary','Cerrar detalle':'Close event details','Catálogo DR Agenda':'DR Events catalog'};
     const box=document.createElement('div');box.id='dr-site-language';
     box.setAttribute('data-dr-no-translate','true');
     box.innerHTML='<div class="options"><button data-lang="auto" type="button">Auto</button><button data-lang="es" type="button">ES</button><button data-lang="en" type="button">EN</button></div><button class="toggle" type="button" aria-expanded="true" aria-label="Collapse language selector">›</button>';
@@ -201,6 +211,12 @@
       }
       const search=document.getElementById('search-events');
       if(search)search.placeholder=english?'Search for an event…':'Buscar un evento…';
+      // Preserve deep-linked event IDs when opening the catalog in a new tab.
+      const outbound=document.getElementById('openExternal');
+      if(outbound)try{
+        const u=new URL(outbound.href);
+        if(u.origin===childOrigin){u.searchParams.set('lang',choice);if(outbound.href!==u.href)outbound.href=u.href;}
+      }catch(_){};
       for(const b of box.querySelectorAll('button[data-lang]'))b.setAttribute('aria-pressed',String(b.dataset.lang===choice));
       for(const el of document.querySelectorAll('[aria-label],iframe[title]')){
         for(const attr of ['aria-label','title']){

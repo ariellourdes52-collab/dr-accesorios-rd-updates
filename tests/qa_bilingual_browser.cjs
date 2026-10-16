@@ -127,8 +127,8 @@ async function run(engineName,engine,mobile){
     // Verify visual-only localization of two real cards without mutating the catalog.
     const realTitle='ComicCon República Dominicana 2026';
     const englishTitle='ComicCon Dominican Republic 2026';
-    const realDescription='📅 Fecha: Sábado 24 y domingo 25 de octubre de 2026\\n📍 Lugar: Puerto San Souci, Santo Domingo Este\\n\\nDos días de cultura geek, videojuegos, cosplay, cómics, anime e invitados especiales. Entrada general por un día desde RD$1,900 según Uepa Tickets; los precios pueden cambiar.';
-    const englishDescription='📅 Date: Saturday, October 24 and Sunday, October 25, 2026\\n📍 Location: Puerto San Souci, Santo Domingo Este\\n\\nTwo days of geek culture, video games, cosplay, comics, anime and special guests. One-day general admission starts at RD$1,900 according to Uepa Tickets; prices may change.';
+    const realDescription='📅 Fecha: Sábado 24 y domingo 25 de octubre de 2026\n📍 Lugar: Puerto San Souci, Santo Domingo Este\n\nDos días de cultura geek, videojuegos, cosplay, cómics, anime e invitados especiales. Entrada general por un día desde RD$1,900 según Uepa Tickets; los precios pueden cambiar.';
+    const englishDescription='📅 Date: Saturday, October 24 and Sunday, October 25, 2026\n📍 Location: Puerto San Souci, Santo Domingo Este\n\nTwo days of geek culture, video games, cosplay, comics, anime and special guests. One-day general admission starts at RD$1,900 according to Uepa Tickets; prices may change.';
     await frame.locator('#event-grid').evaluate((grid,{realTitle,realDescription})=>{
       const sample=document.createElement('article');sample.id='qa-real-event-card';
       sample.innerHTML='<h3 class="event-title"></h3><p class="event-description"></p><p class="event-place">Puerto San Souci</p>';

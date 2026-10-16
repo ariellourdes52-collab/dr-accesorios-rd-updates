@@ -59,4 +59,116 @@
   </main>
   <footer class="site-footer"><div class="shell footer-inner"><span>© <span id="year">2026</span> DR Accesorios RD · Todos los derechos reservados</span><span>Creado para República Dominicana <span class="heart" aria-hidden="true">♥</span></span></div></footer>
   <dialog id="event-dialog" aria-labelledby="dialog-title"><div class="dialog-shell"><button id="dialog-close" class="dialog-close" type="button" aria-label="Cerrar detalle">×</button><div id="dialog-photo" class="dialog-photo" aria-hidden="true"></div><div class="dialog-content"><span id="dialog-category" class="event-category"></span><h2 id="dialog-title"></h2><p id="dialog-description"></p><div id="dialog-meta" class="dialog-meta"></div><div id="dialog-actions" class="dialog-actions"></div></div></div></dialog>
+  <script>
+  /* DR_SITE_BILINGUAL_UI_QA_V1: interfaz visual exclusivamente. */
+  (() => {
+    'use strict';
+    if(window.__DR_SITE_BILINGUAL_UI_QA_V1__)return;
+    window.__DR_SITE_BILINGUAL_UI_QA_V1__=true;
+    const webapp=document.getElementById('activate'), agenda=document.getElementById('event-grid'), wrapper=document.getElementById('viewer');
+    if(!webapp&&!agenda&&!wrapper)return;
+    const KEY='dr-site-ui-lang-1', allowed=['auto','es','en'], original=new WeakMap(), lastWrite=new WeakMap();
+    const tr={
+      'DR Agenda':'DR Events','DR AGENDA':'DR EVENTS',
+      'DR Radar · Alertas 24/7':'DR Radar · 24/7 Alerts',
+      'Web Push para recibir alertas aunque cierres el navegador.':'Web Push alerts even when your browser is closed.',
+      'Activa las alertas esenciales de DR Accesorios RD':'Enable essential DR Accesorios RD alerts',
+      '📱 Instalar DR Accesorios RD iOS en iPhone / iPad':'📱 Install DR Accesorios RD iOS on iPhone / iPad',
+      'Instalar DR Accesorios RD':'Install DR Accesorios RD','📲 Instalar DR Accesorios RD':'📲 Install DR Accesorios RD',
+      '🔔 Activar alertas esenciales':'🔔 Enable essential alerts',
+      '✅ Alertas esenciales activas':'✅ Essential alerts enabled',
+      '🔕 Notificaciones bloqueadas':'🔕 Notifications blocked',
+      'Desactivar alertas en este dispositivo':'Disable alerts on this device',
+      'Comprobando este dispositivo…':'Checking this device…',
+      '🏠 Ir al inicio de DR Accesorios RD':'🏠 Go to DR Accesorios RD home',
+      '📅 DR Agenda · Eventos y avisos iOS':'📅 DR Events · iOS events and updates',
+      'Abrir DR Agenda ↗':'Open DR Events ↗',
+      '💬 Notificaciones sociales (opcional)':'💬 Social notifications (optional)',
+      'Continuar con Google':'Continue with Google','Cuenta social no conectada.':'Social account not connected.',
+      '← Ajustes':'← Settings','Abrir agenda en el navegador ↗':'Open events in browser ↗',
+      '🔔 Notificaciones de Agenda':'🔔 DR Events notifications',
+      'Abrir':'Open','☆ Guardar':'☆ Save','★ Guardado':'★ Saved',
+      'Ir a los eventos':'Skip to events','Tu agenda tecnológica':'Your technology events guide',
+      'Noticias':'News','ACTUALIZACIÓN AUTOMÁTICA · HORA RD':'AUTO UPDATED · DOMINICAN TIME',
+      'Cada evento.':'Every event.','En su momento.':'At the right time.',
+      'Explorar agenda':'Explore events','Seguir por Telegram':'Follow on Telegram',
+      'EL PRÓXIMO EVENTO':'THE NEXT EVENT','ESTÁ POR LLEGAR':'IS COMING',
+      'Próximos eventos':'Upcoming events','Este mes':'This month',
+      'Conectando':'Connecting','Sin conexión':'Offline','Sincronizado':'Synced',
+      'Estado del catálogo':'Catalog status','DESCUBRE LO QUE VIENE':'WHAT IS COMING NEXT',
+      'Hora de República Dominicana':'Dominican Republic time',
+      'Todos':'All','Tecnología':'Technology','Cine':'Movies','En RD':'In the DR',
+      'Lanzamientos':'Launches','Otros':'Other',
+      'Buscar eventos':'Search events','Buscar un evento…':'Search for an event…',
+      'HORIZONTE ABIERTO':'LOOKING AHEAD','Lo próximo está por llegar.':'The next event is coming.',
+      'SIEMPRE CONECTADOS':'ALWAYS CONNECTED','Las noticias pasan.':'News comes and goes.',
+      'Las fechas':'Dates','se recuerdan.':'are remembered.',
+      'Visitar el blog ↗':'Visit the blog ↗',
+      'Todos los derechos reservados':'All rights reserved',
+      'Creado para República Dominicana':'Made for the Dominican Republic',
+      'Ver detalles →':'View details →','📅 Abrir calendario':'📅 Open calendar',
+      '⌖  Ver mapa':'⌖  View map','↗  Sitio oficial':'↗  Official website',
+      'POSPUESTO':'POSTPONED','Evento en línea':'Online event',
+      'Lugar por confirmar':'Venue to be confirmed','Fecha por confirmar':'Date to be confirmed',
+      'Eventos RD':'Events in the Dominican Republic',
+      'No pudimos cargar la agenda.':'Unable to load DR Events.',
+      'No se pudo actualizar el catálogo de eventos.':'Unable to update the events catalog.',
+      'Todavía no hay notificaciones de DR Agenda en este dispositivo.':'No DR Events notifications on this device yet.'
+    };
+    let choice='auto';
+    try{const saved=localStorage.getItem(KEY);if(allowed.includes(saved))choice=saved;}catch(_){}
+    const incoming=new URLSearchParams(location.search).get('lang');
+    if(allowed.includes(incoming))choice=incoming;
+    const locale=()=>choice==='auto'?(String(navigator.languages?.[0]||navigator.language||'es').toLowerCase().startsWith('en')?'en':'es'):choice;
+    const excluded='script,style,textarea,input,pre,code,[contenteditable],.event-title,.event-description,.event-place,#dialog-title,#dialog-description,.notice strong,.notice .title';
+    const box=document.createElement('div');box.id='dr-site-language';
+    box.setAttribute('data-dr-no-translate','true');
+    box.innerHTML='<div class="options"><button data-lang="auto" type="button">Auto</button><button data-lang="es" type="button">ES</button><button data-lang="en" type="button">EN</button></div><button class="toggle" type="button" aria-expanded="true" aria-label="Collapse language selector">›</button>';
+    const style=document.createElement('style');
+    style.textContent='#dr-site-language{position:fixed;top:max(10px,env(safe-area-inset-top));right:10px;z-index:2147480000;background:#fff;border:1px solid #edc9d9;border-radius:13px;padding:4px;display:flex;gap:3px;box-shadow:0 3px 15px #0002;color:#8a2b51;font:700 12px system-ui,Arial}#dr-site-language .options{display:flex;gap:3px}#dr-site-language button{border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;padding:7px 8px;min-height:29px;cursor:pointer}#dr-site-language button[aria-pressed="true"]{background:#bc1e59;color:#fff}#dr-site-language .toggle{background:#fce9f0;border:1px solid #efcfdb}#dr-site-language.folded .options{display:none}#dr-site-language.folded .toggle{background:#bc1e59;color:#fff}#dr-site-language button:focus-visible{outline:2px solid #333;outline-offset:2px}';
+    document.head.append(style);document.body.append(box);
+    let pending=false,collapseTimer=null;
+    const folded=(yes)=>{box.classList.toggle('folded',yes);const b=box.querySelector('.toggle');b.textContent=yes?'🌐':'›';b.setAttribute('aria-expanded',String(!yes));};
+    const later=()=>{clearTimeout(collapseTimer);collapseTimer=setTimeout(()=>{if(!box.matches(':hover')&&!box.contains(document.activeElement))folded(true);},4500);};
+    const select=(v,store)=>{
+      if(!allowed.includes(v))return;choice=v;
+      if(store)try{localStorage.setItem(KEY,v);}catch(_){}
+      apply();later();
+    };
+    function apply(){
+      const english=locale()==='en';
+      document.documentElement.lang=english?'en':'es-DO';
+      const walk=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
+      while((n=walk.nextNode())){
+        if(!n.parentElement || n.parentElement.closest(excluded)||n.parentElement.closest('#dr-site-language'))continue;
+        const now=n.nodeValue;
+        if(!original.has(n)||(now!==original.get(n)&&now!==lastWrite.get(n)))original.set(n,now);
+        const source=original.get(n),text=source.trim();
+        const dynamic=text.match(/^(\d+) eventos disponibles\.$/u);
+        const translated=english?(Object.hasOwn(tr,text)?tr[text]:(dynamic?dynamic[1]+' events available.':text)):text;
+        const target=text&&translated!==text?source.replace(text,translated):source;
+        if(now!==target){lastWrite.set(n,target);n.nodeValue=target;}
+      }
+      const search=document.getElementById('search-events');
+      if(search)search.placeholder=english?'Search for an event…':'Buscar un evento…';
+      for(const b of box.querySelectorAll('button[data-lang]'))b.setAttribute('aria-pressed',String(b.dataset.lang===choice));
+      if(wrapper?.contentWindow)wrapper.contentWindow.postMessage({type:'dr-site-language-v1',lang:locale()},'https://dr-accesorios-rd-agenda.web.app');
+    }
+    const toggle=box.querySelector('.toggle');
+    toggle.addEventListener('click',()=>{const previous=box.classList.contains('folded');folded(!previous);if(previous)later();else clearTimeout(collapseTimer);});
+    box.addEventListener('pointerenter',()=>{folded(false);clearTimeout(collapseTimer);});
+    box.addEventListener('pointerleave',later);
+    box.addEventListener('focusin',()=>{folded(false);clearTimeout(collapseTimer);});
+    box.addEventListener('focusout',later);
+    for(const b of box.querySelectorAll('[data-lang]'))b.addEventListener('click',()=>{folded(false);select(b.dataset.lang,true);});
+    if(agenda)window.addEventListener('message',e=>{
+      if(e.source!==parent||e.origin!=='https://dr-accesorios-rd.web.app'||e.data?.type!=='dr-site-language-v1'||!['en','es'].includes(e.data.lang))return;
+      select(e.data.lang,false);
+    });
+    if(wrapper)wrapper.addEventListener('load',apply);
+    function schedule(){if(pending)return;pending=true;queueMicrotask(()=>{pending=false;apply();});}
+    new MutationObserver(schedule).observe(document.body,{childList:true,characterData:true,subtree:true});
+    apply();later();
+  })();
+  </script>
 </body></html>

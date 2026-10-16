@@ -28,11 +28,18 @@ STATUS_ES="Falta activar Web Push para recibir Radar, sismos, nuevas publicacion
 def must(value,message):
     if not value: raise RuntimeError("PR41 SAFE RELEASE BLOCKED: "+message)
 def guard():
+    event=os.getenv("GITHUB_EVENT_NAME")
+    mode=os.getenv("DR_PR41_RELEASE_MODE")
+    allowed_pr=(event=="pull_request" and
+                os.getenv("GITHUB_HEAD_REF")=="feature/dr-webapp-agenda-ui-i18n-qa-20261015" and
+                mode=="DRY_RUN")
+    allowed_push=(event=="push" and
+                  os.getenv("GITHUB_REF")=="refs/heads/feature/dr-webapp-agenda-ui-i18n-qa-20261015" and
+                  os.getenv("DR_APPROVAL_COMMIT_MESSAGE")=="release(pr41): approved one-time bilingual production promotion" and
+                  mode in ("DRY_RUN","APPROVED_LIVE_PROMOTION"))
     must(os.getenv("GITHUB_ACTIONS")=="true"
          and os.getenv("GITHUB_REPOSITORY")=="ariellourdes52-collab/dr-accesorios-rd-updates"
-         and os.getenv("GITHUB_EVENT_NAME")=="pull_request"
-         and os.getenv("GITHUB_HEAD_REF")=="feature/dr-webapp-agenda-ui-i18n-qa-20261015"
-         and os.getenv("DR_PR41_RELEASE_MODE") in ("DRY_RUN","APPROVED_LIVE_PROMOTION"),
+         and (allowed_pr or allowed_push),
          "unexpected release context")
     key=json.loads(os.environ.get("FIREBASE_SERVICE_ACCOUNT","{}"))
     must(key.get("project_id")==PROJECT and key.get("type")=="service_account",

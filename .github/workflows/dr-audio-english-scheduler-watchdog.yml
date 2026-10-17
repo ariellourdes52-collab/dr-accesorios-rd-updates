@@ -86,7 +86,7 @@ jobs:
           workflow_runs = [
               run for run in (runs.get("workflow_runs") or [])
               if run.get("head_branch") == "main"
-              and run.get("event") in {"schedule", "push", "workflow_dispatch"}
+              and run.get("event") in {"schedule", "push", "workflow_dispatch", "workflow_run"}
           ]
 
           active = [

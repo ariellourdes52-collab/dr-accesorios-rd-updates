@@ -117,5 +117,54 @@ class EnglishDeploySafetyTests(unittest.TestCase):
                 deploy.validate_site_identity()
 
 
+    def test_publication_waits_for_new_catalog_visibility_before_success(self):
+        from unittest.mock import Mock, patch
+        stale = Mock(ok=True)
+        stale.json.return_value = self.old
+        updated = Mock(ok=True)
+        updated.json.return_value = self.updated
+        with (patch.object(deploy.requests, "get",
+                           side_effect=[stale, updated]) as get,
+              patch.object(deploy.requests, "head",
+                           return_value=Mock(ok=True)) as head,
+              patch.object(deploy.time, "sleep") as sleep):
+            deploy.verify_published_english_release(self.updated)
+        self.assertEqual(get.call_count, 2)
+        self.assertTrue(all(c.args[0] == en.ENGLISH_INDEX
+                            for c in get.call_args_list))
+        head.assert_called_once_with(
+            self.updated["entries"][0]["audioEnglishUrl"],
+            timeout=30, allow_redirects=True,
+        )
+        sleep.assert_called_once_with(2)
+
+    def test_publication_stale_catalog_fails_closed_without_releasing_again(self):
+        from unittest.mock import Mock, patch
+        stale = Mock(ok=True)
+        stale.json.return_value = self.old
+        with (patch.object(deploy.requests, "get", return_value=stale) as get,
+              patch.object(deploy.requests, "head") as head,
+              patch.object(deploy.time, "sleep") as sleep):
+            with self.assertRaisesRegex(
+                    RuntimeError, "after 5 visibility checks"):
+                deploy.verify_published_english_release(self.updated)
+        self.assertEqual(get.call_count, 5)
+        self.assertEqual(sleep.call_count, 4)
+        head.assert_not_called()
+
+    def test_english_audio_visibility_can_recover_without_reupload(self):
+        from unittest.mock import Mock, patch
+        manifest = Mock(ok=True)
+        manifest.json.return_value = self.updated
+        with (patch.object(deploy.requests, "get", return_value=manifest) as get,
+              patch.object(deploy.requests, "head",
+                           side_effect=[Mock(ok=False), Mock(ok=True)]) as head,
+              patch.object(deploy.time, "sleep") as sleep):
+            deploy.verify_published_english_release(self.updated)
+        get.assert_called_once()
+        self.assertEqual(head.call_count, 2)
+        sleep.assert_called_once_with(2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -281,7 +281,7 @@ def main() -> None:
         os.environ.get("GITHUB_ACTIONS") == "true"
         and os.environ.get("GITHUB_REF") == "refs/heads/main"
         and (
-            event in {"schedule", "push"}
+            event in {"schedule", "push", "workflow_run"}
             or (event == "workflow_dispatch" and args.confirm == PUBLISH_CONFIRM)
         )
     )
@@ -317,7 +317,7 @@ def main() -> None:
     key = os.environ.get("GEMINI_API_KEY_DR_AUDIO_EN", "").strip()
     if not key:
         raise RuntimeError("The dedicated English API key is missing")
-    if (event == "schedule" or scheduler_guard) and english_recent_tts_attempt():
+    if (event in {"schedule", "workflow_run"} or scheduler_guard) and english_recent_tts_attempt():
         print(
             "English scheduler guard: TTS was attempted in the previous 8 minutes; "
             "skipping duplicate attempt. Spanish unaffected.",

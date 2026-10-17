@@ -325,6 +325,49 @@ class EnglishAudioTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "confirmation"):
                 en.main()
 
+    def test_successful_spanish_workflow_completes_then_wakes_english(self):
+        """Production EN launches from verified Spanish completion, not PRs."""
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/generate-dr-audio-english.yml").read_text()
+        self.assertIn("  workflow_run:", workflow)
+        self.assertIn('workflows: ["Generate shared DR Audio"]', workflow)
+        self.assertIn("types: [completed]", workflow)
+        self.assertIn("branches: [main]", workflow)
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", workflow)
+        self.assertIn("github.event.workflow_run.head_branch == 'main'", workflow)
+        self.assertIn(
+            "github.event.workflow_run.head_repository.full_name == github.repository",
+            workflow,
+        )
+        self.assertIn("  schedule:", workflow)  # fallback retained
+        self.assertIn("  pull_request:", workflow)  # offline PR tests retained
+        self.assertIn("  workflow_dispatch:", workflow)  # manual fallback retained
+
+    def test_workflow_run_authorized_only_on_main_without_gemini_if_already_done(self):
+        english = {"schemaVersion": 1, "language": "en",
+                   "entries": [{"url": self.article["url"]}]}
+        env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main",
+               "EVENT_NAME": "workflow_run"}
+        with (tempfile.TemporaryDirectory() as tmp,
+              patch.dict("os.environ", env),
+              patch.object(sys, "argv", [
+                  "english", "--mode", "generate", "--output", tmp,
+              ]),
+              patch.object(en, "english_quota_blocked_until", return_value=None),
+              patch.object(en, "load_live_index", return_value=self.spanish),
+              patch.object(en, "load_english_index", return_value=english),
+              patch.object(en, "parse_feed", return_value=[self.article]),
+              patch.object(en.genai, "Client") as client):
+            en.main()
+            client.assert_not_called()
+        with (patch.dict("os.environ", {
+                  "GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/unsafe",
+                  "EVENT_NAME": "workflow_run",
+              }),
+              patch.object(sys, "argv", ["english", "--mode", "generate"])):
+            with self.assertRaisesRegex(RuntimeError, "confirmation"):
+                en.main()
+
     def test_restored_old_manifest_cannot_deploy_when_quota_blocked(self):
         from datetime import datetime, timedelta, timezone
         blocked = datetime.now(timezone.utc) + timedelta(hours=1)
@@ -370,7 +413,7 @@ class EnglishAudioTests(unittest.TestCase):
         self.assertIn('"historical_backfill": "0"', en_wd)
         self.assertIn('"scheduler_guard": "true"', en_wd)
         self.assertIn('run.get("head_branch") == "main"', en_wd)
-        self.assertIn('run.get("event") in {"schedule", "push", "workflow_dispatch"}', en_wd)
+        self.assertIn('run.get("event") in {"schedule", "push", "workflow_dispatch", "workflow_run"}', en_wd)
         self.assertIn("per_page=100", en_wd)
         self.assertIn("2,12,22,32,42,52 * * * *", en_wd)
         self.assertIn("7,17,27,37,47,57 * * * *", es_wd)

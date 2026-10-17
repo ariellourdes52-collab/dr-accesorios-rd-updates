@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/nvidia-rtx-spark-laptops-128gb-2026.html",
   "title": "NVIDIA RTX Spark: laptops con 128 GB y potencia extrema",
   "jpeg_sha256": "db6e769dcc97a98daaa37ec34d27201c1753f6c1305d54dc99e86701c41461b7",
   "caption_sha256": "71204926d4cd9dd4d2fb3a0628241c97afabc871beca62c32304eae71d6e68c6",
-  "created_at": "2026-10-17T13:09:51.836179+00:00"
+  "created_at": "2026-10-17T13:09:51.836179+00:00",
+  "container_id": "17993298753110510"
 }

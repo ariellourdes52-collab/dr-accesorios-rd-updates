@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/gta-vi-trailer-lanzamiento-vice-city-octubre-2026.html",
   "title": "GTA VI estrena tráiler final: Vice City vuelve a impresionar",
   "jpeg_sha256": "93056393628d053a442cfaa2468b29fd6300d63307adcdcb4fcd86f53f5186eb",
   "caption_sha256": "b49b06f8e7dac93e7611ec940d07b28f5590754faa5628472e5b01496f992e26",
-  "created_at": "2026-10-17T18:09:35.404607+00:00"
+  "created_at": "2026-10-17T18:09:35.404607+00:00",
+  "facebook_media_id": "875159429020764_122142155673183523",
+  "completed_at": "2026-10-17T18:09:41.346798+00:00"
 }

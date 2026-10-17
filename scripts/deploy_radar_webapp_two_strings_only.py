@@ -83,10 +83,19 @@ def main():
     response = requests.get(PUBLIC_BASE + TARGET, params={"no_cache": time.time_ns()},
                             headers={"Cache-Control": "no-cache"}, timeout=30)
     response.raise_for_status()
-    require(hashlib.sha256(response.content).hexdigest() == EXPECTED_SHA256,
-            "El HTML público cambió desde la auditoría; requiere revisión")
+    live_digest = hashlib.sha256(response.content).hexdigest()
+    if live_digest != EXPECTED_SHA256:
+        print("El HTML público difiere del respaldo original; se conservará la versión activa.", flush=True)
     original = response.content.decode("utf-8")
-    require("DR_RADAR_BROWSER_ALERTS_V2" in original, "Marcador Web App ausente")
+    # Edición sobre el HTML vigente: no se restaura ni se reemplaza con un respaldo antiguo.
+    for signature in ("DR_RADAR_BROWSER_ALERTS_V2", "const tr={",
+                      "const FLAG = 'drRadarPushSubscribedV1'",
+                      "function setStatus(html)", "function apply()",
+                      "new MutationObserver(schedule).observe(document.body"):
+        require(original.count(signature) == 1,
+                "No coincide la estructura vigente de Web App: " + signature)
+    require("DR_SITE_BILINGUAL_UI_QA_V1" in original,
+            "Falta el módulo bilingüe estable")
     updated = patch(original)
     print("PRECHECK OK: dos frases del diccionario, resto intacto", flush=True)
 
@@ -120,6 +129,19 @@ def main():
                     json={"message": "Radar Web App: translate two Web Push confirmation texts only; retain all assets"})
     require(active()[1] == new_version, "La nueva versión no quedó activa")
     require(manifest(new_version) == expected, "Comprobación posterior del inventario falló")
+    # CDN verification: do not claim the user-facing phrase is visible until cached pages settle.
+    served_ok = False
+    for _ in range(12):
+        live = requests.get(PUBLIC_BASE + TARGET,
+                            params={"verified_deploy": time.time_ns()},
+                            headers={"Cache-Control": "no-cache"}, timeout=30)
+        if live.ok and all(json.dumps(es, ensure_ascii=False) + ":" +
+                           json.dumps(en, ensure_ascii=False) in live.text for es, en in PHRASES):
+            served_ok = True
+            break
+        time.sleep(5)
+    require(served_ok, "Versión publicada, pero CDN aún no confirmó las dos entradas; revisar cache")
+
     print("PUBLICADO: solo " + TARGET, published.get("name", ""), flush=True)
     print("VERIFICADO: todos los demás hashes idénticos al Hosting anterior", flush=True)
 

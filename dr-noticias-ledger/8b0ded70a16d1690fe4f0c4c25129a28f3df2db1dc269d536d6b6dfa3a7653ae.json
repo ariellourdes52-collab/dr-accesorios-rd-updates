@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/redmagic-12-pro-plus-refrigeracion-liquida-2026.html",
   "title": "REDMAGIC 12 Pro+: refrigeración líquida y 8,400 mAh",
   "image_sha256": "e8487cfc4cee8b398ebc5cdc6e6fefbf43218c5f72044ebfb4ef7d8907a1bc89",
   "caption_sha256": "e1f42e5f50500fe4bbf4df34e424e21d41a25f7e654df897c9732877221f2bfe",
   "created_at": "2026-10-17T23:09:15.995110+00:00",
-  "container_id": "18182029372429315"
+  "container_id": "18182029372429315",
+  "instagram_media_id": "18095333618159707",
+  "completed_at": "2026-10-17T23:09:25.284923+00:00"
 }

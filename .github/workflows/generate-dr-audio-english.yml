@@ -1,7 +1,13 @@
 name: DR Audio English female (isolated)
 
 on:
-  # Five minutes after the existing Spanish 10-minute watchdog.
+  # Event-driven English audio after successful Spanish workflow completion.
+  # The existing English cron and watchdog remain independent fallbacks.
+  workflow_run:
+    workflows: ["Generate shared DR Audio"]
+    types: [completed]
+    branches: [main]
+  # Five minutes after the existing Spanish 10-minute schedule.
   schedule:
     - cron: '8,18,28,38,48,58 * * * *'
   push:
@@ -138,7 +144,16 @@ jobs:
     needs: verify
     outputs:
       ready: ${{ steps.prepared.outputs.ready }}
-    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'GENERATE-DR-AUDIO-EN')
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main' &&
+       inputs.confirm == 'GENERATE-DR-AUDIO-EN')
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:

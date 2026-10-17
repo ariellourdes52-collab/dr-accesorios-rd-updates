@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/gta-vi-trailer-lanzamiento-vice-city-octubre-2026.html",
   "title": "GTA VI estrena tráiler final: Vice City vuelve a impresionar",
   "image_sha256": "93056393628d053a442cfaa2468b29fd6300d63307adcdcb4fcd86f53f5186eb",
   "caption_sha256": "2324fd5ff781fe1ca4be489fd028929dd209392f1936db2832c1db64b5c4e795",
   "created_at": "2026-10-17T18:09:10.496169+00:00",
-  "container_id": "18182007322429315"
+  "container_id": "18182007322429315",
+  "instagram_media_id": "18108234682944886",
+  "completed_at": "2026-10-17T18:09:22.098858+00:00"
 }

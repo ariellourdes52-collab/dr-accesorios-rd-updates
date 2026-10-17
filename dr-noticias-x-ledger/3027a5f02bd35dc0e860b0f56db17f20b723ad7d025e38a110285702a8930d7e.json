@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/gta-vi-trailer-lanzamiento-vice-city-octubre-2026.html",
   "caption_sha256": "afabcd3d7368625c121dc7eaad08496db98e43dc53f341a0f067081ba78531f7",
   "image_sha256": "93056393628d053a442cfaa2468b29fd6300d63307adcdcb4fcd86f53f5186eb",
-  "created_at": "2026-10-17T18:10:18.111937+00:00"
+  "created_at": "2026-10-17T18:10:18.111937+00:00",
+  "x_post_id": "2111520219269410919",
+  "published_at": "2026-10-17T18:10:25.299716+00:00"
 }

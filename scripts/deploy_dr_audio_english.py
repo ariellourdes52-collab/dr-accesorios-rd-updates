@@ -120,6 +120,53 @@ def set_english_headers(config: dict) -> None:
 
 
 
+
+def verify_published_english_release(index: dict) -> None:
+    """Read-only propagation check: retry CDN visibility, never repeat a release.
+
+    Firebase may accept a live release before the public Hosting edge serves
+    the new manifest. Do not mark an already-published English audio as failed
+    because the first read still observes the previous release.
+    """
+    catalog_delays = (2, 3, 5, 8)
+    for attempt in range(len(catalog_delays) + 1):
+        try:
+            response = requests.get(
+                ENGLISH_INDEX, params={"check": time.time_ns()},
+                headers={"Cache-Control": "no-cache"}, timeout=30,
+            )
+            if response.ok and response.json() == index:
+                break
+        except (requests.RequestException, ValueError):
+            pass
+        if attempt == len(catalog_delays):
+            raise RuntimeError(
+                "Published English catalog failed verification after "
+                f"{attempt + 1} visibility checks"
+            )
+        print(f"English Hosting catalog propagation: retry {attempt + 2}/5",
+              flush=True)
+        time.sleep(catalog_delays[attempt])
+
+    audio_url = index["entries"][0]["audioEnglishUrl"]
+    audio_delays = (2, 3)
+    for attempt in range(len(audio_delays) + 1):
+        try:
+            if requests.head(audio_url, timeout=30, allow_redirects=True).ok:
+                print("English-only Hosting release verified; Spanish Hosting untouched.")
+                return
+        except requests.RequestException:
+            pass
+        if attempt == len(audio_delays):
+            raise RuntimeError(
+                "Published English M4A is not reachable after "
+                f"{attempt + 1} visibility checks"
+            )
+        print(f"English Hosting M4A propagation: retry {attempt + 2}/3",
+              flush=True)
+        time.sleep(audio_delays[attempt])
+
+
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser()
@@ -248,16 +295,7 @@ def main() -> None:
     api("POST", SITE + "/releases", params={"versionName": version},
         json={"message": "Publish English female narration to English-only site"})
 
-    response = requests.get(
-        ENGLISH_INDEX, params={"check": time.time_ns()},
-        headers={"Cache-Control": "no-cache"}, timeout=30
-    )
-    require(response.ok and response.json() == index,
-            "Published English catalog failed verification")
-    audio_url = index["entries"][0]["audioEnglishUrl"]
-    response = requests.head(audio_url, timeout=30, allow_redirects=True)
-    require(response.ok, "Published English M4A is not reachable")
-    print("English-only Hosting release verified; Spanish Hosting untouched.")
+    verify_published_english_release(index)
 
 if __name__ == "__main__":
     main()

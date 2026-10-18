@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/nintendo-switch-sports-resort-12-deportes-2026.html",
   "title": "Nintendo detalla los 12 deportes de Switch Sports Resort",
   "jpeg_sha256": "1f0e2dd759d22654deb45c973c60d910247911e777f9d9330bc6c85bcee21ae3",
   "caption_sha256": "31052db1e850bf017fa238bc73a51d7b8b3fc82ffea3c96b9263ed47f428e1bb",
-  "created_at": "2026-10-18T18:09:59.162966+00:00"
+  "created_at": "2026-10-18T18:09:59.162966+00:00",
+  "container_id": "17993536017110510"
 }

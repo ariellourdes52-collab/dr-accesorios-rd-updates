@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/qualcomm-niega-sobrecalentamiento-snapdragon-gen-6-2026.html",
   "title": "Qualcomm niega sobrecalentamiento del nuevo Snapdragon",
   "image_sha256": "75efa626d91b4ecd3b589f69a06685c4df81a4b980f225c9e95c834b7db28a28",
   "caption_sha256": "a1c568641b8b844ebf2b25ca18af85715787d5f018cabf4b22cac357252cfa5d",
-  "created_at": "2026-10-18T23:09:10.022106+00:00"
+  "created_at": "2026-10-18T23:09:10.022106+00:00",
+  "container_id": "18182142805429315"
 }

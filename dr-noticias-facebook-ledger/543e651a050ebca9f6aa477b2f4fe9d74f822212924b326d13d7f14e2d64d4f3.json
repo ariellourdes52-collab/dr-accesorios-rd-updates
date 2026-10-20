@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/call-of-duty-modern-warfare-4-dmz-acceso-20-octubre-2026.html",
   "title": "Call of Duty: Modern Warfare 4 abre DMZ este 20 de octubre",
   "jpeg_sha256": "91b8b3c178117b00714cf2b2d892fd509ba139995490c04cee9ece400eff29b1",
   "caption_sha256": "39fc37381b539522d13d531ade658e5f8baf03efbb4147cc460631465431fa5e",
-  "created_at": "2026-10-20T18:06:29.541252+00:00"
+  "created_at": "2026-10-20T18:06:29.541252+00:00",
+  "facebook_media_id": "875159429020764_122142445587183523",
+  "completed_at": "2026-10-20T18:06:36.516409+00:00"
 }

@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/apple-evento-pro-and-tell-macbook-tactil-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "2d25b6fca67d4576ba06ec54a353d2d75c7ce7634bab28f0a33a484ed7863f29",
   "caption_sha256": "f548bfd03756e2471309894f975da91ade8b761ee810a999f14b2c7e875f171b",
   "created_at": "2026-10-20T13:10:06.568792+00:00",
-  "container_id": "17993841618110510"
+  "container_id": "17993841618110510",
+  "threads_media_id": "18054255596802571",
+  "completed_at": "2026-10-20T13:10:18.656305+00:00"
 }

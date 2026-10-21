@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/cyberpunk-2077-actualizacion-2-5-edgerunners-2-2026.html",
   "title": "Cyberpunk 2077 anuncia actualización gratis por Edgerunners 2",
   "image_sha256": "056e44c31508056b4ac3be6464364aed7f0c0ac1df268d2459393892d368b766",
   "caption_sha256": "0ccf6968f5f31de73d9d309745b2586ecc2d2866ebf324e3dd041200bf7cf0a7",
   "created_at": "2026-10-21T20:09:08.950707+00:00",
-  "container_id": "18182453020429315"
+  "container_id": "18182453020429315",
+  "instagram_media_id": "18106002950271418",
+  "completed_at": "2026-10-21T20:09:19.400207+00:00"
 }

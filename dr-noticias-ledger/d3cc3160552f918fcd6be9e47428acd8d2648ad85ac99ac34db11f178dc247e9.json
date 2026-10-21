@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/china-pedidos-nvidia-35-mil-millones-chips-ia-2026.html",
   "title": "China pide más de US$35,000 millones en chips NVIDIA",
   "image_sha256": "5268709fee370c5781a7e20e9f3377d08b6e3a19636bf0672d8baf8cdc67d11b",
   "caption_sha256": "8d15bd954f74874178bad5ef616344cd79177533f2e697cfd14b696b15cf4957",
   "created_at": "2026-10-21T13:09:08.228011+00:00",
-  "container_id": "18182418226429315"
+  "container_id": "18182418226429315",
+  "instagram_media_id": "18027511079876527",
+  "completed_at": "2026-10-21T13:09:17.898129+00:00"
 }

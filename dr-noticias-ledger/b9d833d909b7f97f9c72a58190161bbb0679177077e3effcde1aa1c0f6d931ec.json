@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/redmi-k100-bateria-10000-mah-lanzamiento-2026.html",
   "title": "Xiaomi confirma Redmi K100 con batería de 10,000 mAh",
   "image_sha256": "ba5ba5c073faceacbf6bb8311e32041889aab4910c2e46456c26516f39d023c9",
   "caption_sha256": "c028605dbce28739cb176f6fdb7787f590d2011fb2f59a5f05890ad4a8bb7396",
   "created_at": "2026-10-21T23:09:08.908271+00:00",
-  "container_id": "18182464822429315"
+  "container_id": "18182464822429315",
+  "instagram_media_id": "17990410142867761",
+  "completed_at": "2026-10-21T23:09:25.479896+00:00"
 }

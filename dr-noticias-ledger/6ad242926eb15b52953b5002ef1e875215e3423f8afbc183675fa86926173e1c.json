@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/android-17-bloquea-conectividad-pantalla-bloqueada-robos.html",
   "title": "Android 17 bloquea una maniobra usada para robar móviles",
   "image_sha256": "dc0b550b7c71260c5c9124fa46b20f7de8703f5db2a73707b14a5468dc342bcb",
   "caption_sha256": "16aa92b177938978f01cab616f776c1010c69ce261a4878e6d0b56092b877f6e",
-  "created_at": "2026-10-22T23:09:08.140104+00:00"
+  "created_at": "2026-10-22T23:09:08.140104+00:00",
+  "container_id": "18182567137429315"
 }

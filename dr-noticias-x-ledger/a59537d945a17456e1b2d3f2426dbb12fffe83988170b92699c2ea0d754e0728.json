@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/final-fantasy-resonance-estreno-22-octubre-2026.html",
   "caption_sha256": "5ed16d0528b8f5be465b171b9043d7e5767cea60f1df93aa8add98f72ad392b5",
   "image_sha256": "5fa8fa2266422ce55d9388e5f73afcc26c46df04a4dc219845790cccadbb48d4",
-  "created_at": "2026-10-22T18:10:16.399925+00:00"
+  "created_at": "2026-10-22T18:10:16.399925+00:00",
+  "x_post_id": "2113332158517350589",
+  "published_at": "2026-10-22T18:10:25.333132+00:00"
 }

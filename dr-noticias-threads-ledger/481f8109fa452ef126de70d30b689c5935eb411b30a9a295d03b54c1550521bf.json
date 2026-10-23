@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/railway-incidente-seguridad-claves-api-23-octubre-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "e9ae5998d5dd26bec45f69afd1fe67a08dd414bb66d3b0888c3ed7887dd56540",
   "caption_sha256": "9b86c6211ef7b8eab57e163f111d609e394f0b46b9bd5868f0109333af5e44fd",
   "created_at": "2026-10-23T13:09:54.237678+00:00",
-  "container_id": "17994370770110510"
+  "container_id": "17994370770110510",
+  "threads_media_id": "18137478286731721",
+  "completed_at": "2026-10-23T13:10:05.122366+00:00"
 }

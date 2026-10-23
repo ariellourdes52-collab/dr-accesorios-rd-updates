@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/fortnite-regresa-iphone-australia-apple-sentencia-2026.html",
   "title": "Fortnite vuelve al iPhone en Australia tras fallo contra Apple",
   "jpeg_sha256": "3443c34f6b7ce60491852115586204838475df25ff52998c8e64fc9543d8d5e9",
   "caption_sha256": "19b1410214128687f9b1e7d0f9433cd6676a020025da3e77ac7e8c989ff0db46",
-  "created_at": "2026-10-23T21:09:36.835325+00:00"
+  "created_at": "2026-10-23T21:09:36.835325+00:00",
+  "facebook_media_id": "875159429020764_122142761187183523",
+  "completed_at": "2026-10-23T21:09:42.452151+00:00"
 }

@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/railway-incidente-seguridad-claves-api-23-octubre-2026.html",
   "title": "Railway alerta por acceso a claves: qué deben hacer sus usuarios",
   "image_sha256": "e9ae5998d5dd26bec45f69afd1fe67a08dd414bb66d3b0888c3ed7887dd56540",
   "caption_sha256": "4bdf1a0506cf2f2ac6937541c8e0e53228bfe614a729dd274473b3d0ae55c8b8",
-  "created_at": "2026-10-23T13:09:08.291711+00:00"
+  "created_at": "2026-10-23T13:09:08.291711+00:00",
+  "container_id": "18182619736429315"
 }

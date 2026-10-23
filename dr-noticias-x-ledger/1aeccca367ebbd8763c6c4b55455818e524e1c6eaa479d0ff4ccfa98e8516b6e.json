@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/fortnite-regresa-iphone-australia-apple-sentencia-2026.html",
   "caption_sha256": "be61f1d85bbb05abc43041d002270892c2a0820bf19d1cfa4033175eb705906d",
   "image_sha256": "3443c34f6b7ce60491852115586204838475df25ff52998c8e64fc9543d8d5e9",
-  "created_at": "2026-10-23T21:10:20.332071+00:00"
+  "created_at": "2026-10-23T21:10:20.332071+00:00",
+  "x_post_id": "2113739854919971306",
+  "published_at": "2026-10-23T21:10:27.705622+00:00"
 }

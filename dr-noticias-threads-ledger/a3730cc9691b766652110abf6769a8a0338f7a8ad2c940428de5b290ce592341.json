@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/fortnite-regresa-iphone-australia-apple-sentencia-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "3443c34f6b7ce60491852115586204838475df25ff52998c8e64fc9543d8d5e9",
   "caption_sha256": "ed9d332248101ce150bc11cc48e2e48b335aa36e5480fcba49a9e0ad19884714",
   "created_at": "2026-10-23T21:09:59.043802+00:00",
-  "container_id": "17994426729110510"
+  "container_id": "17994426729110510",
+  "threads_media_id": "18360180484172206",
+  "completed_at": "2026-10-23T21:10:10.250690+00:00"
 }

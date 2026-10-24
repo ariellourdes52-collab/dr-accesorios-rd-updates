@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/tomb-raider-legacy-atlantis-nueva-lara-croft-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "634ac5bea9ead0de32081562380620837965d0fcd653c0664007afbdb46a9c61",
   "caption_sha256": "891a268bfcc7847207dab5d68d330f8831ca39c74cc5d80df0a6d44a3f3477d6",
   "created_at": "2026-10-24T18:09:57.882469+00:00",
-  "container_id": "17994598560110510"
+  "container_id": "17994598560110510",
+  "threads_media_id": "18021016454728021",
+  "completed_at": "2026-10-24T18:10:07.651328+00:00"
 }

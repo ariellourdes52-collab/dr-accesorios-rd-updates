@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/chrome-alertas-sitios-falsos-proteccion-clickfix-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "c5ea11b710772e2b4caf9607f0dd1d3218b50bdc2dd834a45b8e4db4ecb5421f",
   "caption_sha256": "d19b487d57a06b9879bc449dc6fc7f7f805a1a8a762e45012d413f7287bd437b",
   "created_at": "2026-10-24T13:09:54.735945+00:00",
-  "container_id": "17994548352110510"
+  "container_id": "17994548352110510",
+  "threads_media_id": "18096448604661735",
+  "completed_at": "2026-10-24T13:10:05.466031+00:00"
 }

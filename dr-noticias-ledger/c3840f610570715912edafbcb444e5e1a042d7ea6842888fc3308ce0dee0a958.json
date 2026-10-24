@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/oneplus-15-android-17-coloros-17-actualizacion-2026.html",
   "title": "OnePlus adelanta Android 17: la versión estable ya comenzó",
   "image_sha256": "eacd5bb63ca7b956d1067f0d7f706bf686f95d1ed3aae55b4b8a5c5dd95d0993",
   "caption_sha256": "71a677e688caf83a92d93fa5e509930ed5cec8107b6100777625b0506c8120f0",
   "created_at": "2026-10-24T23:09:09.848772+00:00",
-  "container_id": "18182803639429315"
+  "container_id": "18182803639429315",
+  "instagram_media_id": "18091754075215380",
+  "completed_at": "2026-10-24T23:09:20.401370+00:00"
 }

@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/chrome-alertas-sitios-falsos-proteccion-clickfix-2026.html",
   "title": "Chrome alerta sobre sitios falsos y bloquea nuevas estafas",
   "image_sha256": "c5ea11b710772e2b4caf9607f0dd1d3218b50bdc2dd834a45b8e4db4ecb5421f",
   "caption_sha256": "5c4f2bec0cbc6cf95a9fe2b985e57c24129202443e28cbd592e4cc5c549019ec",
   "created_at": "2026-10-24T13:09:06.643476+00:00",
-  "container_id": "18182744059429315"
+  "container_id": "18182744059429315",
+  "instagram_media_id": "18105856103198964",
+  "completed_at": "2026-10-24T13:09:16.509717+00:00"
 }

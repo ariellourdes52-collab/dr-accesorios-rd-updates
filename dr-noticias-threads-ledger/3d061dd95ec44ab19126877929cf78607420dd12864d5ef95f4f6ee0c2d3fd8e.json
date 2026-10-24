@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/oneplus-15-android-17-coloros-17-actualizacion-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "eacd5bb63ca7b956d1067f0d7f706bf686f95d1ed3aae55b4b8a5c5dd95d0993",
   "caption_sha256": "add12054b5b0bdc08bf904161072a46bec99f71c7577b75229c96919775b8ba8",
   "created_at": "2026-10-24T23:09:54.007559+00:00",
-  "container_id": "17994632691110510"
+  "container_id": "17994632691110510",
+  "threads_media_id": "17911403475308122",
+  "completed_at": "2026-10-24T23:10:05.172523+00:00"
 }

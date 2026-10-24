@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/spacex-starlink-mobile-80000-torres-red-celular-eeuu-2026.html",
   "title": "SpaceX negocia acceso a 80,000 sitios para su red móvil",
   "jpeg_sha256": "411701bd68d75f2327e09d2d62699a8266f1fd6e23be254e15b5cde28df5ac29",
   "caption_sha256": "af6c3427866d7f82c8a98f3d0448867d895e27fdcbce2a25140e20fb26cea368",
-  "created_at": "2026-10-24T02:09:42.996069+00:00"
+  "created_at": "2026-10-24T02:09:42.996069+00:00",
+  "facebook_media_id": "875159429020764_122142778611183523",
+  "completed_at": "2026-10-24T02:09:47.803967+00:00"
 }

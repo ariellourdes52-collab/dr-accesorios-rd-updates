@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/pegi-16-cajas-botin-ea-fc-27-pokemon-videojuegos.html",
   "title": "PEGI sube a 16 años juegos con cajas de botín: ¿por qué?",
   "image_sha256": "85365b9b9a0b60ee46a974f082d95a725e4ce2d9cc64bce8c32ac078f2965f3a",
   "caption_sha256": "31b1f93273b47640745565f9d649480f64409405a6868b0a3e417917ff0a3c33",
-  "created_at": "2026-10-25T18:09:11.266288+00:00"
+  "created_at": "2026-10-25T18:09:11.266288+00:00",
+  "container_id": "18182918899429315"
 }

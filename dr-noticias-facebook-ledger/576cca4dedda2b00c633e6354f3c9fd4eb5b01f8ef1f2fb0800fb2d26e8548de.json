@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/microsoft-powertoys-0102-mouse-button-lock-windows.html",
   "title": "PowerToys 0.102 mejora Windows gratis con nuevos controles",
   "jpeg_sha256": "6cdda0316687a27cd98fb7e994089c0bd865f1d24708612e19dd179de55c63b1",
   "caption_sha256": "4a4f5ca0f908b6752834369a5840c929d8176674b2310e46e12cc260a59e32f1",
-  "created_at": "2026-10-25T19:56:45.605032+00:00"
+  "created_at": "2026-10-25T19:56:45.605032+00:00",
+  "facebook_media_id": "875159429020764_122142943497183523",
+  "completed_at": "2026-10-25T19:56:52.317427+00:00"
 }

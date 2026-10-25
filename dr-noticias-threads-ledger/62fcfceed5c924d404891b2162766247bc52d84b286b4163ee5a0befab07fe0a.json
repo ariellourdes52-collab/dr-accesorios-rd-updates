@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/adfection-anuncios-espionaje-sin-clic-android-iphone.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "7e8c36e73d38a028b399d330054226fb32a3942ae8495006e74d8cb440b6a892",
   "caption_sha256": "97ffa6bd49d20dd718f2442cb6917871384a6710162fddc957dc6b4d0c1146e3",
   "created_at": "2026-10-25T23:10:04.636967+00:00",
-  "container_id": "17994840849110510"
+  "container_id": "17994840849110510",
+  "threads_media_id": "18215682034359797",
+  "completed_at": "2026-10-25T23:10:16.552830+00:00"
 }

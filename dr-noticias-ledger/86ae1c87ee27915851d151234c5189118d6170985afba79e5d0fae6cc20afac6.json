@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/adfection-anuncios-espionaje-sin-clic-android-iphone.html",
   "title": "AdFection: anuncios espía que infectan sin hacer clic",
   "image_sha256": "7e8c36e73d38a028b399d330054226fb32a3942ae8495006e74d8cb440b6a892",
   "caption_sha256": "6632884d6472b70d8cead6396173fa61c8cb85f8b08b94db68ab86df3ff2e73a",
-  "created_at": "2026-10-25T23:09:12.068226+00:00"
+  "created_at": "2026-10-25T23:09:12.068226+00:00",
+  "container_id": "18182944714429315"
 }

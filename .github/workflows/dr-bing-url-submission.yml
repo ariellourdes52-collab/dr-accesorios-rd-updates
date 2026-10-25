@@ -1,0 +1,37 @@
+name: DR Blog - Bing URL Submission
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Solo revisar sitemaps, sin enviar ni guardar estado'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: dr-bing-url-submission
+  cancel-in-progress: false
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pruebas de filtros, deduplicacion y fallos
+        run: python -m unittest discover -s tests -p 'test_dr_bing_submit.py' -v
+      - name: Revisar cambios y notificar a Bing
+        env:
+          BING_WEBMASTER_API_KEY: ${{ secrets.BING_WEBMASTER_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          DR_BING_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DR_BING_DRY_RUN" = "true" ]; then
+            python scripts/dr_bing_submit.py --dry-run
+          else
+            python scripts/dr_bing_submit.py
+          fi

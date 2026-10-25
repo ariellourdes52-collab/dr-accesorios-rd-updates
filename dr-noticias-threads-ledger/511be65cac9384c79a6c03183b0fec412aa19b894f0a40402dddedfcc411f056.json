@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/microsoft-powertoys-0102-mouse-button-lock-windows.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "6cdda0316687a27cd98fb7e994089c0bd865f1d24708612e19dd179de55c63b1",
   "caption_sha256": "041e9259bfa01904bec403d66fcae5d778034c6528dee60d3f4da85adad43166",
   "created_at": "2026-10-25T13:09:46.053594+00:00",
-  "container_id": "17994749109110510"
+  "container_id": "17994749109110510",
+  "threads_media_id": "18117376432816953",
+  "completed_at": "2026-10-25T13:09:56.488440+00:00"
 }

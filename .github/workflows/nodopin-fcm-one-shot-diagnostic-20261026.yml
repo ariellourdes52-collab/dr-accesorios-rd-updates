@@ -53,6 +53,9 @@ jobs:
                       "title": "PRUEBA FCM · NodoPin",
                       "body": "Aviso de prueba de alta prioridad. NO es un sismo, una emergencia ni un evento real."
                   },
+                  "data": {
+                      "nodopin_open_centro_dr": "true"
+                  },
                   "android": {
                       "priority": "high",
                       "ttl": "300s",

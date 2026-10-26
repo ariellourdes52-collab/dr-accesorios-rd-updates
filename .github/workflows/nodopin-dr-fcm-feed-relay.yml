@@ -1,0 +1,50 @@
+name: NodoPin DR FCM - respaldo de Radar general y sísmico
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: nodopin-dr-fcm-feed-relay
+  cancel-in-progress: false
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Dependencias
+        run: python -m pip install --quiet --disable-pip-version-check requests google-auth
+      - name: Pruebas de seguridad sin FCM
+        run: |
+          python -m py_compile scripts/nodopin_dr_feed_relay.py scripts/publish_nodopin_dr_fcm.py
+          python -m unittest discover -s tests -p 'test_nodopin_dr_feed_relay.py' -v
+          python -m unittest discover -s tests -p 'test_publish_nodopin_dr_fcm.py' -v
+      - name: Consultar feeds y enviar solo novedades autorizadas
+        if: ${{ vars.NODOPIN_DR_FCM_ENABLED == 'true' }}
+        env:
+          NODOPIN_DR_FCM_ENABLED: ${{ vars.NODOPIN_DR_FCM_ENABLED }}
+          NODOPIN_DR_FCM_SERVICE_ACCOUNT: ${{ secrets.NODOPIN_DR_FCM_SERVICE_ACCOUNT }}
+        run: python scripts/nodopin_dr_feed_relay.py
+      - name: Persistir IDs para deduplicar próximas ejecuciones
+        if: ${{ vars.NODOPIN_DR_FCM_ENABLED == 'true' }}
+        run: |
+          if [ ! -f .state/nodopin-dr-fcm-feed-ledger.json ]; then
+            echo "No se creó ledger. Sin cambios."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .state/nodopin-dr-fcm-feed-ledger.json
+          if git diff --cached --quiet; then
+            echo "No hay nuevos IDs."
+            exit 0
+          fi
+          git commit -m "chore(nodopin-fcm): update feed delivery ledger [skip ci]"
+          git push origin HEAD:main

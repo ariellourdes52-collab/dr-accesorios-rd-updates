@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/minecraft-switch-2-estreno-mejora-gratis-vibrant-visuals-2026.html",
   "caption_sha256": "23654a5ea8808fd33e2cb396765af9f4c821dc819063e7ea9c2158d3f38717af",
   "image_sha256": "722172968d55cce19c90263b0133b6f746ce651e4979a43f57dfba11b8225f75",
-  "created_at": "2026-10-26T18:10:26.243184+00:00"
+  "created_at": "2026-10-26T18:10:26.243184+00:00",
+  "x_post_id": "2114781742775021606",
+  "published_at": "2026-10-26T18:10:33.143483+00:00"
 }

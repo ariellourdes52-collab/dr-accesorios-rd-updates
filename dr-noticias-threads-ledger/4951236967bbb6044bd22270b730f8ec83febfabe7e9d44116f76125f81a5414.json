@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/capcom-id-filtracion-11-millones-datos-cuentas-octubre-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "288dd97701661030d8a60ce98c0245e8729fa3b2039331c5b947518c3b394b69",
   "caption_sha256": "87f3567118d1e149da9d0f8c7ed86d4a62c53f093a46ef8578c73c0450b1c321",
   "created_at": "2026-10-26T13:09:58.920237+00:00",
-  "container_id": "17994985251110510"
+  "container_id": "17994985251110510",
+  "threads_media_id": "18206689828372670",
+  "completed_at": "2026-10-26T13:10:10.735689+00:00"
 }

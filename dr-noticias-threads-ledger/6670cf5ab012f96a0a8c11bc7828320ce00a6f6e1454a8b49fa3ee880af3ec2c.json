@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/xbox-cloud-gaming-movil-sin-game-pass-precios-horas-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "ef84dc84a06f48ec7626d081e7c24bd915edb089a36d9e5ba995a29d4c3fb89b",
   "caption_sha256": "dab25d60840390b77291b9d3d2a42b4ee47cf94f283d3afc7651b429b3ba1539",
   "created_at": "2026-10-26T23:09:58.519055+00:00",
-  "container_id": "17995079298110510"
+  "container_id": "17995079298110510",
+  "threads_media_id": "17995424472106980",
+  "completed_at": "2026-10-26T23:10:10.637205+00:00"
 }

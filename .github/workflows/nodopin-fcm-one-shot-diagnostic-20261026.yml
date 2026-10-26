@@ -1,9 +1,11 @@
 name: NodoPin FCM - PRUEBA UNICA 2026-10-26
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'tests/nodopin_fcm_diag_trigger_20261026.txt'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Escribe PROBAR para enviar un único aviso visible de diagnóstico al canal DR Radar de NodoPin'
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -11,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   diagnostic:
-    if: github.ref == 'refs/heads/main'
+    if: inputs.confirm == 'PROBAR'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

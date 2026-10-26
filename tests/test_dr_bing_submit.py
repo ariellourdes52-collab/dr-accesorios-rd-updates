@@ -11,15 +11,32 @@ HTML = ('<link rel="canonical" href="%s"><meta name="robots" content="index,foll
 
 class BingTests(unittest.TestCase):
     def test_sitemap_404_identifies_source(self):
-        with patch.object(b, 'request', side_effect=b.SafeError('HTTP 404')):
+        with patch.object(b, 'critical_get', side_effect=b.SafeError('HTTP 404')):
             with self.assertRaisesRegex(b.SafeError, r'Blogger sitemap sitemap.xml: HTTP 404'):
                 b.inventory()
     def test_bing_404_identifies_method_without_exposing_key(self):
-        with patch.object(b, 'request', side_effect=b.SafeError('HTTP 404')):
+        with patch.object(b, 'critical_get', side_effect=b.SafeError('HTTP 404')):
             with self.assertRaises(b.SafeError) as cm:
                 b.bing('GetUrlSubmissionQuota', 'secret-test-key')
         self.assertIn('Bing API GetUrlSubmissionQuota: HTTP 404', str(cm.exception))
         self.assertNotIn('secret-test-key', str(cm.exception))
+    def test_critical_get_retries_only_transient_failures(self):
+        expected = (200, b.SITE+'sitemap.xml', {}, b'<xml/>')
+        with patch.object(b, 'request', side_effect=[b.SafeError('HTTP 404'), expected]) as req, patch.object(b.time, 'sleep') as sleep:
+            self.assertEqual(b.critical_get(b.SITE+'sitemap.xml'), expected)
+            self.assertEqual(req.call_count, 2)
+            sleep.assert_called_once_with(1)
+        with patch.object(b, 'request', side_effect=b.SafeError('HTTP 403')) as req, patch.object(b.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(b.SafeError, 'HTTP 403'):
+                b.critical_get(b.SITE+'sitemap.xml')
+            req.assert_called_once()
+            sleep.assert_not_called()
+    def test_bing_post_does_not_retry(self):
+        with patch.object(b, 'request', side_effect=b.SafeError('HTTP 503')) as req, patch.object(b, 'critical_get') as retry:
+            with self.assertRaisesRegex(b.SafeError, 'Bing API SubmitUrlBatch: HTTP 503'):
+                b.bing('SubmitUrlBatch', 'secret-test-key', {'siteUrl': b.SITE, 'urlList': [URL]})
+            req.assert_called_once()
+            retry.assert_not_called()
     def test_url_filters(self):
         self.assertTrue(b.eligible(URL))
         for u in [URL+'?m=1', URL+'#comments', URL.replace('https:', 'http:'),

@@ -33,7 +33,7 @@ jobs:
           NODOPIN_DR_FCM_SERVICE_ACCOUNT: ${{ secrets.NODOPIN_DR_FCM_SERVICE_ACCOUNT }}
         run: python scripts/nodopin_dr_feed_relay.py
       - name: Persistir IDs para deduplicar próximas ejecuciones
-        if: ${{ vars.NODOPIN_DR_FCM_ENABLED == 'true' }}
+        if: ${{ always() && vars.NODOPIN_DR_FCM_ENABLED == 'true' }}
         run: |
           if [ ! -f .state/nodopin-dr-fcm-feed-ledger.json ]; then
             echo "No se creó ledger. Sin cambios."

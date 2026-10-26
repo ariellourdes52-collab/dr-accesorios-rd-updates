@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
 
 import requests
@@ -169,6 +170,23 @@ def publish(checked, test_token=None):
     return response.json().get("name", "")
 
 
+def verify_published_with_retry(category, alert_id, attempts=1, delay=1.5):
+    """Bounded read-after-publish retry: Firebase Hosting CDN may lag by seconds.
+
+    This never bypasses the official catalog verification; each attempt
+    revalidates the exact public entry before sending FCM.
+    """
+    last = None
+    for attempt in range(max(1, min(attempts, 6))):
+        try:
+            return match_catalog(category, alert_id, fetch_live(category))
+        except (ValueError, requests.RequestException) as error:
+            last = error
+            if attempt + 1 < attempts:
+                time.sleep(delay)
+    raise RuntimeError("La alerta aún no aparece válida en el catálogo público; no se envió FCM") from last
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--category", required=True, choices=sorted(SOURCES))
@@ -189,7 +207,7 @@ def main(argv=None):
         return 0
     if not ID_RE.fullmatch(args.id):
         parser.error("ID inválido")
-    checked = match_catalog(args.category, args.id, fetch_live(args.category))
+    checked = verify_published_with_retry(args.category, args.id, attempts=5 if (args.send or args.test) else 1)
     if not args.send and not args.test:
         print("DRY RUN: evento público verificado. No se envió FCM.", checked)
         return 0

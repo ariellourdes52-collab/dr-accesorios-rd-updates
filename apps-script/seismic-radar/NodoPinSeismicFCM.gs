@@ -132,3 +132,59 @@ function nodopinSeismicNewEvents_(newEvents) {
   console.log('NodoPin seismic FCM accepted=' + sent);
   return {active:true, accepted:sent};
 }
+
+
+/**
+ * Diagnóstico de autenticación SIN enviar notificaciones y SIN imprimir tokens.
+ * Ejecutar desde el menú de funciones de Apps Script tras configurar la
+ * propiedad privada NODOPIN_FCM_SENDER_JSON.
+ */
+function nodopinSeismicCheckAuth_() {
+  var status = nodopinSeismicBridgeStatus_();
+  if (!status.credentialsValid) {
+    throw new Error('NodoPin: NODOPIN_FCM_SENDER_JSON no es una cuenta de servicio válida.');
+  }
+  var token = nodopinAccessToken_();
+  if (!token) throw new Error('NodoPin: no se obtuvo token OAuth.');
+  console.log('NodoPin OAuth OK; ningún FCM enviado.');
+  return 'OAuth OK; ningún FCM enviado';
+}
+
+/**
+ * ÚNICA PRUEBA MANUAL Y VISIBLE de transporte: NO CREA un sismo ni altera feeds.
+ * Dirigida al topic sísmico de NodoPin (todos los teléfonos suscritos).
+ * El bloqueo de 15 minutos reduce pruebas duplicadas accidentales.
+ */
+function nodopinSeismicTestFcm_() {
+  var scriptProps = PropertiesService.getScriptProperties();
+  var now = Date.now();
+  var last = Number(scriptProps.getProperty('NODOPIN_FCM_LAST_TEST_MS') || 0);
+  if (last > 0 && now - last < 15 * 60 * 1000) {
+    throw new Error('NodoPin: prueba enviada recientemente. No se repetirá durante 15 minutos.');
+  }
+  var token = nodopinAccessToken_();
+  var payload = {message: {
+    topic: NODOPIN_SEISMIC_FCM_V1.topic,
+    notification: {
+      title: 'PRUEBA FCM · NodoPin',
+      body: 'Prueba de recepción. NO ES UN SISMO REAL ni una alerta de emergencia.'
+    },
+    data: {nodopin_open_centro_dr: 'true', nodopin_test: 'true'},
+    android: {
+      priority: 'high',
+      ttl: '300s',
+      restricted_package_name: NODOPIN_SEISMIC_FCM_V1.packageName
+    }
+  }};
+  var result = UrlFetchApp.fetch(NODOPIN_SEISMIC_FCM_V1.endpoint, {
+    method: 'post', contentType: 'application/json',
+    headers: {Authorization: 'Bearer ' + token},
+    payload: JSON.stringify(payload), muteHttpExceptions: true
+  });
+  if (result.getResponseCode() !== 200) {
+    throw new Error('NodoPin prueba FCM: HTTP ' + result.getResponseCode() + '; no se confirmó envío.');
+  }
+  scriptProps.setProperty('NODOPIN_FCM_LAST_TEST_MS', String(Date.now()));
+  console.log('FCM TEST ACCEPTED, tipo=PRUEBA, topic=NodoPin sísmico; no es alerta real.');
+  return 'FCM TEST ACCEPTED; recepción visual pendiente de comprobar en Android';
+}

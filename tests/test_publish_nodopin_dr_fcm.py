@@ -56,6 +56,19 @@ class Checks(unittest.TestCase):
         self.assertNotIn("topic", message)
         self.assertEqual(message["data"]["kind"], "nodopin_dr_public_v1")
 
+    def test_single_device_ping_never_broadcasts_or_claims_sismo(self):
+        value = notify.ping_payload("test-token-with-enough-length-12345")["message"]
+        self.assertEqual(value["token"], "test-token-with-enough-length-12345")
+        self.assertNotIn("topic", value)
+        self.assertNotIn("condition", value)
+        self.assertNotIn("data", value)
+        self.assertEqual(value["android"]["priority"], "high")
+        self.assertEqual(value["android"]["restricted_package_name"], "org.nodaviva.mesh")
+        self.assertIn("PRUEBA", value["notification"]["title"])
+        self.assertIn("NO es una alerta real", value["notification"]["body"])
+        with self.assertRaises(ValueError):
+            notify.ping_payload("short")
+
     def test_no_random_ids(self):
         with self.assertRaises(ValueError):
             notify.match_catalog("agenda", "../../bad", {"schemaVersion": 1, "events": []}, NOW)

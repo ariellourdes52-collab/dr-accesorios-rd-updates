@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "known": {
+    "radar_general": [
+      "radar_20261003_173721_el_coe_ampl_a_14_provincias_y__d241c6",
+      "radar_20261004_183754_coe_eleva_3_provincias_a_alert_29591d",
+      "radar_20261007_225405_dr_radar_alerta_por_inundacion_3e40b4",
+      "radar_20261008_141807_alerta_amarilla_por_lluvias_en_3529d5"
+    ],
+    "seismic": []
+  }
+}

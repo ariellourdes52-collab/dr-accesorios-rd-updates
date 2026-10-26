@@ -35,8 +35,17 @@ jobs:
           raw = os.environ.get("NODOPIN_DR_FCM_SERVICE_ACCOUNT", "")
           if not raw:
               raise SystemExit("Falta secreto NODOPIN_DR_FCM_SERVICE_ACCOUNT; NO se envio nada")
-          credentials = service_account.Credentials.from_service_account_info(
-              json.loads(raw), scopes=["https://www.googleapis.com/auth/firebase.messaging"])
+          try:
+              info = json.loads(raw)
+          except (json.JSONDecodeError, TypeError):
+              raise SystemExit("CREDENCIAL_INVALIDA: el secreto debe contener el JSON COMPLETO de la cuenta de servicio, sin comillas extras, rutas ni bloques Markdown. No se envió FCM.")
+          if not isinstance(info, dict) or info.get("type") != "service_account" or info.get("project_id") != "dr-accesorios-rd" or info.get("client_email") != "nodopin-dr-fcm-sender@dr-accesorios-rd.iam.gserviceaccount.com" or not info.get("private_key"):
+              raise SystemExit("CREDENCIAL_INCORRECTA: revisa que el secreto sea la clave JSON de nodopin-dr-fcm-sender del proyecto DR Accesorios RD. No se envió FCM.")
+          try:
+              credentials = service_account.Credentials.from_service_account_info(
+                  info, scopes=["https://www.googleapis.com/auth/firebase.messaging"])
+          except (ValueError, TypeError):
+              raise SystemExit("CREDENCIAL_MALFORMADA: falta una clave privada de servicio válida. No se envió FCM.")
           message = {
               "message": {
                   "topic": "nodopin_dr_radar_general_v1",

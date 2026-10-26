@@ -117,6 +117,39 @@ def payload(checked, test_token=None):
     }}
 
 
+
+def ping_payload(token):
+    """Diagnostic transport-only FCM; not a DR alert, one device only."""
+    if not isinstance(token, str) or not 20 <= len(token) <= 4096:
+        raise ValueError("Token FCM de prueba inválido")
+    return {"message": {
+        "token": token,
+        "notification": {
+            "title": "PRUEBA FCM · NodoPin",
+            "body": "Conexión de prueba correcta. NO es una alerta real de DR Radar ni de DR Agenda."
+        },
+        "android": {
+            "priority": "high", "ttl": "300s",
+            "restricted_package_name": PACKAGE,
+        },
+    }}
+
+def send_ping(token):
+    """Exactly one targeted message; never a topic broadcast."""
+    raw = os.getenv("NODOPIN_DR_FCM_SERVICE_ACCOUNT", "").strip()
+    if not raw:
+        raise RuntimeError("Falta NODOPIN_DR_FCM_SERVICE_ACCOUNT")
+    from google.oauth2 import service_account
+    from google.auth.transport.requests import AuthorizedSession
+    credentials = service_account.Credentials.from_service_account_info(
+        json.loads(raw), scopes=["https://www.googleapis.com/auth/firebase.messaging"])
+    response = AuthorizedSession(credentials).post(
+        f"https://fcm.googleapis.com/v1/projects/{PROJECT_ID}/messages:send",
+        json=ping_payload(token), timeout=20)
+    response.raise_for_status()
+    return response.json().get("name", "")
+
+
 def publish(checked, test_token=None):
     raw = os.getenv("NODOPIN_DR_FCM_SERVICE_ACCOUNT", "").strip()
     if not raw:
@@ -141,8 +174,19 @@ def main(argv=None):
     parser.add_argument("--category", required=True, choices=sorted(SOURCES))
     parser.add_argument("--id", required=True)
     parser.add_argument("--send", action="store_true", help="Send to topic; requires production permission gate")
-    parser.add_argument("--test", action="store_true", help="Send only to a configured TEST_DEVICE_TOKEN")
+    parser.add_argument("--test", action="store_true", help="Send a published alert only to one test device")
+    parser.add_argument("--ping", action="store_true", help="Transport smoke-test to one token, clearly labelled TEST")
     args = parser.parse_args(argv)
+    if args.ping:
+        if args.send or args.test:
+            raise RuntimeError("No combinar --ping con otros modos")
+        if os.getenv("NODOPIN_DR_FCM_TEST_ENABLED", "").strip().lower() != "true":
+            raise RuntimeError("PRUEBA deshabilitada: NODOPIN_DR_FCM_TEST_ENABLED != true")
+        token = os.getenv("NODOPIN_DR_FCM_TEST_DEVICE_TOKEN", "").strip()
+        if not token:
+            raise RuntimeError("Falta el secreto NODOPIN_DR_FCM_TEST_DEVICE_TOKEN")
+        print("FCM de diagnóstico (token único, NO alerta real):", send_ping(token))
+        return 0
     if not ID_RE.fullmatch(args.id):
         parser.error("ID inválido")
     checked = match_catalog(args.category, args.id, fetch_live(args.category))

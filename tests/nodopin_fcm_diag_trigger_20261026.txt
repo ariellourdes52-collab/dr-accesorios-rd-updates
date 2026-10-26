@@ -1,0 +1,1 @@
+Prueba unica autorizada por el propietario: FCM a suscriptores NodoPin v1.3.5 (Radar general). Notificacion visible marcada PRUEBA; no es alerta real. Sin cambios a variables de produccion.

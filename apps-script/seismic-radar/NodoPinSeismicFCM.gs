@@ -139,7 +139,7 @@ function nodopinSeismicNewEvents_(newEvents) {
  * Ejecutar desde el menú de funciones de Apps Script tras configurar la
  * propiedad privada NODOPIN_FCM_SENDER_JSON.
  */
-function nodopinSeismicCheckAuth_() {
+function nodopinSeismicCheckAuth() {
   var status = nodopinSeismicBridgeStatus_();
   if (!status.credentialsValid) {
     throw new Error('NodoPin: NODOPIN_FCM_SENDER_JSON no es una cuenta de servicio válida.');
@@ -155,7 +155,7 @@ function nodopinSeismicCheckAuth_() {
  * Dirigida al topic sísmico de NodoPin (todos los teléfonos suscritos).
  * El bloqueo de 15 minutos reduce pruebas duplicadas accidentales.
  */
-function nodopinSeismicTestFcm_() {
+function nodopinSeismicTestFcm() {
   var scriptProps = PropertiesService.getScriptProperties();
   var now = Date.now();
   var last = Number(scriptProps.getProperty('NODOPIN_FCM_LAST_TEST_MS') || 0);

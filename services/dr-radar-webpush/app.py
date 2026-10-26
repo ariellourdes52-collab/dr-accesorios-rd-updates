@@ -455,6 +455,18 @@ def monitor_loop() -> None:
 
         try:
             alerts = active_alerts()
+            # Independent, optional FCM to NodoPin. The original iOS/web-push
+            # radar path never depends on this service or its credentials.
+            if os.environ.get("NODOPIN_RAILWAY_FCM_ENABLED", "").lower() == "true":
+                try:
+                    from nodopin_fcm_bridge import relay_once
+                    relay_once(alerts, get_meta, set_meta)
+                except Exception as nodopin_error:
+                    print(
+                        "[nodopin-railway-fcm] optional relay failed: "
+                        + type(nodopin_error).__name__,
+                        flush=True,
+                    )
             current_keys = [alert_key(a) for a in alerts if alert_key(a)]
             raw_seen = get_meta("seen_alert_keys")
             if raw_seen is None:

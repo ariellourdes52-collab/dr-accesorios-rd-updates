@@ -4,19 +4,21 @@ on:
     inputs:
       category:
         description: 'Categoría del aviso público'
-        required: true
+        required: false
+        default: radar_general
         type: choice
         options: [radar_general, seismic, agenda]
       id:
         description: 'ID EXACTO de la alerta o evento ya publicado en el catálogo'
-        required: true
+        required: false
+        default: ''
         type: string
       mode:
-        description: 'validate solo verifica; send requiere bandera y secreto habilitados'
+        description: 'selftest comprueba emisor sin conexión ni envío; validate consulta catálogo; test y send requieren autorización'
         required: true
         type: choice
-        default: validate
-        options: [validate, test, send]
+        default: selftest
+        options: [selftest, validate, test, send]
 permissions:
   contents: read
 concurrency:
@@ -34,8 +36,11 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check --quiet google-auth requests
       - name: Validate offline sender tests
-        run: python -m unittest discover -s tests -p 'test_publish_nodopin_dr_fcm.py' -v
+        run: |
+          python -m py_compile scripts/publish_nodopin_dr_fcm.py
+          python -m unittest discover -s tests -p 'test_publish_nodopin_dr_fcm.py' -v
       - name: Verify official feed / send if authorized
+        if: inputs.mode != 'selftest'
         env:
           CATEGORY: ${{ inputs.category }}
           ALERT_ID: ${{ inputs.id }}

@@ -18,7 +18,7 @@ on:
         required: true
         type: choice
         default: selftest
-        options: [selftest, validate, test, send]
+        options: [selftest, validate, test, ping, send]
 permissions:
   contents: read
 concurrency:
@@ -50,7 +50,9 @@ jobs:
           NODOPIN_DR_FCM_TEST_DEVICE_TOKEN: ${{ secrets.NODOPIN_DR_FCM_TEST_DEVICE_TOKEN }}
           NODOPIN_DR_FCM_SERVICE_ACCOUNT: ${{ secrets.NODOPIN_DR_FCM_SERVICE_ACCOUNT }}
         run: |
-          if [[ "$MODE" == 'send' ]]; then
+          if [[ "$MODE" == 'ping' ]]; then
+            python scripts/publish_nodopin_dr_fcm.py --category "$CATEGORY" --id "$ALERT_ID" --ping
+          elif [[ "$MODE" == 'send' ]]; then
             python scripts/publish_nodopin_dr_fcm.py --category "$CATEGORY" --id "$ALERT_ID" --send
           elif [[ "$MODE" == 'test' ]]; then
             python scripts/publish_nodopin_dr_fcm.py --category "$CATEGORY" --id "$ALERT_ID" --test

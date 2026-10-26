@@ -55,7 +55,10 @@ def sitemap_entries(xml):
 def inventory():
     entries = {}
     for path in ('sitemap.xml', 'sitemap-pages.xml'):
-        status, final, headers, body = request(SITE + path)
+        try:
+            status, final, headers, body = request(SITE + path)
+        except SafeError as exc:
+            raise SafeError('Blogger sitemap %s: %s' % (path, exc)) from None
         if status != 200 or not final.startswith(SITE) or len(body) > 8_000_000:
             raise SafeError('Invalid sitemap response')
         entries.update(sitemap_entries(body))
@@ -90,8 +93,12 @@ def bing(method, key, payload=None):
     if payload is None:
         params['siteUrl'] = SITE
     url = 'https://ssl.bing.com/webmaster/api.svc/json/' + method + '?' + urllib.parse.urlencode(params)
-    _, _, _, body = request(url, None if payload is None else json.dumps(payload).encode(),
-                            {'Content-Type': 'application/json; charset=utf-8'})
+    try:
+        _, _, _, body = request(url, None if payload is None else json.dumps(payload).encode(),
+                                {'Content-Type': 'application/json; charset=utf-8'})
+    except SafeError as exc:
+        # Log only the fixed API method, never the API-key-bearing URL.
+        raise SafeError('Bing API %s: %s' % (method, exc)) from None
     result = json.loads(body)
     if not isinstance(result, dict) or 'd' not in result or 'ErrorCode' in result or 'error' in result:
         raise SafeError('Bing returned an invalid or error response')
@@ -166,7 +173,10 @@ def run(dry_run=False):
     if not changes or limit == 0:
         report('Pending changes: %d. Available batch quota: %d. Nothing submitted.' % (len(changes), limit))
         return
-    _, final, _, body = request(SITE + 'robots.txt')
+    try:
+        _, final, _, body = request(SITE + 'robots.txt')
+    except SafeError as exc:
+        raise SafeError('Blogger robots.txt: %s' % exc) from None
     if final != SITE + 'robots.txt':
         raise SafeError('Unexpected robots.txt redirect')
     robots = urllib.robotparser.RobotFileParser()

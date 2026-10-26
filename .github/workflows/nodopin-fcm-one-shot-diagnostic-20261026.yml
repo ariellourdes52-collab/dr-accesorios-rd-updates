@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   diagnostic:
-    if: github.event.head_commit.message == 'test(nodopin): trigger one-time FCM diagnostic'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

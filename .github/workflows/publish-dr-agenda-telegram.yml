@@ -56,6 +56,20 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.DR_AGENDA_TELEGRAM_BOT_TOKEN }}
         run: python scripts/publish_dr_agenda_telegram.py
 
+      # Proyecto Firebase independiente. El emisor vuelve a consultar el evento publicado.
+      # No altera FCM original de DR Agenda, Telegram ni el sitio de Hosting.
+      - name: Publish to NodoPin (FCM, after verified DR Agenda publication)
+        if: ${{ success() && inputs.run_mode == 'publicar' && vars.NODOPIN_DR_FCM_ENABLED == 'true' }}
+        continue-on-error: true
+        env:
+          NODOPIN_DR_FCM_ENABLED: ${{ vars.NODOPIN_DR_FCM_ENABLED }}
+          NODOPIN_DR_FCM_SERVICE_ACCOUNT: ${{ secrets.NODOPIN_DR_FCM_SERVICE_ACCOUNT }}
+          DR_AGENDA_PAYLOAD_JSON: ${{ inputs.payload_json }}
+        shell: bash
+        run: |
+          ID=$(python -c 'import os,json; print(json.loads(os.environ["DR_AGENDA_PAYLOAD_JSON"])["id"])')
+          python scripts/publish_nodopin_dr_fcm.py --category agenda --id "$ID" --send
+
       - name: Guardar manifiesto de respaldo (sin credenciales)
         if: always()
         uses: actions/upload-artifact@v4

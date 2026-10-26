@@ -1,0 +1,54 @@
+name: NodoPin · DR FCM - Validar y enviar aviso publicado
+on:
+  workflow_dispatch:
+    inputs:
+      category:
+        description: 'Categoría del aviso público'
+        required: true
+        type: choice
+        options: [radar_general, seismic, agenda]
+      id:
+        description: 'ID EXACTO de la alerta o evento ya publicado en el catálogo'
+        required: true
+        type: string
+      mode:
+        description: 'validate solo verifica; send requiere bandera y secreto habilitados'
+        required: true
+        type: choice
+        default: validate
+        options: [validate, test, send]
+permissions:
+  contents: read
+concurrency:
+  group: nodopin-dr-fcm-dispatch
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet google-auth requests
+      - name: Validate offline sender tests
+        run: python -m unittest discover -s tests -p 'test_publish_nodopin_dr_fcm.py' -v
+      - name: Verify official feed / send if authorized
+        env:
+          CATEGORY: ${{ inputs.category }}
+          ALERT_ID: ${{ inputs.id }}
+          MODE: ${{ inputs.mode }}
+          NODOPIN_DR_FCM_ENABLED: ${{ vars.NODOPIN_DR_FCM_ENABLED }}
+          NODOPIN_DR_FCM_TEST_ENABLED: ${{ vars.NODOPIN_DR_FCM_TEST_ENABLED }}
+          NODOPIN_DR_FCM_TEST_DEVICE_TOKEN: ${{ secrets.NODOPIN_DR_FCM_TEST_DEVICE_TOKEN }}
+          NODOPIN_DR_FCM_SERVICE_ACCOUNT: ${{ secrets.NODOPIN_DR_FCM_SERVICE_ACCOUNT }}
+        run: |
+          if [[ "$MODE" == 'send' ]]; then
+            python scripts/publish_nodopin_dr_fcm.py --category "$CATEGORY" --id "$ALERT_ID" --send
+          elif [[ "$MODE" == 'test' ]]; then
+            python scripts/publish_nodopin_dr_fcm.py --category "$CATEGORY" --id "$ALERT_ID" --test
+          else
+            python scripts/publish_nodopin_dr_fcm.py --category "$CATEGORY" --id "$ALERT_ID"
+          fi

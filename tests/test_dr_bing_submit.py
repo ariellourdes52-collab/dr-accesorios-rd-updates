@@ -10,6 +10,16 @@ HEADERS = {'Content-Type': 'text/html; charset=utf-8'}
 HTML = ('<link rel="canonical" href="%s"><meta name="robots" content="index,follow">' % URL).encode()
 
 class BingTests(unittest.TestCase):
+    def test_sitemap_404_identifies_source(self):
+        with patch.object(b, 'request', side_effect=b.SafeError('HTTP 404')):
+            with self.assertRaisesRegex(b.SafeError, r'Blogger sitemap sitemap.xml: HTTP 404'):
+                b.inventory()
+    def test_bing_404_identifies_method_without_exposing_key(self):
+        with patch.object(b, 'request', side_effect=b.SafeError('HTTP 404')):
+            with self.assertRaises(b.SafeError) as cm:
+                b.bing('GetUrlSubmissionQuota', 'secret-test-key')
+        self.assertIn('Bing API GetUrlSubmissionQuota: HTTP 404', str(cm.exception))
+        self.assertNotIn('secret-test-key', str(cm.exception))
     def test_url_filters(self):
         self.assertTrue(b.eligible(URL))
         for u in [URL+'?m=1', URL+'#comments', URL.replace('https:', 'http:'),

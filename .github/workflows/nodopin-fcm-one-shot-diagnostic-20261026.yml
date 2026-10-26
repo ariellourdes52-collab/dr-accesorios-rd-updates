@@ -1,0 +1,62 @@
+name: NodoPin FCM - PRUEBA UNICA 2026-10-26
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tests/nodopin_fcm_diag_trigger_20261026.txt'
+permissions:
+  contents: read
+concurrency:
+  group: nodopin-fcm-diagnostic-once-20261026
+  cancel-in-progress: false
+jobs:
+  diagnostic:
+    if: github.event.head_commit.message == 'test(nodopin): trigger one-time FCM diagnostic'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install Google authentication library
+        run: python -m pip install --quiet --disable-pip-version-check google-auth requests
+      - name: Send ONE visibly labelled FCM notification to NodoPin Radar subscribers
+        env:
+          NODOPIN_DR_FCM_SERVICE_ACCOUNT: ${{ secrets.NODOPIN_DR_FCM_SERVICE_ACCOUNT }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+          raw = os.environ.get("NODOPIN_DR_FCM_SERVICE_ACCOUNT", "")
+          if not raw:
+              raise SystemExit("Falta secreto NODOPIN_DR_FCM_SERVICE_ACCOUNT; NO se envio nada")
+          credentials = service_account.Credentials.from_service_account_info(
+              json.loads(raw), scopes=["https://www.googleapis.com/auth/firebase.messaging"])
+          message = {
+              "message": {
+                  "topic": "nodopin_dr_radar_general_v1",
+                  "notification": {
+                      "title": "PRUEBA FCM · NodoPin",
+                      "body": "Aviso de prueba de alta prioridad. NO es un sismo, una emergencia ni un evento real."
+                  },
+                  "android": {
+                      "priority": "high",
+                      "ttl": "300s",
+                      "restricted_package_name": "org.nodaviva.mesh",
+                  },
+              }
+          }
+          url = "https://fcm.googleapis.com/v1/projects/nexlink-3d017/messages:send"
+          response = AuthorizedSession(credentials).post(url, json=message, timeout=25)
+          if response.status_code != 200:
+              # Do not print the full response body: avoid accidental credential/token disclosure.
+              raise SystemExit(f"FCM_REJECTED status={response.status_code}")
+          payload = response.json()
+          if not payload.get("name"):
+              raise SystemExit("FCM_NO_MESSAGE_ID")
+          print("FCM_ACCEPTED_ONE_TIME; topic=nodopin_dr_radar_general_v1; priority=high; type=TEST; TTL=300s")
+          print("Nota: aceptacion de FCM no garantiza entrega a todos los telefonos.")
+          PY

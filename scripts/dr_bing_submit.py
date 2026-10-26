@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -31,6 +32,17 @@ def request(url, data=None, headers=None):
         # Never print URL-bearing exceptions: Bing API key is a query parameter.
         raise SafeError('Network request failed') from None
 
+def critical_get(url, headers=None):
+    """Retry only critical read-only checks after transient HTTP errors."""
+    transient = {'HTTP 404', 'HTTP 429', 'HTTP 500', 'HTTP 502', 'HTTP 503', 'HTTP 504'}
+    for attempt in range(3):
+        try:
+            return request(url, headers=headers)
+        except SafeError as exc:
+            if str(exc) not in transient or attempt == 2:
+                raise
+            time.sleep((1, 3)[attempt])
+
 def eligible(url):
     p = urllib.parse.urlsplit(url)
     return (p.scheme == 'https' and p.netloc == 'draccesoriosrd.blogspot.com'
@@ -56,7 +68,7 @@ def inventory():
     entries = {}
     for path in ('sitemap.xml', 'sitemap-pages.xml'):
         try:
-            status, final, headers, body = request(SITE + path)
+            status, final, headers, body = critical_get(SITE + path)
         except SafeError as exc:
             raise SafeError('Blogger sitemap %s: %s' % (path, exc)) from None
         if status != 200 or not final.startswith(SITE) or len(body) > 8_000_000:
@@ -94,8 +106,11 @@ def bing(method, key, payload=None):
         params['siteUrl'] = SITE
     url = 'https://ssl.bing.com/webmaster/api.svc/json/' + method + '?' + urllib.parse.urlencode(params)
     try:
-        _, _, _, body = request(url, None if payload is None else json.dumps(payload).encode(),
-                                {'Content-Type': 'application/json; charset=utf-8'})
+        api_headers = {'Content-Type': 'application/json; charset=utf-8'}
+        if payload is None:
+            _, _, _, body = critical_get(url, headers=api_headers)
+        else:
+            _, _, _, body = request(url, json.dumps(payload).encode(), api_headers)
     except SafeError as exc:
         # Log only the fixed API method, never the API-key-bearing URL.
         raise SafeError('Bing API %s: %s' % (method, exc)) from None
@@ -174,7 +189,7 @@ def run(dry_run=False):
         report('Pending changes: %d. Available batch quota: %d. Nothing submitted.' % (len(changes), limit))
         return
     try:
-        _, final, _, body = request(SITE + 'robots.txt')
+        _, final, _, body = critical_get(SITE + 'robots.txt')
     except SafeError as exc:
         raise SafeError('Blogger robots.txt: %s' % exc) from None
     if final != SITE + 'robots.txt':

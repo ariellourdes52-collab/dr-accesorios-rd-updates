@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/microsoft-parches-emergencia-dotnet-brotli-cve-2026-111497.html",
   "title": "Microsoft lanza parches urgentes por falla en .NET y Brotli",
   "jpeg_sha256": "4fe15e65d770ded60d463b643dbcdad639a423e0153d06e15f4867a363fdd90c",
   "caption_sha256": "6fc82762e52a1c030d556f195a75794a063f3f9eecd97d9b5d2300cc67792ae4",
-  "created_at": "2026-10-27T13:09:37.119639+00:00"
+  "created_at": "2026-10-27T13:09:37.119639+00:00",
+  "facebook_media_id": "875159429020764_122143100565183523",
+  "completed_at": "2026-10-27T13:09:42.035524+00:00"
 }

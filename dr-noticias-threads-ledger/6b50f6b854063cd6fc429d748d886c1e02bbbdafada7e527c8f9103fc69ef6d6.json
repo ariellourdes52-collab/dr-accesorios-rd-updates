@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/microsoft-parches-emergencia-dotnet-brotli-cve-2026-111497.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "4fe15e65d770ded60d463b643dbcdad639a423e0153d06e15f4867a363fdd90c",
   "caption_sha256": "d36bd63a2262e6097c5dba975f9d59edbe79c9b660241a93ea72a78626d7f138",
   "created_at": "2026-10-27T13:09:57.207203+00:00",
-  "container_id": "17995197057110510"
+  "container_id": "17995197057110510",
+  "threads_media_id": "18140786950620244",
+  "completed_at": "2026-10-27T13:10:08.931403+00:00"
 }

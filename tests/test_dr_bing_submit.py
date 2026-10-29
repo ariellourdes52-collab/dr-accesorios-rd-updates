@@ -1,6 +1,6 @@
 import importlib.util
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from pathlib import Path
 spec = importlib.util.spec_from_file_location('bing', Path(__file__).parents[1] / 'scripts/dr_bing_submit.py')
 b = importlib.util.module_from_spec(spec)
@@ -10,6 +10,60 @@ HEADERS = {'Content-Type': 'text/html; charset=utf-8'}
 HTML = ('<link rel="canonical" href="%s"><meta name="robots" content="index,follow">' % URL).encode()
 
 class BingTests(unittest.TestCase):
+    def test_rotation_reaches_beyond_first_fifty(self):
+        urls = ['url%d' % i for i in range(121)]
+        seen = []
+        for run in range(3):
+            with patch.dict(b.os.environ, {'GITHUB_RUN_NUMBER': str(run)}):
+                selected = b.candidates(urls)
+                self.assertLessEqual(len(selected), 50)
+                seen.extend(selected)
+        self.assertEqual(seen, urls)
+
+    def test_missing_key_is_failure(self):
+        with patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY': ''}), patch.object(b, 'inventory', return_value={URL:'v1'}):
+            with self.assertRaisesRegex(b.SafeError, 'Missing BING'):
+                b.run()
+
+    @patch.dict(b.os.environ, {'GITHUB_REPOSITORY':'owner/repo', 'GITHUB_TOKEN':'dummy'})
+    def test_save_timeout_after_success_is_not_repeated(self):
+        with patch.object(b.urllib.request, 'urlopen', side_effect=TimeoutError) as put, patch.object(b, 'read_state', return_value=({URL:'v2'}, 'new')):
+            b.save_state({URL:'v2'}, 'old')
+            self.assertEqual(put.call_count, 1)
+
+    @patch.dict(b.os.environ, {'GITHUB_REPOSITORY':'owner/repo', 'GITHUB_TOKEN':'dummy'})
+    def test_save_retries_without_resubmitting_to_bing(self):
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        with patch.object(b.urllib.request, 'urlopen', side_effect=[TimeoutError, response]) as put, patch.object(b, 'read_state', return_value=({URL:'v1'}, 'old')), patch.object(b.time, 'sleep'), patch.object(b, 'bing') as api:
+            b.save_state({URL:'v2'}, 'old')
+            self.assertEqual(put.call_count, 2)
+            api.assert_not_called()
+
+    @patch.dict(b.os.environ, {'GITHUB_REPOSITORY':'owner/repo', 'GITHUB_TOKEN':'dummy'})
+    def test_save_never_overwrites_concurrent_change(self):
+        with patch.object(b.urllib.request, 'urlopen', side_effect=TimeoutError) as put, patch.object(b, 'read_state', return_value=({URL:'v3'}, 'new')):
+            with self.assertRaisesRegex(b.SafeError, 'concurrently'):
+                b.save_state({URL:'v2'}, 'old')
+            self.assertEqual(put.call_count, 1)
+
+    @patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY':'dummy'})
+    def test_fetch_failure_is_not_green(self):
+        with patch.object(b, 'inventory', return_value={URL:'v2'}), patch.object(b, 'bing', return_value={'DailyQuota':5,'MonthlyQuota':10}), patch.object(b, 'read_state', return_value=({URL:'v1'},'sha')), patch.object(b, 'save_state') as save, patch.object(b, 'request', side_effect=[(200,b.SITE+'robots.txt',{},b'User-agent: *\nAllow: /'),b.SafeError('HTTP 503')]):
+            with self.assertRaisesRegex(b.SafeError, 'page fetches failed'):
+                b.run()
+            save.assert_not_called()
+
+    @patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY':'dummy'})
+    def test_receipt_logged_before_save_failure(self):
+        messages = []
+        def fail_save(*args):
+            self.assertTrue(any('Bing accepted 1 URLs' in m and URL in m for m in messages))
+            raise b.SafeError('State save failed')
+        with patch.object(b,'inventory',return_value={URL:'v2'}), patch.object(b,'bing',side_effect=[{'DailyQuota':5,'MonthlyQuota':10},None]), patch.object(b,'read_state',return_value=({URL:'v1'},'sha')), patch.object(b,'save_state',side_effect=fail_save), patch.object(b,'report',side_effect=messages.append), patch.object(b,'request',side_effect=[(200,b.SITE+'robots.txt',{},b'User-agent: *\nAllow: /'),(200,URL,HEADERS,HTML)]):
+            with self.assertRaisesRegex(b.SafeError, 'State save failed'):
+                b.run()
+
     def test_sitemap_404_identifies_source(self):
         with patch.object(b, 'critical_get', side_effect=b.SafeError('HTTP 404')):
             with self.assertRaisesRegex(b.SafeError, r'Blogger sitemap sitemap.xml: HTTP 404'):
@@ -88,3 +142,4 @@ class BingTests(unittest.TestCase):
             save.assert_not_called()
 
 if __name__ == '__main__': unittest.main()
+

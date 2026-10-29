@@ -156,12 +156,38 @@ def save_state(urls, sha):
         payload['sha'] = sha
     req = urllib.request.Request(state_api(), data=json.dumps(payload).encode(),
                                  headers=github_headers(), method='PUT')
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            if r.status not in (200, 201):
-                raise SafeError('State save failed')
-    except (OSError, ValueError):
-        raise SafeError('State save failed; accepted URLs may be retried next run') from None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                if r.status not in (200, 201):
+                    raise SafeError('State save failed')
+            return
+        except (OSError, ValueError) as exc:
+            retryable = (not isinstance(exc, urllib.error.HTTPError) or
+                         exc.code in (409, 429, 500, 502, 503, 504))
+            # A timeout may follow a successful PUT. Read back before retrying.
+            try:
+                current, current_sha = read_state()
+            except Exception:
+                raise SafeError('State save could not be verified; check accepted URL log before rerunning') from None
+            if current == urls:
+                return
+            if current_sha != sha:
+                raise SafeError('State changed concurrently; refusing to overwrite it') from None
+            if not retryable:
+                raise SafeError('State save rejected; accepted URLs remain in the run log') from None
+            if attempt < 2:
+                time.sleep((1, 3)[attempt])
+    raise SafeError('State save failed; accepted URLs may be retried next run')
+
+def candidates(changes):
+    # Rotate bounded windows on successive scheduled runs without extra state commits.
+    windows = (len(changes) + 49) // 50
+    if not windows:
+        return []
+    sequence = int(os.environ.get('GITHUB_RUN_NUMBER', int(time.time() // 3600)))
+    start = (sequence % windows) * 50
+    return changes[start:start + 50]
 
 def report(message):
     print(message)
@@ -176,8 +202,7 @@ def run(dry_run=False):
         return
     key = os.environ.get('BING_WEBMASTER_API_KEY', '').strip()
     if not key:
-        report('Not activated: add the BING_WEBMASTER_API_KEY Actions secret (not the IndexNow key).')
-        return
+        raise SafeError('Missing BING_WEBMASTER_API_KEY Actions secret (not the IndexNow key)')
     limit = quota_limit(bing('GetUrlSubmissionQuota', key))
     state, sha = read_state()
     if state is None:
@@ -185,6 +210,7 @@ def run(dry_run=False):
         report('Bing credentials verified. Baseline saved: %d URLs; 0 submitted. Future changes will be sent.' % len(entries))
         return
     changes = pending(entries, state)
+    report('State contains %d URL checkpoints (baseline plus accepted changes; not an indexing or submission count).' % len(state))
     if not changes or limit == 0:
         report('Pending changes: %d. Available batch quota: %d. Nothing submitted.' % (len(changes), limit))
         return
@@ -197,8 +223,9 @@ def run(dry_run=False):
     robots = urllib.robotparser.RobotFileParser()
     robots.parse(body.decode().splitlines())
     batch = []
+    fetch_failures = 0
     # Bound requests even if some URLs are persistently unavailable.
-    for url in changes[:50]:
+    for url in candidates(changes):
         if not robots.can_fetch('bingbot', url):
             report('Deferred (robots): ' + url)
             continue
@@ -207,22 +234,30 @@ def run(dry_run=False):
             if status != 200 or len(body) > 8_000_000 or not valid_page(url, final, headers, body):
                 report('Deferred (status/canonical/noindex): ' + url)
                 continue
-        except SafeError:
-            report('Deferred (fetch failed): ' + url)
+        except SafeError as exc:
+            fetch_failures += 1
+            report('Deferred (fetch failed, %s): %s' % (exc, url))
             continue
         batch.append(url)
         if len(batch) == limit:
             break
     if not batch:
+        if fetch_failures:
+            raise SafeError('%d page fetches failed; pending URLs retained' % fetch_failures)
         report('No eligible changed pages passed validation.')
         return
     result = bing('SubmitUrlBatch', key, {'siteUrl': SITE, 'urlList': batch})
     if result is not None:
         raise SafeError('Unexpected Bing acknowledgment; state was not advanced')
+    report('Bing accepted %d URLs (receipt only, not confirmed indexing); run %s; UTC %s:\n%s' %
+           (len(batch), os.environ.get('GITHUB_RUN_ID', 'local'),
+            time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), '\n'.join(batch)))
     for url in batch:
         state[url] = entries[url]
     save_state(state, sha)
-    report('Bing accepted %d URLs (receipt only, not confirmed indexing):\n%s' % (len(batch), '\n'.join(batch)))
+    report('Accepted URL checkpoints saved successfully.')
+    if fetch_failures:
+        raise SafeError('%d page fetches failed; accepted URLs saved, failed URLs remain pending' % fetch_failures)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -234,3 +269,4 @@ if __name__ == '__main__':
         # Do not log raw exceptions from network/authentication libraries.
         report('ERROR: ' + (str(exc) if isinstance(exc, SafeError) else type(exc).__name__))
         sys.exit(1)
+

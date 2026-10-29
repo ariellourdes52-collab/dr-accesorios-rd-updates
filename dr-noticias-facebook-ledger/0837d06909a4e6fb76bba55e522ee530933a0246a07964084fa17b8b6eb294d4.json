@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/apple-macbook-pro-tactil-oled-m5-2026.html",
   "title": "La MacBook Pro rompe su propia historia: Apple estrena pantalla táctil OLED",
   "jpeg_sha256": "75dacd25dc9b91c99dad086eaea5773bd44f413de93a7f6f4e605658280184cd",
   "caption_sha256": "f49d54eab7c4e4dbd6d493ead178070271979979a1463a9a511a545d8bf7a459",
-  "created_at": "2026-10-29T13:09:34.957324+00:00"
+  "created_at": "2026-10-29T13:09:34.957324+00:00",
+  "facebook_media_id": "875159429020764_122143301421183523",
+  "completed_at": "2026-10-29T13:09:40.628172+00:00"
 }

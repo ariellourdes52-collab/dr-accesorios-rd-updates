@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/google-android-connected-apps-plataforma-2026.html",
   "caption_sha256": "e8e0c49c389f41d2e3d9618c13c64ede9ce00ef98fb34767f6d7b1c49cf7eb19",
   "image_sha256": "f8a8f9096d0697f5288c9a346824adf01db0eb7bddbba6870fc5b8dfa88b747d",
-  "created_at": "2026-10-29T23:10:23.011250+00:00"
+  "created_at": "2026-10-29T23:10:23.011250+00:00",
+  "x_post_id": "2115944388589441225",
+  "published_at": "2026-10-29T23:10:29.463102+00:00"
 }

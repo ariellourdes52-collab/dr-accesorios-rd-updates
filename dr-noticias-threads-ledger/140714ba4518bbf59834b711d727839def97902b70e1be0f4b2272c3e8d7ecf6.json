@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/google-android-connected-apps-plataforma-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "f8a8f9096d0697f5288c9a346824adf01db0eb7bddbba6870fc5b8dfa88b747d",
   "caption_sha256": "08d9e62d997e0afa19c0128ae7a076b11133e374a3cb936404043fdb2d27e158",
   "created_at": "2026-10-29T23:09:55.478072+00:00",
-  "container_id": "17995682820110510"
+  "container_id": "17995682820110510",
+  "threads_media_id": "18105986501347569",
+  "completed_at": "2026-10-29T23:10:13.478359+00:00"
 }

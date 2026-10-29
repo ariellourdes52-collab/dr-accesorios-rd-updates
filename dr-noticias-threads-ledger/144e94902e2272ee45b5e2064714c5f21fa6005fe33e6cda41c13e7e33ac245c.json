@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/apple-macbook-pro-tactil-oled-m5-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "75dacd25dc9b91c99dad086eaea5773bd44f413de93a7f6f4e605658280184cd",
   "caption_sha256": "ce94a4fd582d395f631633d7ab4e8139fa11629c99675793e0425a1f7f4b5ab4",
   "created_at": "2026-10-29T13:09:59.314553+00:00",
-  "container_id": "17995593540110510"
+  "container_id": "17995593540110510",
+  "threads_media_id": "18103874942642209",
+  "completed_at": "2026-10-29T13:10:11.431559+00:00"
 }

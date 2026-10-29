@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/alien-isolation-2-xenomorfo-microfono-voz-2026.html",
   "title": "Isolation 2 convertirá tu propia voz en una amenaza frente al xenomorfo",
   "image_sha256": "706762560f868e8f55a541b2ee3d5a230141b355eb4ee23083af84956284c176",
   "caption_sha256": "4797757c6ae345b79403af6cb09f84d18f2d91e151398e4f1040ace82da7d439",
   "created_at": "2026-10-29T18:09:10.118971+00:00",
-  "container_id": "18183496444429315"
+  "container_id": "18183496444429315",
+  "instagram_media_id": "17951880072053734",
+  "completed_at": "2026-10-29T18:09:19.614461+00:00"
 }

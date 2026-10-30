@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/android-17-qpr3-beta-3-pixel-app-lock-correcciones-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "9db95a3bc0d2c17f16ec04216792bf13b2cca73b2b39b2c88369328d12bc8d10",
   "caption_sha256": "6bd260a3ede5375634f02fa269a0887349d7e134a59009032d4c27e902a96339",
   "created_at": "2026-10-30T18:10:31.278610+00:00",
-  "container_id": "17995812342110510"
+  "container_id": "17995812342110510",
+  "threads_media_id": "17956595007267083",
+  "completed_at": "2026-10-30T18:10:44.093930+00:00"
 }

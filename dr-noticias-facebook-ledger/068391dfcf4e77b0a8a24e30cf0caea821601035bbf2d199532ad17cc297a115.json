@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/mouthwashing-pelicula-sony-karyn-kusama-2026.html",
   "title": "Mouthwashing: Sony prepara su película",
   "jpeg_sha256": "3910c4fab8b6a823784a41ffc134c4264bbc18f31b80c3d15dcf86811baf7c6a",
   "caption_sha256": "ee4c00088448eed3f62d373f8e5eb4bbb0616e828fa0cd16a737eba29579d6c3",
-  "created_at": "2026-10-30T23:09:27.002041+00:00"
+  "created_at": "2026-10-30T23:09:27.002041+00:00",
+  "facebook_media_id": "875159429020764_122143437027183523",
+  "completed_at": "2026-10-30T23:09:32.542528+00:00"
 }

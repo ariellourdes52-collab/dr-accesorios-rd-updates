@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/android-17-qpr3-beta-3-pixel-app-lock-correcciones-2026.html",
   "title": "Android 17: App Lock regresa a los Pixel",
   "jpeg_sha256": "9db95a3bc0d2c17f16ec04216792bf13b2cca73b2b39b2c88369328d12bc8d10",
   "caption_sha256": "b2e58a6585a3caa009d3305457d9e6299bdcb481c2c207f42d08672541d4e749",
-  "created_at": "2026-10-30T18:09:36.918265+00:00"
+  "created_at": "2026-10-30T18:09:36.918265+00:00",
+  "facebook_media_id": "875159429020764_122143415067183523",
+  "completed_at": "2026-10-30T18:09:43.025098+00:00"
 }

@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/binance-incidente-seguridad-6300-millones-octubre-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "90aae0739def4f78dba88b081af619e383772211dfb1c8b0c74fb107320f2d2b",
   "caption_sha256": "87068825f40c924388e36af8b46e732ac56d9b3219100d4a92eb91a80bf1ce17",
   "created_at": "2026-10-30T13:09:53.141631+00:00",
-  "container_id": "17995770072110510"
+  "container_id": "17995770072110510",
+  "threads_media_id": "18116214080330779",
+  "completed_at": "2026-10-30T13:10:03.878958+00:00"
 }

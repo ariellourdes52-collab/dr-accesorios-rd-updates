@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/apple-intelligence-china-ios-27-3.html",
   "title": "Apple lleva su IA a China: ¿y Siri para cuándo?",
   "image_sha256": "3c11174350063373663e21321bfa8e7602e7ff4ddbf1645e12ef2bee49d1947c",
   "caption_sha256": "4095b3497917d2c29d565af734b78a52c62ddfa7ca3316c17944c129f5d3c825",
   "created_at": "2026-10-31T18:09:14.037408+00:00",
-  "container_id": "18183711595429315"
+  "container_id": "18183711595429315",
+  "instagram_media_id": "18122074735947092",
+  "completed_at": "2026-10-31T18:09:21.961054+00:00"
 }

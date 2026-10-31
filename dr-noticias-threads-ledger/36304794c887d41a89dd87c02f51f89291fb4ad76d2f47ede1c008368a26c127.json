@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/final-fantasy-xiv-evercold-zephyr-2026.html",
   "title": "¿Esperabas Evercold? Se retrasa, pero llega Zephyr",
   "jpeg_sha256": "7fda10e7659f05900ff9b7a269d36c3b7336ed6ac87088390822835733acfbdd",
   "caption_sha256": "0a8594af280a503be15a1df0dac52f73be6e7efb08cb4c8dd89031e72ea38ca2",
-  "created_at": "2026-10-31T23:09:54.826204+00:00"
+  "created_at": "2026-10-31T23:09:54.826204+00:00",
+  "container_id": "17996102457110510"
 }

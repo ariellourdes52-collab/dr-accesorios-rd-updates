@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/binance-hack-exchanges-defensas-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "b997092fa74d2850780bfbcde0735f1633e7df307b1836cdc881dcfd7075a84e",
   "caption_sha256": "ab1b7fba1bd0ba90ca469cd72f367c5ab56dad239173fc926c8648689d4e98c3",
   "created_at": "2026-10-31T13:09:49.228471+00:00",
-  "container_id": "17995996725110510"
+  "container_id": "17995996725110510",
+  "threads_media_id": "18031540739883340",
+  "completed_at": "2026-10-31T13:10:01.628480+00:00"
 }

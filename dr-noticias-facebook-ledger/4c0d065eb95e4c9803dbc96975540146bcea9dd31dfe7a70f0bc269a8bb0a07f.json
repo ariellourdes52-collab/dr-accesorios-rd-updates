@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/10/binance-hack-exchanges-defensas-2026.html",
   "title": "Binance: ¿están seguras tus criptos ahora?",
   "jpeg_sha256": "b997092fa74d2850780bfbcde0735f1633e7df307b1836cdc881dcfd7075a84e",
   "caption_sha256": "58bce9dfe036c6acd5cc15b62caddcfeda71cfe6236c7bdca10839fe341d56bf",
-  "created_at": "2026-10-31T13:09:30.034541+00:00"
+  "created_at": "2026-10-31T13:09:30.034541+00:00",
+  "facebook_media_id": "875159429020764_122143494393183523",
+  "completed_at": "2026-10-31T13:09:35.021903+00:00"
 }

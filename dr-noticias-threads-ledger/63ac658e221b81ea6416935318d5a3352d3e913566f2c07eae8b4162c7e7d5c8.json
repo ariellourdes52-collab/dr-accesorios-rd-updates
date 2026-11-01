@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/pikmin-4-demo-gratis-switch-2-nintendo-2026.html",
   "title": "Nintendo sorprende: Pikmin 4 tendrá demo gratis",
   "jpeg_sha256": "076ece1f8b7e6757564fd9417abb6b200980bf16f8d589996427062ad598dda0",
   "caption_sha256": "4d29dfec0dbce1de3741b99bd6412d8b6bfa9cc5439e9ecc3b12d7cbc98d53fd",
-  "created_at": "2026-11-01T23:09:56.173593+00:00"
+  "created_at": "2026-11-01T23:09:56.173593+00:00",
+  "container_id": "17996306490110510"
 }

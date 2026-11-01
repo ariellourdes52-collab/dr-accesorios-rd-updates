@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/google-fotos-error-fotos-editadas-android-2026.html",
   "title": "Google Fotos: el fallo que nadie quería",
   "jpeg_sha256": "d7046f0be98c4f85afd2778bb8d23b679c1bfa16e7fa8518a2a4200d70e23e05",
   "caption_sha256": "5dcc2ff6b8b1da553b90bee22660562e42443838e7eada824b4088201932d70c",
-  "created_at": "2026-11-01T18:09:54.846241+00:00"
+  "created_at": "2026-11-01T18:09:54.846241+00:00",
+  "container_id": "17996275695110510"
 }

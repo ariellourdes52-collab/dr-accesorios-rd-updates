@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/sonic-racing-godzilla-calendario-2026.html",
   "title": "Sonic y Godzilla: el cruce que nadie esperaba",
   "jpeg_sha256": "4157a467ead76fc11916a9a0e7692549d7fb84a926827f25bec91d7ad3d4cdb2",
   "caption_sha256": "b297f89f7aa1c2fc5de94be86c9069bb17c02ea5254ef1b15405cafc5fe74f51",
-  "created_at": "2026-11-02T23:10:03.018490+00:00"
+  "created_at": "2026-11-02T23:10:03.018490+00:00",
+  "container_id": "17996481774110510"
 }

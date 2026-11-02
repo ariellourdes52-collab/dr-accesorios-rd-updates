@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/robots-china-ia-inteligente-2026.html",
   "title": "Robots chinos: ¿la IA ya sabe trabajar?",
   "image_sha256": "94c9b4439d1e2ba42d83f5ac1dbedb4b2e33e27f72c1a342da103e5998516c08",
   "caption_sha256": "d217e054b865c26459a77069eef38a5b9fcd195ecf3ca9559eb09bc9db543b96",
   "created_at": "2026-11-02T13:09:05.387227+00:00",
-  "container_id": "18183928096429315"
+  "container_id": "18183928096429315",
+  "instagram_media_id": "18108739259257700",
+  "completed_at": "2026-11-02T13:09:15.990214+00:00"
 }

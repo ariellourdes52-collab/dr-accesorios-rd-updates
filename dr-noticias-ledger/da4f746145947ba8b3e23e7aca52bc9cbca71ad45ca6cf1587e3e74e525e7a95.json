@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/android-quick-share-windows-novedades-2026.html",
   "title": "Android y Windows: tus fotos, sin cables",
   "image_sha256": "a8ac73d4eeb9e4c3d2606e2cfa18f1d918c5188171885daa24e3f7959533fc6d",
   "caption_sha256": "646c085affbaae5ba380d8a46006bf45865323a2ccdd74e80c3ee8a9b065742b",
-  "created_at": "2026-11-03T18:09:16.318915+00:00"
+  "created_at": "2026-11-03T18:09:16.318915+00:00",
+  "container_id": "18184048381429315"
 }

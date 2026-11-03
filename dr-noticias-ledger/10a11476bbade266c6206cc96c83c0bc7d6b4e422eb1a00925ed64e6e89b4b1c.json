@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/warzone-switch2-ps4-xbox-one-temporada1-2026.html",
   "title": "Warzone en Switch 2: ¿adiós a PS4 y Xbox One?",
   "image_sha256": "d4c79823a18bae5fc339cfb5c428e0ff8fea2236c1950bbbd4d5d3e610f7c088",
   "caption_sha256": "692e96df50d49e87216d885bdb3900c9508d0ac3a2f075f0a6e8cd6b02994131",
   "created_at": "2026-11-03T23:09:09.260131+00:00",
-  "container_id": "18184064152429315"
+  "container_id": "18184064152429315",
+  "instagram_media_id": "18351891682270873",
+  "completed_at": "2026-11-03T23:09:18.944037+00:00"
 }

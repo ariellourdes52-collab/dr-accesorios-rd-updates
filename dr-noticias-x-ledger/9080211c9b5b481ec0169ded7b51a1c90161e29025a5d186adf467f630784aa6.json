@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/android-quick-share-windows-novedades-2026.html",
   "caption_sha256": "7ea3d380af5224965965ab311ee190ce0e75ceec336ca115b03fea9401000804",
   "image_sha256": "a8ac73d4eeb9e4c3d2606e2cfa18f1d918c5188171885daa24e3f7959533fc6d",
-  "created_at": "2026-11-03T18:10:39.919807+00:00"
+  "created_at": "2026-11-03T18:10:39.919807+00:00",
+  "x_post_id": "2117680904973799433",
+  "published_at": "2026-11-03T18:10:47.234274+00:00"
 }

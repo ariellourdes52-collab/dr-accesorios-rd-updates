@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/openai-ejercito-seguridad-nacional-ia-2026.html",
   "title": "OpenAI y el Ejército: ¿qué está cambiando?",
   "jpeg_sha256": "86fe914ddda5e6c01a342c89865a740ad5dc4b83c0c233505d92e7d44299bbe7",
   "caption_sha256": "ef6fe5bf56fa0e051ef686374c6a42461fc05c6ab5a02c347e3eddd01bcb33ce",
-  "created_at": "2026-11-03T13:09:49.325018+00:00"
+  "created_at": "2026-11-03T13:09:49.325018+00:00",
+  "facebook_media_id": "875159429020764_122143780857183523",
+  "completed_at": "2026-11-03T13:09:54.731106+00:00"
 }

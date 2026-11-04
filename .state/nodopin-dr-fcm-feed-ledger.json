@@ -7,6 +7,9 @@
       "radar_20261007_225405_dr_radar_alerta_por_inundacion_3e40b4",
       "radar_20261008_141807_alerta_amarilla_por_lluvias_en_3529d5"
     ],
-    "seismic": []
+    "seismic": [
+      "earthquake-usgs-us7000tvyl",
+      "earthquake-usgs-pr2026308001"
+    ]
   }
 }

@@ -497,18 +497,31 @@ def monitor_loop() -> None:
 
         # Entirely isolated EMSC preliminary reader. Its errors cannot alter the
         # existing USGS Web Push, Android NodoPin FCM, posts or agenda flows.
-        if EMSC_PRELIMINARY_ENABLED:
+        # One independently validated EMSC snapshot, then separate Web Push
+        # and Android FCM ledgers: failure in either channel cannot block the other.
+        if EMSC_PRELIMINARY_ENABLED or os.environ.get("NODOPIN_EMSC_PRELIMINARY_FCM_ENABLED", "").lower() == "true":
             try:
-                from early_seismic import poll_preliminary
-                # EMSC is independent: never wait for a slow or failed USGS
-                # source. Compare with the official entries if available.
-                # The EMSC-RTS earthquake catalogue itself remains required.
+                from early_seismic import fetch_emsc, poll_preliminary
+                now_ms = int(time.time() * 1000)
+                emsc_events = fetch_emsc(_session, now_ms)
                 official = [a for a in alerts if a.get("_origin") == "seismic"] if radar_ok else []
-                poll_preliminary(_session, int(time.time() * 1000), official,
-                                 get_meta, set_meta, send_payload)
-            except Exception as preliminary_error:
-                print("[webpush] EMSC preliminary poll error: " +
-                      type(preliminary_error).__name__, flush=True)
+                if EMSC_PRELIMINARY_ENABLED:
+                    try:
+                        poll_preliminary(_session, now_ms, official,
+                                         get_meta, set_meta, send_payload, events=emsc_events)
+                    except Exception as preliminary_error:
+                        print("[webpush] EMSC preliminary poll error: " +
+                              type(preliminary_error).__name__, flush=True)
+                if os.environ.get("NODOPIN_EMSC_PRELIMINARY_FCM_ENABLED", "").lower() == "true":
+                    try:
+                        from early_fcm import relay_preliminary
+                        relay_preliminary(emsc_events, official, get_meta, set_meta, now_ms=now_ms)
+                    except Exception as android_error:
+                        print("[nodopin-emsc-fcm] optional preliminary relay failed: " +
+                              type(android_error).__name__, flush=True)
+            except Exception as source_error:
+                print("[webpush] EMSC catalogue read error: " +
+                      type(source_error).__name__, flush=True)
 
         try:
             posts = blogger_posts()
@@ -604,6 +617,7 @@ def health():
         lastSocialDispatchAt=get_meta("last_social_dispatch_at"),
         agendaWebPushEnabled=WEBPUSH_AGENDA_ENABLED,
         emscPreliminaryEnabled=EMSC_PRELIMINARY_ENABLED,
+        nodopinEmscPreliminaryFcmEnabled=os.environ.get('NODOPIN_EMSC_PRELIMINARY_FCM_ENABLED', '').lower() == 'true',
         lastAgendaPollOk=get_meta("last_agenda_poll_ok"),
         pollSeconds=POLL_SECONDS,
         blogFeed=BLOG_FEED_URL,

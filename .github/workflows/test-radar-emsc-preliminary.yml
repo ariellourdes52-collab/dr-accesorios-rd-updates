@@ -1,0 +1,25 @@
+name: DR Radar - EMSC preliminary isolated tests
+on:
+  pull_request:
+    paths:
+      - 'services/dr-radar-webpush/app.py'
+      - 'services/dr-radar-webpush/early_seismic.py'
+      - 'tests/test_radar_early_seismic.py'
+      - '.github/workflows/test-radar-emsc-preliminary.yml'
+permissions:
+  contents: read
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile without importing production credentials
+        run: |
+          python -m py_compile services/dr-radar-webpush/app.py
+          python -m py_compile services/dr-radar-webpush/early_seismic.py
+      - name: Exercise preliminary and USGS matching without network or notifications
+        run: python -m unittest discover -s tests -p 'test_radar_early_seismic.py' -v

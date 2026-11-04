@@ -7,10 +7,6 @@ on:
       - 'services/dr-radar-webpush/nodopin_fcm_bridge.py'
       - 'services/dr-radar-webpush/app.py'
       - 'tests/test_nodopin_railway_fcm_bridge.py'
-    paths:
-      - 'services/dr-radar-webpush/nodopin_fcm_bridge.py'
-      - 'services/dr-radar-webpush/app.py'
-      - 'tests/test_nodopin_railway_fcm_bridge.py'
       - '.github/workflows/test-nodopin-railway-fcm.yml'
   workflow_dispatch:
 permissions:

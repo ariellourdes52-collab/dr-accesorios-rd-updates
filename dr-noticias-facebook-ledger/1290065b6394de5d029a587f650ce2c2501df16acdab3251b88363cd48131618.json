@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/playstation-black-friday-2026-descuentos.html",
   "title": "PlayStation abre Black Friday: ¿qué vale?",
   "jpeg_sha256": "3904a2e925f6006fb8f310af44e8c08ca56b84dc6fb5eb68978eabc2d8df347d",
   "caption_sha256": "39f5c757f2c6d08761620d5d880e00366cbbe4778157b866d1f1caa67c0d2d57",
-  "created_at": "2026-11-04T23:09:36.627712+00:00"
+  "created_at": "2026-11-04T23:09:36.627712+00:00",
+  "facebook_media_id": "875159429020764_122143936605183523",
+  "completed_at": "2026-11-04T23:09:48.141719+00:00"
 }

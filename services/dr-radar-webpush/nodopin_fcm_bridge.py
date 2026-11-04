@@ -130,6 +130,7 @@ def send_hint(category: str, event_id: str) -> None:
     topic = {
         "seismic": "nodopin_dr_seismic_v1",
         "radar_general": "nodopin_dr_radar_general_v1",
+        "agenda": "nodopin_dr_agenda_v1",
     }[category]
     message = {
         "message": {
@@ -204,3 +205,74 @@ def relay_once(
     if sent:
         print(f"[nodopin-railway-fcm] Firebase accepted {sent} new published alert(s)", flush=True)
     return {"enabled": True, "accepted": sent, "baseline": False}
+
+# NodoPin Agenda uses the SAME Railway 30s monitor as Radar and seismic.
+# Separate ledger and explicit opt-in: no historical broadcasts and no change
+# to DR Accesorios RD Web Push/Agenda notifications or existing Radar ledgers.
+AGENDA_STATE_KEY = "nodopin_railway_fcm_agenda_seen_v1"
+AGENDA_ID = re.compile(r"^evt-[A-Za-z0-9_-]{1,96}$")
+MAX_AGENDA = 250
+
+
+def relay_agenda_once(
+    events: list[dict[str, Any]],
+    get_meta: Callable[[str], str | None],
+    set_meta: Callable[[str, str], None],
+    sender: Callable[[str, str], None] = send_hint,
+    now_ms: int | None = None,
+) -> dict[str, int | bool]:
+    if os.getenv("NODOPIN_RAILWAY_FCM_AGENDA_ENABLED", "").lower() != "true":
+        return {"enabled": False, "baseline": False, "accepted": 0}
+    if os.getenv("NODOPIN_RAILWAY_FCM_ENABLED", "").lower() != "true":
+        return {"enabled": False, "baseline": False, "accepted": 0}
+    if not os.getenv("NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT", ""):
+        raise RuntimeError("NodoPin Agenda FCM: missing sender credentials")
+    if not isinstance(events, list) or len(events) > MAX_AGENDA:
+        raise RuntimeError("NodoPin Agenda FCM: unexpected catalog size")
+    now_ms = int(time.time() * 1000) if now_ms is None else now_ms
+    keys = []
+    eligible = []
+    for event in events:
+        if not isinstance(event, dict):
+            raise RuntimeError("NodoPin Agenda FCM: unexpected catalog entry")
+        event_id = event.get("id")
+        if not isinstance(event_id, str) or not AGENDA_ID.fullmatch(event_id):
+            raise RuntimeError("NodoPin Agenda FCM: invalid catalog ID")
+        keys.append(event_id)
+        # Published DR Agenda events must explicitly opt in to FCM. Never
+        # broadcast drafts, legacy entries or past events.
+        if event.get("notifyFcm") is not True or event.get("status") not in ("confirmed", "postponed"):
+            continue
+        until = timestamp_ms(event.get("endAt") or event.get("startAt"))
+        if not until or until <= now_ms:
+            continue
+        eligible.append(event_id)
+    if len(keys) != len(set(keys)):
+        raise RuntimeError("NodoPin Agenda FCM: duplicate catalog IDs")
+    raw = get_meta(AGENDA_STATE_KEY)
+    if raw is None:
+        set_meta(AGENDA_STATE_KEY, json.dumps(keys))
+        print(f"[nodopin-agenda-fcm] safe baseline {len(keys)} IDs; 0 historic FCM", flush=True)
+        return {"enabled": True, "baseline": True, "accepted": 0}
+    try:
+        known = json.loads(raw)
+        if (not isinstance(known, list) or len(known) > MAX_KNOWN
+            or any(not isinstance(x, str) or not AGENDA_ID.fullmatch(x) for x in known)
+            or len(known) != len(set(known))):
+            raise ValueError("invalid ledger")
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError("NodoPin Agenda FCM: invalid ledger; no broadcast") from exc
+    seen = set(known)
+    sent = 0
+    for event_id in keys:
+        if event_id in seen:
+            continue
+        if event_id in eligible:
+            sender("agenda", event_id)  # FCM failure propagates: do not mark delivered.
+            sent += 1
+        seen.add(event_id)
+        known.append(event_id)
+        set_meta(AGENDA_STATE_KEY, json.dumps(known[-MAX_KNOWN:]))
+    if sent:
+        print(f"[nodopin-agenda-fcm] Firebase accepted {sent} new public event(s)", flush=True)
+    return {"enabled": True, "baseline": False, "accepted": sent}

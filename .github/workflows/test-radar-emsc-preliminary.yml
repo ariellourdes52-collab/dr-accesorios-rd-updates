@@ -8,6 +8,8 @@ on:
     paths:
       - 'services/dr-radar-webpush/app.py'
       - 'services/dr-radar-webpush/early_seismic.py'
+      - 'services/dr-radar-webpush/early_fcm.py'
+      - 'tests/test_radar_early_fcm.py'
       - 'tests/test_radar_early_seismic.py'
       - '.github/workflows/test-radar-emsc-preliminary.yml'
 permissions:
@@ -25,6 +27,7 @@ jobs:
         run: |
           python -m py_compile services/dr-radar-webpush/app.py
           python -m py_compile services/dr-radar-webpush/early_seismic.py
+          python -m py_compile services/dr-radar-webpush/early_fcm.py
       - name: Install HTTP test dependency only
         run: python -m pip install --quiet requests
       - name: Verify EMSC's current public JSON contract (read-only)
@@ -54,4 +57,6 @@ jobs:
           print("EMSC public catalogue contract: OK (no notifications)")
           PY
       - name: Exercise preliminary and USGS matching without network or notifications
-        run: python -m unittest discover -s tests -p 'test_radar_early_seismic.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_radar_early_seismic.py' -v
+          python -m unittest discover -s tests -p 'test_radar_early_fcm.py' -v

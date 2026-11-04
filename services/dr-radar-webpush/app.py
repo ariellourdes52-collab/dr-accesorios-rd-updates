@@ -510,6 +510,20 @@ def monitor_loop() -> None:
                 print("[webpush] EMSC preliminary poll error: " +
                       type(preliminary_error).__name__, flush=True)
 
+        # NodoPin-only preliminary Android FCM. Separate from DR Accesorios RD
+        # Android and Web Push, which continue untouched above.
+        if os.environ.get("NODOPIN_EMSC_PRELIMINARY_FCM_ENABLED", "").lower() == "true":
+            try:
+                from early_seismic import fetch_emsc
+                from early_fcm import relay_preliminary
+                now_ms = int(time.time() * 1000)
+                emsc_events = fetch_emsc(_session, now_ms)
+                official = [a for a in alerts if a.get("_origin") == "seismic"] if radar_ok else []
+                relay_preliminary(emsc_events, official, get_meta, set_meta, now_ms=now_ms)
+            except Exception as android_error:
+                print("[nodopin-emsc-fcm] optional relay error: " +
+                      type(android_error).__name__, flush=True)
+
         try:
             posts = blogger_posts()
             current_post_ids = [post["id"] for post in posts]
@@ -604,6 +618,7 @@ def health():
         lastSocialDispatchAt=get_meta("last_social_dispatch_at"),
         agendaWebPushEnabled=WEBPUSH_AGENDA_ENABLED,
         emscPreliminaryEnabled=EMSC_PRELIMINARY_ENABLED,
+        nodopinEmscPreliminaryFcmEnabled=os.environ.get('NODOPIN_EMSC_PRELIMINARY_FCM_ENABLED', '').lower() == 'true',
         lastAgendaPollOk=get_meta("last_agenda_poll_ok"),
         pollSeconds=POLL_SECONDS,
         blogFeed=BLOG_FEED_URL,

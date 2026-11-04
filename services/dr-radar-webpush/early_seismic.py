@@ -96,9 +96,9 @@ def fetch_emsc(session: Any, now_ms: int) -> list[dict[str, Any]]:
     if len(result.content) > 512_000:
         raise ValueError("EMSC response too large")
     data = result.json()
-    if not isinstance(data, dict) or data.get("type") != "FeatureCollection":
+    if not isinstance(data, dict) or data.get("type") not in ("FeatureCollection", "Feature"):
         raise ValueError("Unexpected EMSC payload")
-    features = data.get("features")
+    features = data.get("features") if data.get("type") == "FeatureCollection" else [data]
     if not isinstance(features, list) or len(features) > MAX_EVENTS:
         raise ValueError("EMSC event list invalid")
     accepted = [normalize_feature(f, now_ms) for f in features]

@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/openai-ia-diseno-hardware-cad-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "4487f753a1f92a8c53c9a4c9a76c1d9eff4a19590e0b75c38d0865b3508be44d",
   "caption_sha256": "912b17ac57c52b3212878daf87f0ca8ffb392b5e7a535c36c4aa087a77af6843",
   "created_at": "2026-11-04T13:09:58.130424+00:00",
-  "container_id": "17996758167110510"
+  "container_id": "17996758167110510",
+  "threads_media_id": "18051099302818845",
+  "completed_at": "2026-11-04T13:10:09.599099+00:00"
 }

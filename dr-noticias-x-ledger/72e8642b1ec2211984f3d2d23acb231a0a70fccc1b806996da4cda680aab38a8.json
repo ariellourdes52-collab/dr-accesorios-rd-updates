@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/playstation-black-friday-2026-descuentos.html",
   "caption_sha256": "70b983a32a1c5ab66ffc45b377021832ebb27af90a7f643c0598981e519b5187",
   "image_sha256": "3904a2e925f6006fb8f310af44e8c08ca56b84dc6fb5eb68978eabc2d8df347d",
-  "created_at": "2026-11-04T23:10:29.354977+00:00"
+  "created_at": "2026-11-04T23:10:29.354977+00:00",
+  "x_post_id": "2118118753745662160",
+  "published_at": "2026-11-04T23:10:38.509697+00:00"
 }

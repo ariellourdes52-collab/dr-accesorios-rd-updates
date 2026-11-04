@@ -32,6 +32,8 @@ BLOG_FEED_URL = os.environ.get(
 POLL_SECONDS = max(15, int(os.environ.get("POLL_SECONDS", "30")))
 AGENDA_URL = 'https://dr-accesorios-rd-agenda.web.app/agenda/events.json'
 WEBPUSH_AGENDA_ENABLED = os.environ.get('WEBPUSH_AGENDA_ENABLED', 'false') == 'true'
+# Explicit opt-in: the existing USGS path and NodoPin FCM remain unchanged.
+EMSC_PRELIMINARY_ENABLED = os.environ.get('EMSC_PRELIMINARY_ENABLED', 'false').lower() == 'true'
 VAPID_PUBLIC_KEY = os.environ["VAPID_PUBLIC_KEY"].strip()
 VAPID_PRIVATE_KEY_B64 = os.environ["VAPID_PRIVATE_KEY"].strip()
 VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "https://draccesoriosrd.blogspot.com/").strip()
@@ -312,6 +314,8 @@ def push_payload(alert: dict[str, Any]) -> dict[str, Any]:
     description = first_text(alert, ["description", "message", "body", "summary"]) or "Hay una nueva alerta activa en DR Radar."
     link = first_text(alert, ["url", "link"]) or "https://draccesoriosrd.blogspot.com/"
     category = first_text(alert, ["type", "category"]) or ("sismo" if alert.get("_origin") == "seismic" else "radar")
+    if alert.get("_origin") == "seismic" and (alert.get("earthquake") or {}).get("source") == "USGS":
+        title = "CONFIRMACIÓN USGS · " + title
     return {
         "title": f"DR Radar · {title}",
         "body": description[:220],
@@ -491,6 +495,22 @@ def monitor_loop() -> None:
         except Exception as exc:
             print(f"[webpush] radar monitor error: {exc}", flush=True)
 
+        # Entirely isolated EMSC preliminary reader. Its errors cannot alter the
+        # existing USGS Web Push, Android NodoPin FCM, posts or agenda flows.
+        if EMSC_PRELIMINARY_ENABLED:
+            try:
+                from early_seismic import poll_preliminary
+                # An unsuccessful USGS fetch is not treated as an empty catalog:
+                # fail closed to avoid a late, duplicate preliminary alert.
+                if not radar_ok:
+                    raise RuntimeError("USGS catalog not available this cycle")
+                official = [a for a in alerts if a.get("_origin") == "seismic"]
+                poll_preliminary(_session, int(time.time() * 1000), official,
+                                 get_meta, set_meta, send_payload)
+            except Exception as preliminary_error:
+                print("[webpush] EMSC preliminary poll error: " +
+                      type(preliminary_error).__name__, flush=True)
+
         try:
             posts = blogger_posts()
             current_post_ids = [post["id"] for post in posts]
@@ -584,6 +604,7 @@ def health():
         lastBlogPollOk=get_meta("last_blog_poll_ok"),
         lastSocialDispatchAt=get_meta("last_social_dispatch_at"),
         agendaWebPushEnabled=WEBPUSH_AGENDA_ENABLED,
+        emscPreliminaryEnabled=EMSC_PRELIMINARY_ENABLED,
         lastAgendaPollOk=get_meta("last_agenda_poll_ok"),
         pollSeconds=POLL_SECONDS,
         blogFeed=BLOG_FEED_URL,

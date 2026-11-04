@@ -524,6 +524,17 @@ def monitor_loop() -> None:
                 print("[nodopin-emsc-fcm] optional relay error: " +
                       type(android_error).__name__, flush=True)
 
+        # DR Accesorios RD Android: optional and independent EMSC preliminary FCM.
+        # Do not change the original Apps Script USGS channel, Web Push or NodoPin.
+        if os.environ.get("DR_ANDROID_EMSC_FCM_MODE", "off").lower() != "off":
+            try:
+                from dr_android_early_fcm import relay_once as relay_dr_android_preliminary
+                usgs_alerts = [a for a in alerts if a.get("_origin") == "seismic"] if radar_ok else []
+                relay_dr_android_preliminary(_session, get_meta, set_meta, usgs_alerts)
+            except Exception as dr_android_error:
+                print("[dr-android-emsc] isolated relay error: " +
+                      type(dr_android_error).__name__ + ": " + str(dr_android_error)[:160], flush=True)
+
         try:
             posts = blogger_posts()
             current_post_ids = [post["id"] for post in posts]
@@ -619,6 +630,7 @@ def health():
         agendaWebPushEnabled=WEBPUSH_AGENDA_ENABLED,
         emscPreliminaryEnabled=EMSC_PRELIMINARY_ENABLED,
         nodopinEmscPreliminaryFcmEnabled=os.environ.get('NODOPIN_EMSC_PRELIMINARY_FCM_ENABLED', '').lower() == 'true',
+        drAndroidEmscFcmMode=os.environ.get('DR_ANDROID_EMSC_FCM_MODE', 'off'),
         lastAgendaPollOk=get_meta("last_agenda_poll_ok"),
         pollSeconds=POLL_SECONDS,
         blogFeed=BLOG_FEED_URL,

@@ -567,6 +567,15 @@ def monitor_loop() -> None:
         # A fresh ID is recorded before delivery to avoid ambiguous duplicate sends.
         try:
             agenda = agenda_feed()
+            # Same Railway polling trigger; separate optional NodoPin Agenda FCM.
+            # DR Agenda original Web Push publication and its ledger stay intact.
+            if os.environ.get("NODOPIN_RAILWAY_FCM_AGENDA_ENABLED", "").lower() == "true":
+                try:
+                    from nodopin_fcm_bridge import relay_agenda_once
+                    relay_agenda_once(agenda, get_meta, set_meta)
+                except Exception as nodopin_agenda_error:
+                    print("[nodopin-agenda-fcm] optional relay failed: " +
+                          type(nodopin_agenda_error).__name__, flush=True)
             ids = [e["id"] for e in agenda]
             previous = get_meta("seen_agenda_event_ids_v1")
             if previous is None:

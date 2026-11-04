@@ -2,6 +2,7 @@ name: NodoPin - Railway FCM bridge safety tests
 on:
   push:
     branches: [main]
+  pull_request:
     paths:
       - 'services/dr-radar-webpush/nodopin_fcm_bridge.py'
       - 'services/dr-radar-webpush/app.py'

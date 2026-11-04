@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services/dr-radar-webpush"))
-from nodopin_fcm_bridge import candidate, relay_once
+from nodopin_fcm_bridge import candidate, relay_once, relay_agenda_once, AGENDA_STATE_KEY
 
 NOW = 1793000000000
 
@@ -63,6 +63,64 @@ class Tests(unittest.TestCase):
     def test_fail_closed_without_secret(self):
         with patch.dict(os.environ, {"NODOPIN_RAILWAY_FCM_ENABLED":"true","NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT":""}):
             with self.assertRaises(RuntimeError): self.relay([seismic()])
+
+    def agenda_relay(self, events):
+        return relay_agenda_once(events, self.get_meta, self.set_meta, self.sender, NOW)
+
+    @staticmethod
+    def agenda_event(event_id="evt-published", **kwargs):
+        event = {"id": event_id, "status": "confirmed", "notifyFcm": True,
+                 "startAt": datetime.fromtimestamp((NOW+1800000)/1000, timezone.utc).isoformat(),
+                 "endAt": datetime.fromtimestamp((NOW+3600000)/1000, timezone.utc).isoformat()}
+        event.update(kwargs)
+        return event
+
+    def test_agenda_opt_in_and_startup_baseline(self):
+        env = {"NODOPIN_RAILWAY_FCM_ENABLED":"true",
+               "NODOPIN_RAILWAY_FCM_AGENDA_ENABLED":"true",
+               "NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT":"dummy"}
+        with patch.dict(os.environ, env):
+            self.assertTrue(self.agenda_relay([self.agenda_event("evt-old")])["baseline"])
+            self.assertEqual(self.sent, [])
+            self.assertEqual(self.agenda_relay([
+                self.agenda_event("evt-old"), self.agenda_event("evt-new")])["accepted"], 1)
+            self.assertEqual(self.sent, [("agenda", "evt-new")])
+            self.assertEqual(self.agenda_relay([self.agenda_event("evt-new")])["accepted"], 0)
+
+    def test_agenda_ignores_legacy_expired_unpublished(self):
+        env = {"NODOPIN_RAILWAY_FCM_ENABLED":"true",
+               "NODOPIN_RAILWAY_FCM_AGENDA_ENABLED":"true",
+               "NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT":"dummy"}
+        with patch.dict(os.environ, env):
+            self.agenda_relay([])
+            self.assertEqual(self.agenda_relay([
+                self.agenda_event("evt-legacy", notifyFcm=False),
+                self.agenda_event("evt-draft", status="draft"),
+                self.agenda_event("evt-expired", endAt=datetime.fromtimestamp(
+                    (NOW-1000)/1000, timezone.utc).isoformat())])["accepted"], 0)
+            self.assertEqual(self.sent, [])
+
+    def test_agenda_invalid_and_failed_send_never_marked(self):
+        env = {"NODOPIN_RAILWAY_FCM_ENABLED":"true",
+               "NODOPIN_RAILWAY_FCM_AGENDA_ENABLED":"true",
+               "NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT":"dummy"}
+        with patch.dict(os.environ, env):
+            self.agenda_relay([])
+            with self.assertRaises(RuntimeError):
+                self.agenda_relay([self.agenda_event("evt-safe"), self.agenda_event("evt-safe")])
+            with self.assertRaises(RuntimeError):
+                relay_agenda_once([self.agenda_event("evt-safe")], self.get_meta,
+                                  self.set_meta, lambda c,i: (_ for _ in ()).throw(
+                                      RuntimeError("offline")), NOW)
+            self.assertEqual(self.meta[AGENDA_STATE_KEY], "[]")
+            self.assertEqual(self.agenda_relay([self.agenda_event("evt-safe")])["accepted"], 1)
+
+    def test_agenda_disabled_without_dedicated_gate(self):
+        with patch.dict(os.environ, {"NODOPIN_RAILWAY_FCM_ENABLED":"true",
+            "NODOPIN_RAILWAY_FCM_AGENDA_ENABLED":"false",
+            "NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT":"dummy"}):
+            self.assertFalse(self.agenda_relay([self.agenda_event()])["enabled"])
+            self.assertEqual(self.sent, [])
 
     def test_bad_ledger_does_not_send(self):
         with patch.dict(os.environ, {"NODOPIN_RAILWAY_FCM_ENABLED":"true","NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT":"dummy"}):

@@ -503,7 +503,13 @@ def monitor_loop() -> None:
                 # An unsuccessful USGS fetch is not treated as an empty catalog:
                 # fail closed to avoid a late, duplicate preliminary alert.
                 if not radar_ok:
-                    raise RuntimeError("USGS catalog not available this cycle")
+                    raise RuntimeError("Radar catalog unavailable this cycle")
+                # A main Radar-only response must not unlock provisional push.
+                verified_usgs = fetch_json(SEISMIC_URL, False)
+                if (not isinstance(verified_usgs, dict) or
+                        verified_usgs.get("enabled") is not True or
+                        not isinstance(verified_usgs.get("alerts"), list)):
+                    raise ValueError("Official seismic catalog unavailable")
                 official = [a for a in alerts if a.get("_origin") == "seismic"]
                 poll_preliminary(_session, int(time.time() * 1000), official,
                                  get_meta, set_meta, send_payload)

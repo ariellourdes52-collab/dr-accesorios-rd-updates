@@ -122,9 +122,19 @@ def relay_once(
     if not os.getenv("NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT", "").strip():
         raise RuntimeError("DR Android EMSC missing existing sender credentials")
     if current_mode == "validate":
-        # Run only the FCM validation endpoint. Do not fetch/send real events.
+        # No repeated FCM validation broadcasts; no message is delivered.
+        # On permission errors retry at most every 15 minutes, never every poll.
+        now_ms = int(time.time() * 1000) if now_ms is None else now_ms
+        last_ok = get_meta("dr_android_emsc_validate_ok_v1")
+        if last_ok == "true":
+            return {"mode": "validate", "sent": 0, "verified": True}
+        last_attempt = get_meta("dr_android_emsc_validate_last_attempt_v1")
+        if last_attempt is not None and now_ms - int(last_attempt) < 900_000:
+            return {"mode": "validate", "sent": 0, "verified": False}
+        set_meta("dr_android_emsc_validate_last_attempt_v1", str(now_ms))
         validate_transport()
-        return {"mode": "validate", "sent": 0}
+        set_meta("dr_android_emsc_validate_ok_v1", "true")
+        return {"mode": "validate", "sent": 0, "verified": True}
     now_ms = int(time.time() * 1000) if now_ms is None else now_ms
     events = fetch_emsc(session, now_ms)
     raw = get_meta(STATE_KEY)

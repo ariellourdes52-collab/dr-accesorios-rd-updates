@@ -1,0 +1,51 @@
+name: DR Radar - EMSC preliminary isolated tests
+on:
+  pull_request:
+    paths:
+      - 'services/dr-radar-webpush/app.py'
+      - 'services/dr-radar-webpush/early_seismic.py'
+      - 'tests/test_radar_early_seismic.py'
+      - '.github/workflows/test-radar-emsc-preliminary.yml'
+permissions:
+  contents: read
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile without importing production credentials
+        run: |
+          python -m py_compile services/dr-radar-webpush/app.py
+          python -m py_compile services/dr-radar-webpush/early_seismic.py
+      - name: Verify EMSC's current public JSON contract (read-only)
+        run: |
+          python - <<'PY'
+          import requests
+          r = requests.get(
+              "https://www.seismicportal.eu/fdsnws/event/1/query",
+              params={"format": "json", "catalog": "EMSC-RTS",
+                      "starttime": "2026-01-01T00:00:00",
+                      "minmagnitude": "6", "limit": "1"},
+              headers={"Accept": "application/json"},
+              timeout=20,
+          )
+          print("EMSC HTTP:", r.status_code, "bytes:", len(r.content))
+          r.raise_for_status()
+          data = r.json()
+          if not isinstance(data, dict) or data.get("type") not in ("FeatureCollection", "Feature"):
+              raise AssertionError("EMSC response is not GeoJSON")
+          feature = data["features"][0] if data.get("type") == "FeatureCollection" else data
+          props = feature.get("properties", {})
+          required = ("source_catalog", "evtype", "flynn_region", "time", "mag", "unid")
+          print("EMSC properties:", sorted(props.keys())[:35])
+          missing = [k for k in required if k not in props]
+          if missing:
+              raise AssertionError("Unexpected EMSC event fields: " + ",".join(missing))
+          print("EMSC public catalogue contract: OK (no notifications)")
+          PY
+      - name: Exercise preliminary and USGS matching without network or notifications
+        run: python -m unittest discover -s tests -p 'test_radar_early_seismic.py' -v

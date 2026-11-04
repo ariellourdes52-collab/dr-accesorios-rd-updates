@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/pixel-11-pro-caja-azucar-influencers-2026.html",
   "title": "Pixel 11 Pro: la caja de azúcar que se rompe",
   "image_sha256": "b81388ce57326dac37fcb7d3314ae854a2085ed97d9929b90131e447fe66d6b7",
   "caption_sha256": "1373ca624af031ce54027a3e5886eea5f16b7cbc3aae87b544c514a2fa1c6c67",
   "created_at": "2026-11-04T18:09:14.423730+00:00",
-  "container_id": "18184145404429315"
+  "container_id": "18184145404429315",
+  "instagram_media_id": "18035414699902422",
+  "completed_at": "2026-11-04T18:09:26.661640+00:00"
 }

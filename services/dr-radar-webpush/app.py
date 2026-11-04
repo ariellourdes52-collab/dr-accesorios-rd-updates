@@ -500,17 +500,10 @@ def monitor_loop() -> None:
         if EMSC_PRELIMINARY_ENABLED:
             try:
                 from early_seismic import poll_preliminary
-                # An unsuccessful USGS fetch is not treated as an empty catalog:
-                # fail closed to avoid a late, duplicate preliminary alert.
-                if not radar_ok:
-                    raise RuntimeError("Radar catalog unavailable this cycle")
-                # A main Radar-only response must not unlock provisional push.
-                verified_usgs = fetch_json(SEISMIC_URL, False)
-                if (not isinstance(verified_usgs, dict) or
-                        verified_usgs.get("enabled") is not True or
-                        not isinstance(verified_usgs.get("alerts"), list)):
-                    raise ValueError("Official seismic catalog unavailable")
-                official = [a for a in alerts if a.get("_origin") == "seismic"]
+                # EMSC is independent: never wait for a slow or failed USGS
+                # source. Compare with the official entries if available.
+                # The EMSC-RTS earthquake catalogue itself remains required.
+                official = [a for a in alerts if a.get("_origin") == "seismic"] if radar_ok else []
                 poll_preliminary(_session, int(time.time() * 1000), official,
                                  get_meta, set_meta, send_payload)
             except Exception as preliminary_error:

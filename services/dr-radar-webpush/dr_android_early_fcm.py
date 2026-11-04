@@ -23,6 +23,11 @@ MAX_LEDGER = 800
 MAX_AGE_MS = 40 * 60 * 1000
 ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,80}$")
 MODE_ENV = "DR_ANDROID_EMSC_FCM_MODE"
+CREDENTIAL_ENV = "DR_ANDROID_EMSC_SERVICE_ACCOUNT"
+SENDER_EMAIL = "dr-radar-preliminar@dr-accesorios-rd.iam.gserviceaccount.com"
+OAUTH_ENDPOINT = "https://oauth2.googleapis.com/token"
+_cached_token = ""
+_cached_until = 0
 
 
 def mode() -> str:
@@ -68,9 +73,44 @@ def payload(event: dict[str, Any], validate_only: bool = False) -> dict[str, Any
     }
 
 
+def _get_access_token() -> str:
+    global _cached_token, _cached_until
+    now = int(time.time())
+    if _cached_token and now < _cached_until:
+        return _cached_token
+    raw = os.getenv(CREDENTIAL_ENV, "")
+    if not raw:
+        raise RuntimeError("DR Android EMSC dedicated service account not configured")
+    try:
+        cred = json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError("DR Android EMSC invalid dedicated service-account JSON") from exc
+    if (not isinstance(cred, dict) or cred.get("type") != "service_account"
+            or cred.get("project_id") != PROJECT_ID
+            or cred.get("client_email") != SENDER_EMAIL
+            or not isinstance(cred.get("private_key"), str)):
+        raise RuntimeError("DR Android EMSC sender identity mismatch")
+    import jwt  # OAuth signing is required only after DR identity checks.
+    claim = jwt.encode({"iss": SENDER_EMAIL,
+                        "scope": "https://www.googleapis.com/auth/firebase.messaging",
+                        "aud": OAUTH_ENDPOINT, "iat": now, "exp": now + 1800},
+                       cred["private_key"], algorithm="RS256")
+    response = requests.post(OAUTH_ENDPOINT,
+        data={"grant_type":"urn:ietf:params:oauth:grant-type:jwt-bearer",
+              "assertion":claim}, timeout=12)
+    if response.status_code != 200:
+        raise RuntimeError("DR Android EMSC OAuth HTTP " + str(response.status_code))
+    result = response.json()
+    token = result.get("access_token") if isinstance(result, dict) else None
+    if not isinstance(token, str) or not token:
+        raise RuntimeError("DR Android EMSC access token missing")
+    _cached_token = token
+    _cached_until = now + min(1500,max(1,int(result.get("expires_in",1800))-120))
+    return token
+
+
 def _fcm_request(body: dict[str, Any]) -> None:
-    # Keep the existing service-account secret; never print the bearer token.
-    from nodopin_fcm_bridge import _get_access_token
+    # Dedicated DR Accesorios RD identity only; never read NodoPin secrets.
     token = _get_access_token()
     response = requests.post(
         FCM_URL,
@@ -119,8 +159,8 @@ def relay_once(
     current_mode = mode()
     if current_mode == "off":
         return {"mode": "off", "sent": 0}
-    if not os.getenv("NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT", "").strip():
-        raise RuntimeError("DR Android EMSC missing existing sender credentials")
+    if not os.getenv(CREDENTIAL_ENV, "").strip():
+        raise RuntimeError("DR Android EMSC requires its own service-account credential")
     if current_mode == "validate":
         # No repeated FCM validation broadcasts; no message is delivered.
         # On permission errors retry at most every 15 minutes, never every poll.

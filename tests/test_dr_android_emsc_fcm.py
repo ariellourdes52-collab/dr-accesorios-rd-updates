@@ -28,7 +28,7 @@ class AndroidPreliminary(unittest.TestCase):
         self.get = self.state.get
         self.set = lambda key,val: self.state.__setitem__(key,val)
         self.config = patch.dict(os.environ, {"DR_ANDROID_EMSC_FCM_MODE":"live",
-                 "NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT":"fake-test-secret"})
+                 "DR_ANDROID_EMSC_SERVICE_ACCOUNT":"fake-test-secret"})
         self.config.start()
         self.addCleanup(self.config.stop)
 
@@ -36,6 +36,20 @@ class AndroidPreliminary(unittest.TestCase):
         with patch.object(dr, "fetch_emsc", return_value=rows):
             return dr.relay_once(Session(),self.get,self.set,official or [],
                         sender or self.sent.append, now_ms=NOW)
+
+    def test_sender_uses_only_dr_dedicated_credential(self):
+        with patch.dict(os.environ, {"DR_ANDROID_EMSC_SERVICE_ACCOUNT":"",
+                 "NODOPIN_RAILWAY_FCM_SERVICE_ACCOUNT":"unrelated"}):
+            with self.assertRaises(RuntimeError):
+                dr.relay_once(Session(), self.get, self.set, [], now_ms=NOW)
+
+    def test_cross_project_identity_rejected_before_oauth(self):
+        wrong={"type":"service_account","project_id":"nexlink-3d017",
+               "client_email":"nodopin-dr-fcm-sender@dr-accesorios-rd.iam.gserviceaccount.com",
+               "private_key":"not-a-real-private-key"}
+        with patch.dict(os.environ, {"DR_ANDROID_EMSC_SERVICE_ACCOUNT":json.dumps(wrong)}):
+            with self.assertRaisesRegex(RuntimeError, "sender identity mismatch"):
+                dr._get_access_token()
 
     def test_payload_uses_dr_android_topic_only(self):
         data=dr.payload(early())["message"]

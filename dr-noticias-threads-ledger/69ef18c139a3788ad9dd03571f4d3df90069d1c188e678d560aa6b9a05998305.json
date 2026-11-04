@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/pixel-11-pro-caja-azucar-influencers-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "b81388ce57326dac37fcb7d3314ae854a2085ed97d9929b90131e447fe66d6b7",
   "caption_sha256": "3d3437fc6d44584c5bf9a73ff0bdb29f32de416943a820541aea1ca53733db67",
   "created_at": "2026-11-04T18:10:11.232365+00:00",
-  "container_id": "17996805903110510"
+  "container_id": "17996805903110510",
+  "threads_media_id": "17894064588618474",
+  "completed_at": "2026-11-04T18:10:22.285134+00:00"
 }

@@ -13,7 +13,6 @@ import time
 from typing import Any, Callable
 
 import requests
-import jwt
 from early_seismic import fetch_emsc, matches_usgs
 
 TOPIC = "radar_seismic_v231"  # Existing DR Accesorios RD Android seismic topic
@@ -91,6 +90,7 @@ def _get_access_token() -> str:
             or cred.get("client_email") != SENDER_EMAIL
             or not isinstance(cred.get("private_key"), str)):
         raise RuntimeError("DR Android EMSC sender identity mismatch")
+    import jwt  # OAuth signing is required only after DR identity checks.
     claim = jwt.encode({"iss": SENDER_EMAIL,
                         "scope": "https://www.googleapis.com/auth/firebase.messaging",
                         "aud": OAUTH_ENDPOINT, "iat": now, "exp": now + 1800},

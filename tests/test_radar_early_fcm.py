@@ -48,8 +48,18 @@ class Tests(unittest.TestCase):
         self.assertEqual(message["data"]["kind"], "nodopin_dr_emsc_preliminary_v1")
         self.assertEqual(message["data"]["source"], "EMSC-RTS")
         self.assertNotEqual(message["data"]["kind"], "nodopin_dr_public_v1")
-        self.assertIn("PRELIMINAR", message["notification"]["title"])
+        # Data-only FCM is required for onMessageReceived in the background.
+        # A top-level notification would bypass the NodoPin SOS alarm player.
+        self.assertNotIn("notification", message)
+        self.assertNotIn("notification", message["android"])
+        self.assertEqual(message["data"]["category"], "seismic_preliminary")
+        self.assertTrue(message["data"]["id"].startswith("earthquake-emsc-"))
+        self.assertEqual(message["data"]["eventTimeMs"], str(NOW - 10000))
+        self.assertIn("PRELIMINAR", message["data"]["title"])
+        self.assertIn("EMSC", message["data"]["body"])
+        self.assertTrue(all(isinstance(v, str) for v in message["data"].values()))
         self.assertEqual(message["android"]["priority"], "high")
+        self.assertEqual(message["android"]["ttl"], "300s")
         self.assertEqual(message["android"]["restricted_package_name"], "org.nodaviva.mesh")
 
     def test_no_retrospective_fcm_and_exactly_once(self):

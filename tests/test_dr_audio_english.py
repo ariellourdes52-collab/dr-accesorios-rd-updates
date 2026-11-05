@@ -40,6 +40,46 @@ class EnglishAudioTests(unittest.TestCase):
             ],
         }
 
+    def test_three_calendar_month_retention_keeps_recent_and_unknown_dates(self):
+        from datetime import datetime, timezone
+        from dr_audio_retention import retain_recent_entries, three_month_cutoff
+        as_of = datetime(2026, 11, 4, 23, 0, tzinfo=timezone.utc)
+        self.assertEqual(three_month_cutoff(as_of).isoformat(),
+                         "2026-08-04T23:00:00+00:00")
+        entries = [
+            {"published": "2026-08-04T23:00:00Z", "title": "boundary"},
+            {"published": "2026-08-04T22:59:59Z", "title": "expired"},
+            {"published": "2026-11-04T18:00:00-04:00", "title": "today"},
+            {"title": "unknown date"},
+            {"published": "nonsense", "title": "malformed date"},
+        ]
+        kept = retain_recent_entries(entries, as_of)
+        self.assertEqual([x["title"] for x in kept],
+                         ["boundary", "today", "unknown date", "malformed date"])
+
+    def test_english_three_month_catalog_retains_eligible_old_entries(self):
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+        old = copy.deepcopy(self.english)
+        old["entries"].append({
+            "url": "https://example.com/expired",
+            "published": "2026-04-01T00:00:00Z",
+            "audioEnglishPath": "/dr-audio/expired.m4a",
+        })
+        old["entries"][0]["published"] = "2026-11-03T00:00:00Z"
+        narration = "The FBI seizes electronic devices. Apple AirTag in the news. " * 8
+        digest = en.english_digest(narration)
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_file = Path(tmp) / (digest[:28] + ".m4a")
+            audio_file.write_bytes(b"0" * 2048)
+            with patch.object(en, "datetime") as clock:
+                clock.now.return_value = datetime(2026, 11, 4, 23, 0,
+                                                 tzinfo=timezone.utc)
+                updated = en.extend_index(old, self.article, narration, audio_file)
+        self.assertEqual(len(updated["entries"]), 2)
+        self.assertEqual(updated["entries"][1]["url"], old["entries"][0]["url"])
+        self.assertEqual(updated["retentionMonths"], 3)
+
     def test_tts_uses_exact_same_existing_female_model_and_voice(self):
         self.assertEqual(en.VOICE_NAME, en.VOICE_CONFIGS["female"]["name"])
         self.assertEqual(en.RENDER_MODEL, en.MODEL)

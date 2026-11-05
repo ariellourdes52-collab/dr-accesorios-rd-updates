@@ -14,6 +14,7 @@ from typing import Any
 
 import requests
 from google import genai
+from dr_audio_retention import RETENTION_MONTHS, retain_recent_entries
 from generate_shared_dr_audio import (
     MODEL, LATEST_REQUIRED, RENDER_MODEL, VOICE_CONFIGS, canonical_url,
     generate_wav, load_live_index, parse_feed, wav_to_m4a,
@@ -245,6 +246,12 @@ def extend_index(index: dict, article: dict, english_text: str, audio_path: Path
            for e in updated["entries"]):
         raise RuntimeError("English audio for this article is already published")
     path = "/dr-audio/" + name
+    # Record a single UTC reference time for the entire release so the
+    # publisher can independently verify every removed historical entry.
+    as_of = datetime.now(timezone.utc)
+    updated["entries"] = retain_recent_entries(updated["entries"], as_of)
+    updated["retentionMonths"] = RETENTION_MONTHS
+    updated["retentionAsOf"] = as_of.isoformat()
     updated["entries"].insert(0, {
         "url": article["url"],
         "title": article["title"],

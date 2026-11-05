@@ -64,6 +64,43 @@ class EnglishDeploySafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "separate English site"):
             deploy.validate_english_catalog(self.old, bad)
 
+    def test_retention_only_removes_expired_english_audio_never_other_assets(self):
+        from datetime import datetime, timezone
+        prior = copy.deepcopy(self.old)
+        prior["entries"][0]["published"] = "2026-11-03T00:00:00Z"
+        prior["entries"].append({
+            "url": "https://blog.example/expired",
+            "published": "2026-01-01T00:00:00Z",
+            "audioEnglishPath": "/dr-audio/expired.m4a",
+            "audioEnglishUrl": en.ENGLISH_PUBLIC_BASE + "/dr-audio/expired.m4a",
+        })
+        updated = copy.deepcopy(self.updated)
+        updated["entries"][1] = prior["entries"][0]
+        updated["retentionMonths"] = 3
+        updated["retentionAsOf"] = datetime.now(timezone.utc).isoformat()
+        deploy.validate_english_catalog(prior, updated)
+        existing = {
+            "/dr-audio/expired.m4a": "expired-hash",
+            "/dr-audio/old.m4a": "keep-hash",
+            "/dr-audio/orphan.m4a": "orphan-hash",
+            "/dr-audio/index.json": "index-hash",
+            "/radar/data.json": "radar-hash",
+        }
+        kept = deploy.files_after_safe_retention(existing, prior, updated)
+        self.assertNotIn("/dr-audio/expired.m4a", kept)
+        for key in ("/dr-audio/old.m4a", "/dr-audio/orphan.m4a",
+                    "/dr-audio/index.json", "/radar/data.json"):
+            self.assertEqual(kept[key], existing[key])
+
+    def test_retention_refuses_invalid_deleted_path(self):
+        prior = copy.deepcopy(self.old)
+        prior["entries"].append({"published": "2025-01-01T00:00:00Z",
+                                "audioEnglishPath": "/other-sites/secret.txt"})
+        updated = copy.deepcopy(self.updated)
+        with self.assertRaisesRegex(RuntimeError, "Unsafe English audio"):
+            deploy.files_after_safe_retention({"/other-sites/secret.txt": "h"},
+                                              prior, updated)
+
     def test_refuse_changes_to_metadata(self):
         modified = copy.deepcopy(self.updated)
         modified["schemaVersion"] = 99

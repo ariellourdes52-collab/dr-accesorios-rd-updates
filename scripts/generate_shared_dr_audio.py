@@ -21,6 +21,8 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
 
+from dr_audio_retention import retain_recent_entries
+
 import httpx
 import requests
 from bs4 import BeautifulSoup
@@ -1094,8 +1096,11 @@ def main() -> None:
         reverse=True,
     )
 
-    pruned_count = max(0, len(all_final_entries) - MAX_LIBRARY_ENTRIES)
-    final_entries = all_final_entries[:MAX_LIBRARY_ENTRIES]
+    # Retain the last three calendar months, preserving entries with unknown dates.
+    # Hosting deploy already keeps only catalog-referenced DR Audio paths.
+    retained_by_date = retain_recent_entries(all_final_entries, datetime.now(timezone.utc))
+    pruned_count = len(all_final_entries) - min(len(retained_by_date), MAX_LIBRARY_ENTRIES)
+    final_entries = retained_by_date[:MAX_LIBRARY_ENTRIES]
 
     index = {
         "schemaVersion": 3,

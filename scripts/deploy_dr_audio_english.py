@@ -12,6 +12,9 @@ import json
 import os
 import time
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
+
+from dr_audio_retention import RETENTION_MONTHS, retain_recent_entries
 
 import requests
 from google.auth.transport.requests import AuthorizedSession
@@ -50,8 +53,26 @@ def validate_english_catalog(current: dict, updated: dict) -> None:
     old = current.get("entries", [])
     new = updated.get("entries", [])
     require(isinstance(old, list) and isinstance(new, list), "Invalid English entries")
-    require(len(new) == len(old) + 1, "Expected exactly one new English article")
-    require(new[1:] == old, "Historical English entries were changed or reordered")
+    require(len(new) >= 1, "Expected a new English article")
+    if "retentionAsOf" in updated:
+        require(updated.get("retentionMonths") == RETENTION_MONTHS,
+                "Unexpected English retention window")
+        try:
+            as_of = datetime.fromisoformat(updated["retentionAsOf"].replace("Z", "+00:00"))
+        except (TypeError, ValueError, AttributeError) as error:
+            raise RuntimeError("Invalid English retention date") from error
+        require(as_of.tzinfo is not None, "English retention date needs timezone")
+        require(as_of <= datetime.now(timezone.utc) + timedelta(minutes=10),
+                "English retention date is in the future")
+        expected_old = retain_recent_entries(old, as_of)
+    else:
+        # Legacy overlays remain accepted in isolated regression tests, but
+        # the current generator always emits retentionAsOf and retentionMonths.
+        expected_old = old
+        require(len(new) == len(old) + 1,
+                "Expected exactly one new English article")
+    require(new[1:] == expected_old,
+            "Historical English entries were changed or reordered")
     require(current.get("schemaVersion", 1) == updated.get("schemaVersion", 1),
             "Unexpected English schema change")
     existing_urls = {
@@ -76,9 +97,25 @@ def validate_english_catalog(current: dict, updated: dict) -> None:
     )
     # Never silently mutate other top-level keys either.
     common = set(current) | set(updated)
-    for key in common - {"entries"}:
+    for key in common - {"entries", "retentionMonths", "retentionAsOf"}:
         require(current.get(key) == updated.get(key),
                 "Existing English catalog metadata changed: " + key)
+
+
+def files_after_safe_retention(old_files: dict[str, str], current: dict, updated: dict) -> dict[str, str]:
+    """Remove only expired English M4As that previously appeared in the live catalog."""
+    retained = {item.get("audioEnglishPath") for item in updated["entries"]}
+    removed = set()
+    for item in current.get("entries", []):
+        path = item.get("audioEnglishPath")
+        if path not in retained:
+            require(isinstance(path, str) and path.startswith("/dr-audio/")
+                    and path.endswith(".m4a") and "/" not in path[len("/dr-audio/"):],
+                    "Unsafe English audio retention path")
+            removed.add(path)
+    require(all(path in old_files for path in removed),
+            "Expected expired English audio is missing from Hosting")
+    return {path: digest for path, digest in old_files.items() if path not in removed}
 
 
 def plan_assets(current_files: dict[str, str], audio_dir: Path, index: dict) -> dict[str, bytes]:
@@ -253,8 +290,9 @@ def main() -> None:
 
     validate_english_catalog(current, index)
     new_files = plan_assets(old_files, audio_dir, index)
-    # Preserve EVERY existing file in this site (not just indexed M4As).
-    expected = dict(old_files)
+    # Preserve unrelated files and all non-expired voices; only previously
+    # catalogued expired English M4As can leave the live Hosting release.
+    expected = files_after_safe_retention(old_files, current, index)
     compressed = {}
     for path, raw in new_files.items():
         body = gzip.compress(raw, mtime=0)

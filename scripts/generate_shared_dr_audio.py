@@ -673,24 +673,18 @@ def main() -> None:
     blocked_until = max(blocked_candidates) if blocked_candidates else None
 
     if blocked_until is not None:
-        # Preserve the currently published catalog while the daily TTS quota is
-        # known to be unavailable. The local marker is cached by GitHub Actions,
-        # so this still works even if Firebase Hosting itself is rate-limited.
-        (audio_dir / "index.json").write_text(
-            json.dumps(live_index, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        # Quota blocks NEW Gemini requests only. Cached, content-addressed
+        # M4As must still be eligible for publication without TTS.
         print(
-            "Gemini TTS daily quota cooldown active until "
-            f"{blocked_until.isoformat()}; skipping generation cleanly.",
+            "Gemini TTS daily cooldown until "
+            f"{blocked_until.isoformat()}; checking cached M4A for publication.",
             flush=True,
         )
-        return
-
-    try:
-        quota_state_path.unlink()
-    except FileNotFoundError:
-        pass
+    else:
+        try:
+            quota_state_path.unlink()
+        except FileNotFoundError:
+            pass
 
     old_entries_list = [
         entry
@@ -849,6 +843,7 @@ def main() -> None:
         in {"1", "true", "yes", "on"}
     )
 
+    skip_new_tts = blocked_until is not None
     if (
         tasks
         and (event_name == "schedule" or scheduler_guard)
@@ -870,61 +865,22 @@ def main() -> None:
             elapsed = TTS_MIN_SCHEDULE_INTERVAL_SECONDS
 
         if (
-            elapsed < TTS_MIN_SCHEDULE_INTERVAL_SECONDS
+            0 <= elapsed < TTS_MIN_SCHEDULE_INTERVAL_SECONDS
             and bool(live_index.get("entries"))
         ):
-            (audio_dir / "index.json").write_text(
-                json.dumps(live_index, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
+            skip_new_tts = True
             print(
                 "DR Audio scheduler guard: previous real TTS attempt was "
-                f"{int(elapsed)}s ago; skipping this redundant schedule event "
-                "without calling Gemini.",
+                f"{int(elapsed)}s ago; no new Gemini requests. "
+                "Cached audio will still be published.",
                 flush=True,
             )
-            return
-
-    if tasks:
-        attempt_state_path.write_text(
-            json.dumps(
-                {
-                    "attemptedAt": datetime.now(timezone.utc).isoformat(),
-                    "pendingTasks": len(tasks),
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
 
     tts_batch_started = time.monotonic()
     tts_deadline = tts_batch_started + TTS_GLOBAL_BUDGET_SECONDS
 
+    budget_exceeded_logged = False
     for task_index, (article, voice_key, role) in enumerate(tasks):
-        if quota_exhausted:
-            break
-
-        if time.monotonic() - tts_batch_started >= TTS_GLOBAL_BUDGET_SECONDS:
-            for (
-                pending_article,
-                pending_voice_key,
-                _pending_role,
-            ) in tasks[task_index:]:
-                deferred_timeout_tasks.add(
-                    (pending_article["url"], pending_voice_key)
-                )
-
-            print(
-                f"Gemini TTS global generation budget "
-                f"({TTS_GLOBAL_BUDGET_SECONDS}s) reached; "
-                "publishing completed/reused audio now and "
-                "deferring the remaining voices to the next run.",
-                flush=True,
-            )
-            break
-
         if role == "latest" and voice_key == "male":
             missing_latest_female = [
                 latest_article["title"]
@@ -975,12 +931,41 @@ def main() -> None:
                 backfilled_count += 1
             continue
 
+        # No new Gemini call during cooldown, duplicate guard, or a 429.
+        # Do not exit the loop: a later task may have a reusable cached M4A.
+        if skip_new_tts or quota_exhausted:
+            continue
+
+        if time.monotonic() >= tts_deadline:
+            deferred_timeout_tasks.add((article["url"], voice_key))
+            if not budget_exceeded_logged:
+                print(
+                    f"Gemini TTS global budget ({TTS_GLOBAL_BUDGET_SECONDS}s) "
+                    "reached; continuing to recover completed M4As only.",
+                    flush=True,
+                )
+                budget_exceeded_logged = True
+            continue
+
         print(
             f"Generating DR Audio ({role}, {voice['label']} / {voice['name']}): "
             f"{article['title']}",
             flush=True,
         )
 
+        # Stamp only an ACTUAL TTS attempt. Replaying a completed M4A must
+        # never extend the eight-minute duplicate-generation lock.
+        attempt_state_path.write_text(
+            json.dumps(
+                {
+                    "attemptedAt": datetime.now(timezone.utc).isoformat(),
+                    "pendingTasks": len(tasks) - task_index,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ) + "\n",
+            encoding="utf-8",
+        )
         try:
             wav = generate_wav(client, article["text"], voice_key)
         except Exception as error:
@@ -1002,7 +987,7 @@ def main() -> None:
                         f"{voice['label'].lower()} voice will retry on the next scheduled run.",
                         flush=True,
                     )
-                break
+                continue
 
             if tts_timeout_error(error):
                 deferred_timeout_tasks.add(
@@ -1034,6 +1019,16 @@ def main() -> None:
         # Gentle spacing keeps consecutive TTS requests inside RPM limits.
         time.sleep(1.0)
 
+    if skip_new_tts and pending_reused_count == 0 and generated_count == 0:
+        # Preserve the live manifest verbatim on guard-only / quota-only runs.
+        # The deploy stage then recognizes that no publication is needed.
+        (audio_dir / "index.json").write_text(
+            json.dumps(live_index, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print("No cached audio to publish; existing catalog preserved.", flush=True)
+        return
+
     missing_latest_female = [
         article["title"]
         for article in latest
@@ -1059,7 +1054,8 @@ def main() -> None:
             and missing_latest_female_urls <= deferred_female_urls
         )
 
-        if not quota_exhausted and not all_missing_female_deferred:
+        if (not quota_exhausted and not skip_new_tts
+                and not all_missing_female_deferred):
             raise RuntimeError(
                 "Newest DR Audio female coverage is incomplete: "
                 + " | ".join(missing_latest_female)
@@ -1067,8 +1063,10 @@ def main() -> None:
 
         reason = (
             "Gemini TTS quota is unavailable"
-            if quota_exhausted
-            else "one or more Gemini TTS requests timed out"
+            if quota_exhausted or blocked_until is not None
+            else ("the duplicate-generation guard is active"
+                  if skip_new_tts
+                  else "one or more Gemini TTS requests timed out")
         )
         print(
             "Newest DR Audio female coverage is temporarily incomplete because "

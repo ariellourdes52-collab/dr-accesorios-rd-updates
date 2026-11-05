@@ -58,24 +58,35 @@ jobs:
               body = None
               if payload is not None:
                   body = json.dumps(payload).encode("utf-8")
-              req = urllib.request.Request(
-                  url,
-                  data=body,
-                  method=method,
-                  headers=headers,
-              )
-              try:
-                  with urllib.request.urlopen(req, timeout=30) as response:
-                      raw = response.read()
-                      if not raw:
-                          return None
-                      return json.loads(raw.decode("utf-8"))
-              except urllib.error.HTTPError as error:
-                  detail = error.read().decode("utf-8", errors="replace")
-                  raise RuntimeError(
-                      f"GitHub API {method} {url} failed HTTP "
-                      f"{error.code}: {detail[:1000]}"
-                  ) from error
+              # GET is idempotent. A transient GitHub 502/503 may be retried.
+              # POST dispatches are NOT retried: a response may be lost after
+              # GitHub accepted it, and a repeat could duplicate work.
+              max_attempts = 3 if method == "GET" else 1
+              for attempt in range(max_attempts):
+                  req = urllib.request.Request(
+                      url,
+                      data=body,
+                      method=method,
+                      headers=headers,
+                  )
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as response:
+                          raw = response.read()
+                          if not raw:
+                              return None
+                          return json.loads(raw.decode("utf-8"))
+                  except urllib.error.HTTPError as error:
+                      code = error.code
+                      if method == "GET" and code in (502, 503) and attempt < max_attempts - 1:
+                          import time
+                          delay = (2, 5)[attempt]
+                          print(f"GitHub transient HTTP {code}; retrying GET in {delay}s.")
+                          time.sleep(delay)
+                          continue
+                      raise RuntimeError(
+                          f"GitHub API {method} failed HTTP {code}; "
+                          "dispatch status uncertain if this was POST."
+                      ) from error
 
           runs = request_json(
               f"{api}/actions/workflows/{workflow}/runs?per_page=100"

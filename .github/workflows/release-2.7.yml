@@ -1,8 +1,8 @@
 name: Release DR Accesorios RD 2.7
-# v2.7 GitHub uses versionCode 23; Store distribution uses versionCode 23.
+# v2.7 APK uses versionCode 23. A Store build with code 23 cannot upgrade to this code; build code 24+ for Store upgrade.
 # Protect v2.5 (code 21) and v2.4.1 (code 20) from rollback.
-# v2.7 APK v2 signature and content digest verified; signing certificate matches
-# the official v2.4.1 release. On-device smoke testing is still recommended.
+# The SHA-256 of the supplied v2.7 APK was verified locally.
+# Confirm Android signing-certificate compatibility and perform an on-device test before release.
 
 # Official v2.7 publication: 2026-11-18 20:00 America/Santo_Domingo
 # GitHub Actions cron is UTC, so that is 2026-11-19 00:00 UTC.

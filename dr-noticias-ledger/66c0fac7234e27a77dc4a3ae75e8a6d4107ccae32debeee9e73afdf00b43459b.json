@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/xbox-cloud-gaming-celular-mando-televisor.html",
   "title": "Xbox: convierte tu celular en un control",
   "image_sha256": "4e0c04f2dc1d151be7db78afbe310aa86fb0d11316b7821be55a63771535f631",
   "caption_sha256": "afa83b5e68f1b39904d58314083c9a180db705507cba498d9282bc02aad7cefc",
   "created_at": "2026-11-05T23:09:07.065562+00:00",
-  "container_id": "18184267678429315"
+  "container_id": "18184267678429315",
+  "instagram_media_id": "18125166250930188",
+  "completed_at": "2026-11-05T23:09:17.486632+00:00"
 }

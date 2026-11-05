@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/apps-premiadas-shipaton-2026-cuales-probar.html",
   "caption_sha256": "8125071cbf9118eb97518585d4c94b98875ca0cb60702e4e03dd455b512bb440",
   "image_sha256": "73df3a2f2c633a426840cd0701324856afa3d5dc61b4b03c4a0a9d49f736be1e",
-  "created_at": "2026-11-05T13:10:27.040614+00:00"
+  "created_at": "2026-11-05T13:10:27.040614+00:00",
+  "x_post_id": "2118330129776787642",
+  "published_at": "2026-11-05T13:10:34.502623+00:00"
 }

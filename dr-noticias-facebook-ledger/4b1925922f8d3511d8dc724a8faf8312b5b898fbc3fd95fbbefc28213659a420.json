@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/apple-music-selfie-sing-karaoke-iphone-beta.html",
   "title": "Selfie Sing: karaoke en tu iPhone, ¿Como funciona?",
   "jpeg_sha256": "5fa6066258f8b67baa70df8f579457d752267e79027e7f7c6c4656a51d61c149",
   "caption_sha256": "3e49eeb0c628465fdb484ed9f81993822319c43e715ad92dd9e2495db07f2b0d",
-  "created_at": "2026-11-05T18:09:38.953187+00:00"
+  "created_at": "2026-11-05T18:09:38.953187+00:00",
+  "facebook_media_id": "875159429020764_122144030919183523",
+  "completed_at": "2026-11-05T18:09:44.421599+00:00"
 }

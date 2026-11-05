@@ -45,8 +45,9 @@ def build_message(event: dict[str, Any]) -> dict[str, Any]:
             ". Información preliminar; USGS pendiente. No es predicción.")[:200]
     return {"message": {
         "topic": TOPIC,
-        "notification": {"title": title, "body": body},
         "data": {
+            "title": title,
+            "body": body,
             "kind": "nodopin_dr_emsc_preliminary_v1",
             "category": "seismic_preliminary",
             "id": "earthquake-emsc-" + event_id,
@@ -58,7 +59,6 @@ def build_message(event: dict[str, Any]) -> dict[str, Any]:
             "priority": "high",
             "ttl": "300s",
             "restricted_package_name": PACKAGE,
-            "notification": {"tag": "dr-emsc-" + event_id},
         },
     }}
 

@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/apps-premiadas-shipaton-2026-cuales-probar.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "73df3a2f2c633a426840cd0701324856afa3d5dc61b4b03c4a0a9d49f736be1e",
   "caption_sha256": "b2fa495cd894bb36e893a04d003d7dc13ff904bf5997fb02217efad84667ac30",
   "created_at": "2026-11-05T13:10:06.458937+00:00",
-  "container_id": "17996931027110510"
+  "container_id": "17996931027110510",
+  "threads_media_id": "17977104276158357",
+  "completed_at": "2026-11-05T13:10:17.072630+00:00"
 }

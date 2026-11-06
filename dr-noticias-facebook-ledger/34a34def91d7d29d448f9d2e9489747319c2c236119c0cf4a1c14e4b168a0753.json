@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/tiktok-shop-app-independiente-2026.html",
   "title": "TikTok Shop se separa: ¿qué cambia?",
   "jpeg_sha256": "6ec72884233a9f6759676ee71f07ad4469648846ff336dc39301a5c74c965513",
   "caption_sha256": "9bd9774209d93c12c72997b69c2a9b426434e65754e25bd3e0f2d72353d515b3",
-  "created_at": "2026-11-06T19:09:33.638230+00:00"
+  "created_at": "2026-11-06T19:09:33.638230+00:00",
+  "facebook_media_id": "875159429020764_122144196573183523",
+  "completed_at": "2026-11-06T19:09:39.148061+00:00"
 }

@@ -261,6 +261,7 @@ def generate_wav(
     transcript: str,
     voice_key: str,
 ) -> bytes:
+    global RENDER_MODEL
     voice = VOICE_CONFIGS[voice_key]
 
     def _hard_timeout_handler(_signum: int, _frame: Any) -> None:
@@ -271,33 +272,73 @@ def generate_wav(
     previous_handler = signal.signal(signal.SIGALRM, _hard_timeout_handler)
     signal.setitimer(signal.ITIMER_REAL, TTS_DIRECT_REQUEST_TIMEOUT_SECONDS)
     try:
-        interaction = client.interactions.create(
-            model=MODEL,
-            timeout=TTS_DIRECT_REQUEST_TIMEOUT_SECONDS,
-            input=[
-                {
-                    "type": "user_input",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": transcript,
-                            "annotations": [
-                                {
-                                    "type": "speech_metadata",
-                                    "style": voice["style"],
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ],
-            response_format={"type": "audio"},
-            generation_config={
-                "speech_config": [
-                    {"voice": voice["name"]},
-                ]
-            },
-        )
+        try:
+            interaction = client.interactions.create(
+                model=RENDER_MODEL,
+                timeout=TTS_DIRECT_REQUEST_TIMEOUT_SECONDS,
+                input=[
+                    {
+                        "type": "user_input",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": transcript,
+                                "annotations": [
+                                    {
+                                        "type": "speech_metadata",
+                                        "style": voice["style"],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+                response_format={"type": "audio"},
+                generation_config={
+                    "speech_config": [
+                        {"voice": voice["name"]},
+                    ]
+                },
+            )
+        except Exception as error:
+            details = str(error).lower()
+            primary_model_not_found = (
+                RENDER_MODEL == MODEL
+                and "model" in details
+                and ("not found" in details or "not_found" in details)
+                and "404" in details
+            )
+            if not primary_model_not_found:
+                raise
+
+            print(
+                "Gemini primary TTS model returned 404; attempting "
+                "documented 3.1 TTS fallback, preserving the selected voice.",
+                flush=True,
+            )
+            interaction = client.interactions.create(
+                model=LEGACY_RESCUE_MODEL,
+                timeout=TTS_DIRECT_REQUEST_TIMEOUT_SECONDS,
+                input=(
+                    "Lee este articulo exactamente como esta escrito, sin "
+                    "pronunciar estas instrucciones. Usa espanol latino "
+                    "neutro y el siguiente estilo de locucion: "
+                    + voice["style"]
+                    + "\n\nTexto:\n"
+                    + transcript
+                ),
+                response_format={"type": "audio"},
+                generation_config={
+                    "speech_config": [
+                        {"voice": voice["name"]},
+                    ]
+                },
+            )
+            RENDER_MODEL = LEGACY_RESCUE_MODEL
+            print(
+                f"Gemini TTS fallback active: {RENDER_MODEL}",
+                flush=True,
+            )
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous_handler)

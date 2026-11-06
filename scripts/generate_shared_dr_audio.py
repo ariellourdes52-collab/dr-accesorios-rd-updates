@@ -313,24 +313,43 @@ def generate_wav(
                 raise
 
             print(
-                "Gemini primary TTS model returned 404; attempting "
-                "documented 3.1 TTS fallback, preserving the selected voice.",
+                "Gemini 3.8 Lite TTS returned 404; trying the documented "
+                "3.1 Interactions and 2.5 GenerateContent TTS routes.",
                 flush=True,
             )
-            # TTS previo a 3.8 usa GenerateContent, no Interactions.
-            # Consulte el catalogo oficial: el formato devuelto es PCM mono 24k.
+            # Retain MODEL for hashes/filenames and existing library compatibility.
+            # 3.1 speech uses Interactions; 2.5 uses the legacy GenerateContent API.
             legacy_prompt = (
-                "Lee este articulo exactamente como esta escrito. "
-                "Voz profesional en espanol latino neutro; estilo: "
-                + voice["style"]
-                + "\n\nArticulo para leer:\n"
-                + transcript
+                "Lee en espanol latino el siguiente articulo con voz natural "
+                "de presentador profesional. Estilo: " + voice["style"]
+                + "\n\nArticulo:\n" + transcript
             )
-            last_model_404 = error
-            for fallback_model in (
-                LEGACY_RESCUE_MODEL,
-                "gemini-2.5-flash-preview-tts",
-            ):
+            unavailable = []
+            try:
+                interaction = client.interactions.create(
+                    model=LEGACY_RESCUE_MODEL,
+                    timeout=TTS_DIRECT_REQUEST_TIMEOUT_SECONDS,
+                    input=legacy_prompt,
+                    response_format={"type": "audio"},
+                    generation_config={
+                        "speech_config": [{"voice": voice["name"]}]
+                    },
+                )
+            except Exception as legacy_error:
+                legacy_details = str(legacy_error).lower()
+                if not (
+                    "404" in legacy_details
+                    and ("not found" in legacy_details or "not_found" in legacy_details)
+                ):
+                    raise
+                unavailable.append(LEGACY_RESCUE_MODEL)
+                print(
+                    "Gemini 3.1 Interactions unavailable (404); "
+                    "trying the documented Gemini 2.5 Flash TTS endpoint.",
+                    flush=True,
+                )
+
+                fallback_model = "gemini-2.5-flash-preview-tts"
                 try:
                     response = client.models.generate_content(
                         model=fallback_model,
@@ -347,19 +366,21 @@ def generate_wav(
                         ),
                     )
                 except Exception as fallback_error:
-                    details = str(fallback_error).lower()
-                    if "404" in details and (
-                        "not found" in details or "not_found" in details
+                    fallback_details = str(fallback_error).lower()
+                    if "404" in fallback_details and (
+                        "not found" in fallback_details
+                        or "not_found" in fallback_details
                     ):
-                        last_model_404 = fallback_error
-                        print(
-                            f"Gemini TTS {fallback_model}: unavailable (404); "
-                            "checking next supported fallback.",
-                            flush=True,
-                        )
-                        continue
+                        unavailable.append(fallback_model)
+                        raise RuntimeError(
+                            "Gemini TTS model access unavailable for this "
+                            "API key: " + ", ".join([MODEL] + unavailable)
+                            + ". Check the read-only model-access diagnostics "
+                            "in GitHub Actions or enable a compatible TTS model."
+                        ) from fallback_error
                     raise
 
+                # Legacy GenerateContent returns PCM 16-bit mono 24 kHz, or WAV.
                 candidates = getattr(response, "candidates", None) or []
                 parts = (
                     getattr(getattr(candidates[0], "content", None), "parts", None)
@@ -367,18 +388,19 @@ def generate_wav(
                 ) or []
                 pcm = b""
                 for part in parts:
-                    inline_data = getattr(part, "inline_data", None)
-                    value = getattr(inline_data, "data", None)
-                    if value:
+                    inline = getattr(part, "inline_data", None)
+                    data = getattr(inline, "data", None)
+                    if data:
                         pcm = (
-                            bytes(value)
-                            if isinstance(value, (bytes, bytearray))
-                            else base64.b64decode(value)
+                            bytes(data)
+                            if isinstance(data, (bytes, bytearray))
+                            else base64.b64decode(data)
                         )
                         break
                 if not pcm:
                     raise RuntimeError(
-                        f"Gemini fallback {fallback_model} returned no audio"
+                        "Gemini 2.5 TTS returned no audio; not publishing an "
+                        "empty or incomplete file."
                     )
                 RENDER_MODEL = fallback_model
                 print(f"Gemini TTS fallback active: {RENDER_MODEL}", flush=True)
@@ -391,12 +413,20 @@ def generate_wav(
                     writer.setframerate(24000)
                     writer.writeframes(pcm)
                 return wave_buffer.getvalue()
-
-            raise RuntimeError(
-                "No available Gemini TTS model for this API key. "
-                "Both Interactions 3.8 and GenerateContent legacy "
-                "fallbacks returned 404."
-            ) from last_model_404
+            else:
+                output_audio = getattr(interaction, "output_audio", None)
+                data = getattr(output_audio, "data", None)
+                if not data:
+                    raise RuntimeError(
+                        "Gemini 3.1 TTS returned no audio; not publishing."
+                    )
+                RENDER_MODEL = LEGACY_RESCUE_MODEL
+                print(f"Gemini TTS fallback active: {RENDER_MODEL}", flush=True)
+                return (
+                    bytes(data)
+                    if isinstance(data, (bytes, bytearray))
+                    else base64.b64decode(data)
+                )
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous_handler)

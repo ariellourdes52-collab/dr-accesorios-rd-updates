@@ -1,0 +1,88 @@
+name: DR Audio ES Gemini TTS model access (read-only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dr-audio-es-model-access.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check actual models for the configured Spanish Gemini key (no TTS calls)
+        env:
+          GEMINI_API_KEY_DR_AUDIO: '${{ secrets.GEMINI_API_KEY_DR_AUDIO }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          key = os.environ.get("GEMINI_API_KEY_DR_AUDIO", "").strip()
+          if not key:
+              raise SystemExit("Spanish GEMINI_API_KEY_DR_AUDIO is missing or empty.")
+          host = "https://generativelanguage.googleapis.com"
+          headers = {
+              "x-goog-api-key": key,
+              "Accept": "application/json",
+              "User-Agent": "DR-Audio-ES-Model-Access-Read-Only",
+          }
+          def get(path):
+              req = urllib.request.Request(host + path, headers=headers)
+              try:
+                  with urllib.request.urlopen(req, timeout=22) as res:
+                      return res.status, json.load(res)
+              except urllib.error.HTTPError as error:
+                  # Never log response bodies, access tokens or request headers.
+                  return error.code, {}
+              except (TimeoutError, OSError, ValueError) as error:
+                  return "network-error", {}
+
+          required = (
+              "gemini-3.8-flash-lite-tts",
+              "gemini-3.8-flash-tts",
+              "gemini-3.1-flash-tts-preview",
+              "gemini-2.5-flash-preview-tts",
+              "gemini-2.5-pro-preview-tts",
+          )
+          print("DR Audio ES: read-only TTS model metadata check. No generation, no Firebase.")
+          for version in ("v1beta", "v1"):
+              print("Gemini API", version)
+              all_models = []
+              page_token = ""
+              for _ in range(12):
+                  query = "?pageSize=100"
+                  if page_token:
+                      query += "&pageToken=" + urllib.parse.quote(page_token, safe="")
+                  status, data = get("/" + version + "/models" + query)
+                  if status != 200:
+                      print("  LIST models:", status)
+                      break
+                  all_models.extend(data.get("models") or [])
+                  page_token = str(data.get("nextPageToken") or "")
+                  if not page_token:
+                      break
+              matches = [
+                  item for item in all_models
+                  if "tts" in str(item.get("name", "")).lower()
+                  or "speech" in str(item.get("name", "")).lower()
+              ]
+              print("  Listed models:", len(all_models))
+              print("  Listed TTS models:", len(matches))
+              for item in matches:
+                  print("   ", item.get("name"), "methods:", item.get("supportedGenerationMethods"))
+              for name in required:
+                  status, info = get(f"/{version}/models/{name}")
+                  methods = info.get("supportedGenerationMethods") if status == 200 else None
+                  print("  GET", name, ":", status, "methods:", methods)
+          PY

@@ -27,6 +27,7 @@ import httpx
 import requests
 from bs4 import BeautifulSoup
 from google import genai
+from google.genai import types
 
 BLOG_FEED_BASE = "https://draccesoriosrd.blogspot.com/feeds/posts/default"
 PUBLIC_INDEX = "https://dr-accesorios-rd.web.app/dr-audio/index.json"
@@ -316,29 +317,86 @@ def generate_wav(
                 "documented 3.1 TTS fallback, preserving the selected voice.",
                 flush=True,
             )
-            interaction = client.interactions.create(
-                model=LEGACY_RESCUE_MODEL,
-                timeout=TTS_DIRECT_REQUEST_TIMEOUT_SECONDS,
-                input=(
-                    "Lee este articulo exactamente como esta escrito, sin "
-                    "pronunciar estas instrucciones. Usa espanol latino "
-                    "neutro y el siguiente estilo de locucion: "
-                    + voice["style"]
-                    + "\n\nTexto:\n"
-                    + transcript
-                ),
-                response_format={"type": "audio"},
-                generation_config={
-                    "speech_config": [
-                        {"voice": voice["name"]},
-                    ]
-                },
+            # TTS previo a 3.8 usa GenerateContent, no Interactions.
+            # Consulte el catalogo oficial: el formato devuelto es PCM mono 24k.
+            legacy_prompt = (
+                "Lee este articulo exactamente como esta escrito. "
+                "Voz profesional en espanol latino neutro; estilo: "
+                + voice["style"]
+                + "\n\nArticulo para leer:\n"
+                + transcript
             )
-            RENDER_MODEL = LEGACY_RESCUE_MODEL
-            print(
-                f"Gemini TTS fallback active: {RENDER_MODEL}",
-                flush=True,
-            )
+            last_model_404 = error
+            for fallback_model in (
+                LEGACY_RESCUE_MODEL,
+                "gemini-2.5-flash-preview-tts",
+            ):
+                try:
+                    response = client.models.generate_content(
+                        model=fallback_model,
+                        contents=legacy_prompt,
+                        config=types.GenerateContentConfig(
+                            response_modalities=["AUDIO"],
+                            speech_config=types.SpeechConfig(
+                                voice_config=types.VoiceConfig(
+                                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                        voice_name=voice["name"],
+                                    ),
+                                ),
+                            ),
+                        ),
+                    )
+                except Exception as fallback_error:
+                    details = str(fallback_error).lower()
+                    if "404" in details and (
+                        "not found" in details or "not_found" in details
+                    ):
+                        last_model_404 = fallback_error
+                        print(
+                            f"Gemini TTS {fallback_model}: unavailable (404); "
+                            "checking next supported fallback.",
+                            flush=True,
+                        )
+                        continue
+                    raise
+
+                candidates = getattr(response, "candidates", None) or []
+                parts = (
+                    getattr(getattr(candidates[0], "content", None), "parts", None)
+                    if candidates else None
+                ) or []
+                pcm = b""
+                for part in parts:
+                    inline_data = getattr(part, "inline_data", None)
+                    value = getattr(inline_data, "data", None)
+                    if value:
+                        pcm = (
+                            bytes(value)
+                            if isinstance(value, (bytes, bytearray))
+                            else base64.b64decode(value)
+                        )
+                        break
+                if not pcm:
+                    raise RuntimeError(
+                        f"Gemini fallback {fallback_model} returned no audio"
+                    )
+                RENDER_MODEL = fallback_model
+                print(f"Gemini TTS fallback active: {RENDER_MODEL}", flush=True)
+                if pcm[:4] == b"RIFF":
+                    return pcm
+                wave_buffer = io.BytesIO()
+                with wave.open(wave_buffer, "wb") as writer:
+                    writer.setnchannels(1)
+                    writer.setsampwidth(2)
+                    writer.setframerate(24000)
+                    writer.writeframes(pcm)
+                return wave_buffer.getvalue()
+
+            raise RuntimeError(
+                "No available Gemini TTS model for this API key. "
+                "Both Interactions 3.8 and GenerateContent legacy "
+                "fallbacks returned 404."
+            ) from last_model_404
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous_handler)

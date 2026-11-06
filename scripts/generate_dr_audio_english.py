@@ -3,21 +3,25 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import io
 import json
 import os
 import re
 import time
+import wave
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import requests
 from google import genai
+from google.genai import types
 from dr_audio_retention import RETENTION_MONTHS, retain_recent_entries
 from generate_shared_dr_audio import (
     MODEL, LATEST_REQUIRED, RENDER_MODEL, VOICE_CONFIGS, canonical_url,
-    generate_wav, load_live_index, parse_feed, wav_to_m4a,
+    load_live_index, parse_feed, wav_to_m4a,
     quota_exhausted_error, daily_quota_exhausted_error,
     next_gemini_daily_reset_iso, parse_blocked_until, tts_timeout_error,
 )
@@ -270,6 +274,85 @@ def extend_index(index: dict, article: dict, english_text: str, audio_path: Path
 
 
 
+def generate_wav(
+    client: genai.Client, transcript: str, voice_key: str
+) -> bytes:
+    """English-only v1beta TTS; preserve the existing English queue and voice."""
+    voice = VOICE_CONFIGS[voice_key]
+    prompt = (
+        "Read only the following technology news article aloud in natural "
+        "American English. Do not read these instructions. Speaking style: "
+        + voice["style"]
+        + "\n\nArticle:\n"
+        + transcript
+    )
+    config = types.GenerateContentConfig(
+        response_modalities=["AUDIO"],
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                    voice_name=voice["name"],
+                ),
+            ),
+        ),
+    )
+    # Match the verified Spanish v1beta GenerateContent TTS route.
+    # Never call Interactions for this English synthesis.
+    for model in (MODEL, "gemini-3.8-flash-tts", "gemini-3.1-flash-tts-preview"):
+        try:
+            response = client.models.generate_content(
+                model=model, contents=prompt, config=config,
+            )
+        except Exception as error:
+            detail = str(error).lower()
+            if "404" in detail and (
+                "not found" in detail or "not_found" in detail
+            ):
+                print(
+                    f"English Gemini TTS model unavailable: {model} (404); "
+                    "checking next v1beta model.",
+                    flush=True,
+                )
+                continue
+            raise
+
+        candidates = getattr(response, "candidates", None) or []
+        parts = (
+            getattr(getattr(candidates[0], "content", None), "parts", None)
+            if candidates else None
+        ) or []
+        for part in parts:
+            inline = getattr(part, "inline_data", None)
+            raw = getattr(inline, "data", None)
+            if not raw:
+                continue
+            audio = (
+                bytes(raw) if isinstance(raw, (bytes, bytearray))
+                else base64.b64decode(raw)
+            )
+            if not audio:
+                continue
+            print(
+                f"English Gemini v1beta GenerateContent TTS ready: {model}",
+                flush=True,
+            )
+            if audio[:4] == b"RIFF":
+                return audio
+            output = io.BytesIO()
+            with wave.open(output, "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(24000)
+                wav.writeframes(audio)
+            return output.getvalue()
+        raise RuntimeError(
+            "English Gemini TTS returned no audio; refusing publication."
+        )
+    raise RuntimeError(
+        "English Gemini TTS: none of the three v1beta models was accessible."
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="dr_audio_english_build")
@@ -333,7 +416,10 @@ def main() -> None:
         return
     # The eight-minute guard is for synthesis only: translating text cannot
     # incur TTS duplication. Mark only immediately before an actual TTS call.
-    client = genai.Client(api_key=key)
+    client = genai.Client(
+        api_key=key,
+        http_options=types.HttpOptions(api_version="v1beta"),
+    )
     audio_dir.mkdir(parents=True, exist_ok=True)
 
     # Keep a translation of a failed English release for a retry. The cache

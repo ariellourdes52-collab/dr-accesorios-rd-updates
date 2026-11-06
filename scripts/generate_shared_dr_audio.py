@@ -257,11 +257,95 @@ class TTSHardTimeoutError(TimeoutError):
     pass
 
 
+def generate_wav_spanish_v1beta(
+    client: genai.Client,
+    transcript: str,
+    voice_key: str,
+) -> bytes:
+    """Documented v1beta GenerateContent TTS. English remains on its own path."""
+    voice = VOICE_CONFIGS[voice_key]
+    prompt = (
+        "Perfil de audio: Presentador profesional de noticias tecnologicas "
+        "en espanol latino. " + voice["style"]
+        + "\n\nLee solo el siguiente articulo sin pronunciar estas instrucciones:\n"
+        + transcript
+    )
+    options = types.GenerateContentConfig(
+        response_modalities=["AUDIO"],
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                    voice_name=voice["name"],
+                ),
+            ),
+        ),
+    )
+    # The installed API key lists the following models with generateContent
+    # in v1beta. The Interactions endpoint returned 404 for the same names.
+    global RENDER_MODEL
+    last_not_found = None
+    for model in (MODEL, "gemini-3.8-flash-tts", LEGACY_RESCUE_MODEL):
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=options,
+            )
+        except Exception as error:
+            details = str(error).lower()
+            if "404" in details and (
+                "not found" in details or "not_found" in details
+            ):
+                last_not_found = error
+                print(
+                    f"Gemini v1beta generateContent model unavailable: {model}",
+                    flush=True,
+                )
+                continue
+            raise
+
+        candidates = getattr(response, "candidates", None) or []
+        parts = (
+            getattr(getattr(candidates[0], "content", None), "parts", None)
+            if candidates else None
+        ) or []
+        for part in parts:
+            inline = getattr(part, "inline_data", None)
+            data = getattr(inline, "data", None)
+            if not data:
+                continue
+            audio = (
+                bytes(data) if isinstance(data, (bytes, bytearray))
+                else base64.b64decode(data)
+            )
+            if not audio:
+                continue
+            RENDER_MODEL = model
+            print(f"Gemini v1beta GenerateContent TTS ready: {model}", flush=True)
+            if audio[:4] == b"RIFF":
+                return audio
+            output = io.BytesIO()
+            with wave.open(output, "wb") as writer:
+                writer.setnchannels(1)
+                writer.setsampwidth(2)
+                writer.setframerate(24000)
+                writer.writeframes(audio)
+            return output.getvalue()
+        raise RuntimeError("Gemini TTS returned no audio; refusing publication.")
+    raise RuntimeError(
+        "No accessible TTS model on v1beta GenerateContent for the "
+        "configured Spanish API key."
+    ) from last_not_found
+
+
 def generate_wav(
     client: genai.Client,
     transcript: str,
     voice_key: str,
 ) -> bytes:
+    if voice_key in ("female", "male"):
+        return generate_wav_spanish_v1beta(client, transcript, voice_key)
+
     global RENDER_MODEL
     voice = VOICE_CONFIGS[voice_key]
 
@@ -944,7 +1028,10 @@ def main() -> None:
             if backfill_articles_selected >= backfill_count:
                 break
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(api_version="v1beta"),
+    )
     generated_count = 0
     female_generated = 0
     male_generated = 0

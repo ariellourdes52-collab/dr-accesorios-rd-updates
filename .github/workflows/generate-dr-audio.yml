@@ -58,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --quiet \
-            google-genai google-auth requests beautifulsoup4
+            google-genai google-auth requests beautifulsoup4 httpx
           if ! command -v ffmpeg >/dev/null 2>&1; then
             sudo apt-get update -qq
             sudo apt-get install -y ffmpeg

@@ -24,7 +24,7 @@ from dr_noticias_instagram_pilot import (
 
 DOMINICAN_TZ = ZoneInfo("America/Santo_Domingo")
 MAX_AGE_SECONDS = 8 * 60 * 60
-DAILY_MAX = 3
+DAILY_MAX = 4
 
 
 def activation_instant(value):
@@ -119,7 +119,7 @@ def main():
         return
     localday = now.astimezone(DOMINICAN_TZ).date()
     if args.mode == "run" and available_daily_slot(localday) is None:
-        print("Límite de tres publicaciones automáticas diarias alcanzado.")
+        print("Límite de cuatro publicaciones automáticas diarias alcanzado.")
         return
     for post in posts:
         if args.mode == "run":
@@ -162,7 +162,7 @@ def main():
         if slot is None:
             print("Límite diario alcanzado antes de publicar.")
             return
-        # Se reserva un cupo de los 3 incluso si Meta falla, para evitar spam.
+        # Se reserva un cupo de los 4 incluso si Meta falla, para evitar spam.
         reserve_daily_slot(localday, slot, post["url"])
         publish(found_post, digest, image_url, caption, token)
         print("Automática completada. Un artículo por ejecución; próximos en otra hora.")

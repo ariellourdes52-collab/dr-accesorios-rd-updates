@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/discord-phoenix-menos-ram-mas-velocidad-2026.html",
   "title": "Discord Phoenix: menos RAM, más velocidad",
   "jpeg_sha256": "debce5198d25e8d54bb3a73efb8a2cf522318f3fa45c393902cc85c2fe94d5f8",
   "caption_sha256": "b5717029dfef772eb364be54871c4801b325f6a87776b1fc07becaab4b98723f",
-  "created_at": "2026-11-07T23:09:38.509138+00:00"
+  "created_at": "2026-11-07T23:09:38.509138+00:00",
+  "facebook_media_id": "875159429020764_122144341641183523",
+  "completed_at": "2026-11-07T23:09:42.877982+00:00"
 }

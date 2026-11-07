@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """DR Noticias Tech -> X. Canal aislado, desactivado por defecto.
 
-Solo noticias nuevas de Blogger, 3 por dia RD, 1 por ejecucion. Jamás incluye
+Solo noticias nuevas de Blogger, 4 por dia RD, 1 por ejecucion. Jamás incluye
 URLs en el post. Modo scan: 0 llamadas a X, 0 escrituras en GitHub.
 No modificar los publicadores existentes ni reintentar una publicacion incierta.
 """
@@ -32,7 +32,7 @@ from dr_noticias_instagram_pilot import EditorialParagraphs, ledger_write
 ACCOUNT = "drnoticiastech"
 X_URL = "https://api.x.com"
 RD = ZoneInfo("America/Santo_Domingo")
-DAILY_LIMIT = 3
+DAILY_LIMIT = 4
 MAX_TEXT = 235  # Margen bajo 280 caracteres ponderados, sin URLs.
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 X_KEYS = ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET")
@@ -88,7 +88,7 @@ def ledger_path(article_url):
 
 
 def slot_path(day, slot):
-    if slot not in (1, 2, 3):
+    if slot not in range(1, DAILY_LIMIT + 1):
         raise ValueError("X: cupo fuera de rango")
     return "dr-noticias-x-daily/" + str(day) + "/slot-" + str(slot) + ".json"
 
@@ -307,7 +307,7 @@ def run(mode, env=None, now=None, gh=None, writer=None,
           " | noticias candidatas=" + str(len(posts)))
     day = now.astimezone(RD).date()
     if mode == "run" and first_free_slot(day, gh) is None:
-        print("X: cupos diarios agotados (3).")
+        print("X: cupos diarios agotados (4).")
         return
     for post in posts:
         if mode == "run" and read_ledger(ledger_path(post["url"]), gh) is not None:

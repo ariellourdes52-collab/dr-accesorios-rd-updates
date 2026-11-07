@@ -64,6 +64,44 @@ class BingTests(unittest.TestCase):
             with self.assertRaisesRegex(b.SafeError, 'State save failed'):
                 b.run()
 
+    @patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY':'dummy'})
+    def test_missing_robots_404_allows_valid_page(self):
+        with patch.object(b, 'inventory', return_value={URL:'v2'}), \
+             patch.object(b, 'bing', side_effect=[{'DailyQuota':5,'MonthlyQuota':10},None]) as api, \
+             patch.object(b, 'read_state', return_value=({URL:'v1'},'sha')), \
+             patch.object(b, 'save_state') as save, \
+             patch.object(b, 'critical_get', side_effect=b.SafeError('HTTP 404')), \
+             patch.object(b, 'request', return_value=(200,URL,HEADERS,HTML)):
+            b.run()
+            self.assertEqual(api.call_args.args[2]['urlList'], [URL])
+            save.assert_called_once_with({URL:'v2'}, 'sha')
+
+    @patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY':'dummy'})
+    def test_robots_503_still_blocks_submission(self):
+        with patch.object(b, 'inventory', return_value={URL:'v2'}), \
+             patch.object(b, 'bing', return_value={'DailyQuota':5,'MonthlyQuota':10}) as api, \
+             patch.object(b, 'read_state', return_value=({URL:'v1'},'sha')), \
+             patch.object(b, 'save_state') as save, \
+             patch.object(b, 'critical_get', side_effect=b.SafeError('HTTP 503')):
+            with self.assertRaisesRegex(b.SafeError, r'Blogger robots.txt: HTTP 503'):
+                b.run()
+            api.assert_called_once()
+            save.assert_not_called()
+
+    @patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY':'dummy'})
+    def test_explicit_robots_disallow_still_blocks(self):
+        robots = b'User-agent: bingbot\\nDisallow: /2026/'
+        with patch.object(b, 'inventory', return_value={URL:'v2'}), \
+             patch.object(b, 'bing', return_value={'DailyQuota':5,'MonthlyQuota':10}) as api, \
+             patch.object(b, 'read_state', return_value=({URL:'v1'},'sha')), \
+             patch.object(b, 'save_state') as save, \
+             patch.object(b, 'critical_get', return_value=(200,b.SITE+'robots.txt',{},robots)), \
+             patch.object(b, 'request') as fetch:
+            b.run()
+            api.assert_called_once()
+            fetch.assert_not_called()
+            save.assert_not_called()
+
     def test_sitemap_404_identifies_source(self):
         with patch.object(b, 'critical_get', side_effect=b.SafeError('HTTP 404')):
             with self.assertRaisesRegex(b.SafeError, r'Blogger sitemap sitemap.xml: HTTP 404'):

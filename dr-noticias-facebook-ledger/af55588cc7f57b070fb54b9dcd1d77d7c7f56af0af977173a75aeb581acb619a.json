@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/oneplus-coloros-17-oxygenos-fechas-android-2026.html",
   "title": "OnePlus: ¿adiós OxygenOS? Fechas de ColorOS 17",
   "jpeg_sha256": "e5cdc4af57d53a3bd396f4321e97886f367260e2ed813f4aa9cf07383b17819e",
   "caption_sha256": "d13a759afaddd76682a2484c8ac91bd7e205a5f992c9a1355a0d52334b4de62c",
-  "created_at": "2026-11-07T18:09:15.125026+00:00"
+  "created_at": "2026-11-07T18:09:15.125026+00:00",
+  "facebook_media_id": "875159429020764_122144325411183523",
+  "completed_at": "2026-11-07T18:09:21.591937+00:00"
 }

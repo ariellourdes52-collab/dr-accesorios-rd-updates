@@ -61,11 +61,11 @@ class XPublisherTests(unittest.TestCase):
             x.caption("Nueva noticia tecnologica", contaminated)
 
     def test_slot_range_and_ledger_namespace(self):
-        paths = [x.slot_path("2026-10-14", i) for i in (1, 2, 3)]
-        self.assertEqual(len(set(paths)), 3)
+        paths = [x.slot_path("2026-10-14", i) for i in (1, 2, 3, 4)]
+        self.assertEqual(len(set(paths)), 4)
         self.assertTrue(all("x-daily" in p for p in paths))
         with self.assertRaises(ValueError):
-            x.slot_path("2026-10-14", 4)
+            x.slot_path("2026-10-14", 5)
         self.assertTrue(x.ledger_path(self.url).startswith("dr-noticias-x-ledger/"))
 
     def test_full_day_has_no_slot(self):

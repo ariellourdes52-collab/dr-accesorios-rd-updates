@@ -3,7 +3,7 @@
 
 Cada canal posee variable de activación, reservas diarias, ledger y cron propios.
 Publica solo noticias Blogger posteriores al inicio configurado, edad <= 8h,
-máximo tres/día/canal y una noticia por ejecución. Cualquier error falla cerrado.
+máximo cuatro/día/canal y una noticia por ejecución. Cualquier error falla cerrado.
 """
 import argparse
 import hashlib
@@ -33,7 +33,7 @@ from dr_noticias_threads_pilot import (
 )
 
 RD_TZ = ZoneInfo("America/Santo_Domingo")
-DAILY_MAX = 3
+DAILY_MAX = 4
 PLATFORMS = {
     "facebook": {
         "enabled": "DR_NOTICIAS_FB_AUTO_ENABLED",
@@ -145,7 +145,7 @@ def run(platform, mode, environ=None, now=None):
         return
     localday = now.astimezone(RD_TZ).date()
     if mode == "run" and available_slot(platform, localday) is None:
-        print("Límite alcanzado: tres por día en " + platform)
+        print("Límite alcanzado: cuatro por día en " + platform)
         return
     for post in posts:
         if mode == "run":

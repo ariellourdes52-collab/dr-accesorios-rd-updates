@@ -46,7 +46,7 @@ class AutomationTests(unittest.TestCase):
         future_start = self.now + timedelta(hours=1)
         self.assertEqual(auto.eligible_entries([self.post("x", self.now)],self.now,future_start),[])
 
-    def test_estricto_limite_tres_cupos_diarios(self):
+    def test_estricto_limite_cuatro_cupos_diarios(self):
         hits = set()
         def gh(path, *, method="GET", data=None):
             key = path.split("?")[0]
@@ -59,6 +59,8 @@ class AutomationTests(unittest.TestCase):
             hits.add("/contents/dr-noticias-daily/2026-10-13/slot-2.json")
             self.assertEqual(auto.available_daily_slot(date), 3)
             hits.add("/contents/dr-noticias-daily/2026-10-13/slot-3.json")
+            self.assertEqual(auto.available_daily_slot(date), 4)
+            hits.add("/contents/dr-noticias-daily/2026-10-13/slot-4.json")
             self.assertIsNone(auto.available_daily_slot(date))
 
 

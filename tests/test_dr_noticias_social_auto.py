@@ -37,17 +37,17 @@ class SocialAutoTests(unittest.TestCase):
         self.assertTrue(fb.startswith("dr-noticias-social-daily/facebook/"))
         self.assertTrue(th.startswith("dr-noticias-social-daily/threads/"))
         self.assertRaises(ValueError, auto.daily_path, "instagram", d, 1)
-        self.assertRaises(ValueError, auto.daily_path, "threads", d, 4)
+        self.assertRaises(ValueError, auto.daily_path, "threads", d, 5)
 
-    def test_available_slot_returns_none_after_3_reservations(self):
+    def test_available_slot_returns_none_after_4_reservations(self):
         day = self.now.date()
         requests = []
         def get(path):
             requests.append(path)
             return {"sha": "taken"}
         self.assertIsNone(auto.available_slot("facebook", day, request=get))
-        self.assertEqual(len(requests), 3)
-        self.assertEqual(len(set(requests)), 3)
+        self.assertEqual(len(requests), 4)
+        self.assertEqual(len(set(requests)), 4)
 
     def test_available_slot_is_independent(self):
         def get(path):

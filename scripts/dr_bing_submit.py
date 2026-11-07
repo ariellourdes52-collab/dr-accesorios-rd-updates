@@ -34,7 +34,8 @@ def request(url, data=None, headers=None):
 
 def critical_get(url, headers=None):
     """Retry only critical read-only checks after transient HTTP errors."""
-    transient = {'HTTP 404', 'HTTP 429', 'HTTP 500', 'HTTP 502', 'HTTP 503', 'HTTP 504'}
+    # Do not retry 429 immediately: the origin is asking clients to slow down.
+    transient = {'HTTP 404', 'HTTP 500', 'HTTP 502', 'HTTP 503', 'HTTP 504'}
     for attempt in range(3):
         try:
             return request(url, headers=headers)
@@ -195,8 +196,18 @@ def report(message):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
             f.write(message + '\n\n')
 
+def rate_limited(source):
+    report('%s HTTP 429 (Blogger rate limit). No blocked URLs marked as sent; retry on next scheduled run.' % source)
+    print('::warning title=Blogger HTTP 429::Blogger rate limited URL checks; blocked URLs remain pending for a future run.')
+
 def run(dry_run=False):
-    entries = inventory()
+    try:
+        entries = inventory()
+    except SafeError as exc:
+        if str(exc).startswith('Blogger sitemap ') and str(exc).endswith(': HTTP 429'):
+            rate_limited('Blogger sitemap')
+            return
+        raise
     if dry_run:
         report('Dry run: %d eligible sitemap URLs. No submission or state write.' % len(entries))
         return
@@ -217,6 +228,9 @@ def run(dry_run=False):
     try:
         _, final, _, body = critical_get(SITE + 'robots.txt')
     except SafeError as exc:
+        if str(exc) == 'HTTP 429':
+            rate_limited('Blogger robots.txt')
+            return
         if str(exc) != 'HTTP 404':
             raise SafeError('Blogger robots.txt: %s' % exc) from None
         # RFC 9309 section 2.3.1.3: a missing robots.txt permits access.
@@ -230,6 +244,7 @@ def run(dry_run=False):
         robots.parse(body.decode().splitlines())
     batch = []
     fetch_failures = 0
+    blogger_throttled = False
     # Bound requests even if some URLs are persistently unavailable.
     for url in candidates(changes):
         if robots is not None and not robots.can_fetch('bingbot', url):
@@ -241,6 +256,10 @@ def run(dry_run=False):
                 report('Deferred (status/canonical/noindex): ' + url)
                 continue
         except SafeError as exc:
+            if str(exc) == 'HTTP 429':
+                blogger_throttled = True
+                report('Deferred (Blogger HTTP 429; stopping page checks for this run): ' + url)
+                break
             fetch_failures += 1
             report('Deferred (fetch failed, %s): %s' % (exc, url))
             continue
@@ -250,6 +269,9 @@ def run(dry_run=False):
     if not batch:
         if fetch_failures:
             raise SafeError('%d page fetches failed; pending URLs retained' % fetch_failures)
+        if blogger_throttled:
+            rate_limited('Blogger page')
+            return
         report('No eligible changed pages passed validation.')
         return
     result = bing('SubmitUrlBatch', key, {'siteUrl': SITE, 'urlList': batch})
@@ -262,6 +284,8 @@ def run(dry_run=False):
         state[url] = entries[url]
     save_state(state, sha)
     report('Accepted URL checkpoints saved successfully.')
+    if blogger_throttled:
+        rate_limited('Blogger page')
     if fetch_failures:
         raise SafeError('%d page fetches failed; accepted URLs saved, failed URLs remain pending' % fetch_failures)
 

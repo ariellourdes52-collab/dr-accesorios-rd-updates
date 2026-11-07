@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nintendo-switch-2-ventas-caen-37-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "5317e285449e511d3b48510d3ea99055c2de7207668d0d07e059155d51c080d1",
   "caption_sha256": "56dc5468672463ca3d8963383806f8bd179ba8fd37e7cd574de715f6bc9221b6",
   "created_at": "2026-11-07T00:10:14.883665+00:00",
-  "container_id": "17997136287110510"
+  "container_id": "17997136287110510",
+  "threads_media_id": "18121011517983630",
+  "completed_at": "2026-11-07T00:10:26.266527+00:00"
 }

@@ -90,7 +90,7 @@ class BingTests(unittest.TestCase):
 
     @patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY':'dummy'})
     def test_explicit_robots_disallow_still_blocks(self):
-        robots = b'User-agent: bingbot\\nDisallow: /2026/'
+        robots = b'User-agent: bingbot\nDisallow: /2026/'
         with patch.object(b, 'inventory', return_value={URL:'v2'}), \
              patch.object(b, 'bing', return_value={'DailyQuota':5,'MonthlyQuota':10}) as api, \
              patch.object(b, 'read_state', return_value=({URL:'v1'},'sha')), \

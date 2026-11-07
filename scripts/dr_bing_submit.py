@@ -217,16 +217,22 @@ def run(dry_run=False):
     try:
         _, final, _, body = critical_get(SITE + 'robots.txt')
     except SafeError as exc:
-        raise SafeError('Blogger robots.txt: %s' % exc) from None
-    if final != SITE + 'robots.txt':
-        raise SafeError('Unexpected robots.txt redirect')
-    robots = urllib.robotparser.RobotFileParser()
-    robots.parse(body.decode().splitlines())
+        if str(exc) != 'HTTP 404':
+            raise SafeError('Blogger robots.txt: %s' % exc) from None
+        # RFC 9309 section 2.3.1.3: a missing robots.txt permits access.
+        # Other failures remain fatal; canonical/noindex checks still apply.
+        robots = None
+        report('Blogger robots.txt HTTP 404 (unavailable per RFC 9309); validating pages individually.')
+    else:
+        if final != SITE + 'robots.txt':
+            raise SafeError('Unexpected robots.txt redirect')
+        robots = urllib.robotparser.RobotFileParser()
+        robots.parse(body.decode().splitlines())
     batch = []
     fetch_failures = 0
     # Bound requests even if some URLs are persistently unavailable.
     for url in candidates(changes):
-        if not robots.can_fetch('bingbot', url):
+        if robots is not None and not robots.can_fetch('bingbot', url):
             report('Deferred (robots): ' + url)
             continue
         try:

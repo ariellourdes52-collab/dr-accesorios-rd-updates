@@ -102,6 +102,47 @@ class BingTests(unittest.TestCase):
             fetch.assert_not_called()
             save.assert_not_called()
 
+    @patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY':'dummy'})
+    def test_429_page_preserves_pending_without_submit(self):
+        with patch.object(b, 'inventory', return_value={URL:'v2'}), \
+             patch.object(b, 'bing', return_value={'DailyQuota':5,'MonthlyQuota':10}) as api, \
+             patch.object(b, 'read_state', return_value=({URL:'v1'},'sha')), \
+             patch.object(b, 'save_state') as save, \
+             patch.object(b, 'request', side_effect=[(200,b.SITE+'robots.txt',{},b'User-agent: *\\nAllow: /'),b.SafeError('HTTP 429')]), \
+             patch.object(b, 'report') as report:
+            b.run()
+            api.assert_called_once()
+            save.assert_not_called()
+            self.assertTrue(any('HTTP 429' in str(call) for call in report.call_args_list))
+
+    @patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY':'dummy'})
+    def test_429_robots_preserves_pending_without_submit(self):
+        with patch.object(b, 'inventory', return_value={URL:'v2'}), \
+             patch.object(b, 'bing', return_value={'DailyQuota':5,'MonthlyQuota':10}) as api, \
+             patch.object(b, 'read_state', return_value=({URL:'v1'},'sha')), \
+             patch.object(b, 'save_state') as save, \
+             patch.object(b, 'critical_get', side_effect=b.SafeError('HTTP 429')):
+            b.run()
+            api.assert_called_once()
+            save.assert_not_called()
+
+    @patch.dict(b.os.environ, {'BING_WEBMASTER_API_KEY':'dummy'})
+    def test_429_sitemap_does_not_use_bing_or_write(self):
+        with patch.object(b, 'inventory', side_effect=b.SafeError('Blogger sitemap sitemap.xml: HTTP 429')), \
+             patch.object(b, 'bing') as api, \
+             patch.object(b, 'save_state') as save:
+            b.run()
+            api.assert_not_called()
+            save.assert_not_called()
+
+    def test_critical_get_does_not_retry_429(self):
+        with patch.object(b, 'request', side_effect=b.SafeError('HTTP 429')) as req, \
+             patch.object(b.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(b.SafeError, 'HTTP 429'):
+                b.critical_get(b.SITE+'robots.txt')
+            req.assert_called_once()
+            sleep.assert_not_called()
+
     def test_sitemap_404_identifies_source(self):
         with patch.object(b, 'critical_get', side_effect=b.SafeError('HTTP 404')):
             with self.assertRaisesRegex(b.SafeError, r'Blogger sitemap sitemap.xml: HTTP 404'):

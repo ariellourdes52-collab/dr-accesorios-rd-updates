@@ -9,7 +9,8 @@
     ],
     "seismic": [
       "earthquake-usgs-us7000tvyl",
-      "earthquake-usgs-pr2026308001"
+      "earthquake-usgs-pr2026308001",
+      "earthquake-usgs-us7000twwc"
     ]
   }
 }

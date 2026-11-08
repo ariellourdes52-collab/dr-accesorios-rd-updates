@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/google-messages-rediseno-chats-fijados-2026.html",
   "title": "Google Messages: ¿mejoran los chats?",
   "jpeg_sha256": "abc9159e708ced120f3992daa14b64b944f130bba0096d54a2e2db19ef773285",
   "caption_sha256": "fe2ce680f920e0faf3e1075964ad08000c3224f6f383b27523691e01c83ce79f",
-  "created_at": "2026-11-08T13:09:27.996024+00:00"
+  "created_at": "2026-11-08T13:09:27.996024+00:00",
+  "facebook_media_id": "875159429020764_122144402805183523",
+  "completed_at": "2026-11-08T13:09:32.964620+00:00"
 }

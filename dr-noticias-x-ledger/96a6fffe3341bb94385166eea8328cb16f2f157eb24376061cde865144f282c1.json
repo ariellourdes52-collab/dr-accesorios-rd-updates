@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/pixel-11-gboard-rambler-dictado-palabras-2026.html",
   "caption_sha256": "5622e169e5321920d6ccfb8747ecbec869ec597b81ceab73d9a03f22b46c4893",
   "image_sha256": "b55a34a25376dc35222330628892b9e0b34e0dc8b45fb5b1d28d96a6b2201f63",
-  "created_at": "2026-11-08T18:10:08.632726+00:00"
+  "created_at": "2026-11-08T18:10:08.632726+00:00",
+  "x_post_id": "2119492707567673367",
+  "published_at": "2026-11-08T18:10:14.627079+00:00"
 }

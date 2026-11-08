@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/recalbox-11-retroid-anbernic-consolas-portatiles.html",
   "caption_sha256": "eccaa0bc661925714d302d422388e4dac7d156c18a555c0c5d33de4e14f45afe",
   "image_sha256": "c333e37e788f4132e448a13ef4df94171f3b0df963fc053aa56833b02d10c41d",
-  "created_at": "2026-11-08T23:10:15.972991+00:00"
+  "created_at": "2026-11-08T23:10:15.972991+00:00",
+  "x_post_id": "2119568241030779273",
+  "published_at": "2026-11-08T23:10:23.222573+00:00"
 }

@@ -162,7 +162,7 @@
         if (!version || !asset) return;
         document.querySelector('.badge').textContent = '📱 Android · Versión ' + version;
         document.querySelectorAll('a.download-latest').forEach(function (a) {a.href = 'https://github.com/ariellourdes52-collab/dr-accesorios-rd-updates/releases/latest/download/dr-accesorios-rd.apk'; a.textContent = '⬇️ Descargar DR Accesorios RD v' + version;});
-        document.querySelectorAll('.section p, .step span').forEach(function (el) {el.textContent = el.textContent.replace(/v2\\.5/g, 'v' + version);});
+        document.querySelectorAll('.section p, .step span').forEach(function (el) {el.textContent = el.textContent.replace(/v2\.5/g, 'v' + version);});
         const hash = (asset.digest || '').replace(/^sha256:/i, '');
         if (/^[a-f0-9]{64}$/i.test(hash)) {const code = document.querySelector('details code'); if (code) code.textContent = hash;}
         document.title = 'Descargar DR Accesorios RD v' + version;

@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/pixel-11-gboard-rambler-dictado-palabras-2026.html",
   "title": "Pixel 11: Gboard aprendería tus palabras",
   "jpeg_sha256": "b55a34a25376dc35222330628892b9e0b34e0dc8b45fb5b1d28d96a6b2201f63",
   "caption_sha256": "b64614b2554184e9058d850ed0a3994c0b7cf6e3647548434035c561fd039282",
-  "created_at": "2026-11-08T18:09:49.459099+00:00"
+  "created_at": "2026-11-08T18:09:49.459099+00:00",
+  "container_id": "17997418569110510"
 }

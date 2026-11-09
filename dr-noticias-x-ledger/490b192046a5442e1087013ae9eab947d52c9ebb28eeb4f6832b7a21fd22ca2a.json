@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/epic-games-steam-deck-steamos-linux-2026.html",
   "caption_sha256": "1fbd006c4a54b7778bd5ae583b0e4633ab6f3f7d67ab1d3a30d882e29e9f4e5f",
   "image_sha256": "4b88089cd1a2f74232886771feb53b97ddfc04e760968cc3da2fcf755009229c",
-  "created_at": "2026-11-09T23:09:50.239113+00:00"
+  "created_at": "2026-11-09T23:09:50.239113+00:00",
+  "x_post_id": "2119930520721076598",
+  "published_at": "2026-11-09T23:09:57.498900+00:00"
 }

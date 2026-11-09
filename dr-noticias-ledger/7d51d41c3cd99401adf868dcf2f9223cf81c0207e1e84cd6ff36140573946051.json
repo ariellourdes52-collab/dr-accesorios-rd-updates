@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/ios-28-apple-cambia-desarrollo-2026.html",
   "title": "iOS 28: Apple cambia sus reglas de desarrollo",
   "image_sha256": "35e7e7e457239228656ded4b7557221ea9a9957347b368e6083844c0db18e1f7",
   "caption_sha256": "2f9aceffecbffc8d9f1ad89032fbfbd9fdc32b2e4abafff6571c8f4acaf7c8b3",
   "created_at": "2026-11-09T18:09:20.343602+00:00",
-  "container_id": "18184672051429315"
+  "container_id": "18184672051429315",
+  "instagram_media_id": "18114210926522659",
+  "completed_at": "2026-11-09T18:09:29.124100+00:00"
 }

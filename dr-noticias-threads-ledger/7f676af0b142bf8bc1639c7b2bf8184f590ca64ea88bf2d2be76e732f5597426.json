@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/epic-games-steam-deck-steamos-linux-2026.html",
   "title": "Epic Games en Steam Deck: ¿qué cambia?",
   "jpeg_sha256": "4b88089cd1a2f74232886771feb53b97ddfc04e760968cc3da2fcf755009229c",
   "caption_sha256": "27884616d79e22313bcb5a91220e1e53d63c580e2f21468daab3b13486833bca",
-  "created_at": "2026-11-09T23:09:29.728073+00:00"
+  "created_at": "2026-11-09T23:09:29.728073+00:00",
+  "container_id": "17997599022110510"
 }

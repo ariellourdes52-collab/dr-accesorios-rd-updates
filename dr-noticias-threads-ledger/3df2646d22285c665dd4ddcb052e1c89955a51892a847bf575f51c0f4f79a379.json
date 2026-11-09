@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/ios-28-apple-cambia-desarrollo-2026.html",
   "title": "iOS 28: Apple cambia sus reglas de desarrollo",
   "jpeg_sha256": "35e7e7e457239228656ded4b7557221ea9a9957347b368e6083844c0db18e1f7",
   "caption_sha256": "306c7b488cec7debf8ea7109cc1cacc4a0273a4dcbdd43eab798336f7043c92e",
-  "created_at": "2026-11-09T19:09:42.134741+00:00"
+  "created_at": "2026-11-09T19:09:42.134741+00:00",
+  "container_id": "17997578574110510"
 }

@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/iris-plaza-77-millones-datos-riesgo-2026.html",
   "title": "Iris Plaza: 7,7 millones de datos en riesgo",
   "jpeg_sha256": "70d75a91725b6d0166818cffd79b69df5f2f3a889075830191c0d5d21ebbfaf6",
   "caption_sha256": "058a73eeea3a6270cb5f5c046b43c882fbc83d8ba103ff7f85ee76e29a8821b3",
-  "created_at": "2026-11-09T13:09:56.165571+00:00"
+  "created_at": "2026-11-09T13:09:56.165571+00:00",
+  "container_id": "17997517491110510"
 }

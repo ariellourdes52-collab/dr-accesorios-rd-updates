@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/iris-plaza-77-millones-datos-riesgo-2026.html",
   "title": "Iris Plaza: 7,7 millones de datos en riesgo",
   "jpeg_sha256": "70d75a91725b6d0166818cffd79b69df5f2f3a889075830191c0d5d21ebbfaf6",
   "caption_sha256": "98c836d0598c3e1a6529f2fd095eb4c67f1bedb7383d90d6f9ad16ae187a265d",
-  "created_at": "2026-11-09T13:09:34.728221+00:00"
+  "created_at": "2026-11-09T13:09:34.728221+00:00",
+  "facebook_media_id": "875159429020764_122144496165183523",
+  "completed_at": "2026-11-09T13:09:41.163565+00:00"
 }

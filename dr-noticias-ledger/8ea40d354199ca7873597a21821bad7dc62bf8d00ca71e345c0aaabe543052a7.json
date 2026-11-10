@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/amd-radeon-ssd-escrituras-controladores-2026.html",
   "title": "AMD Radeon: el fallo que afecta a tu SSD",
   "image_sha256": "dfbce284650bc90909526cbd7ac2d34249bc3f3b2ebccd99f48608e754bc3163",
   "caption_sha256": "3357b711a6366425c3497c5842e0f0e648abeae3dd992237d30da4157d2be51d",
-  "created_at": "2026-11-10T23:09:09.897138+00:00"
+  "created_at": "2026-11-10T23:09:09.897138+00:00",
+  "container_id": "18184805578429315"
 }

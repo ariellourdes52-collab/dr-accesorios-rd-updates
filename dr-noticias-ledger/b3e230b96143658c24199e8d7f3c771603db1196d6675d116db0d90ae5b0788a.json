@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/chrome-157-actualizacion-noviembre-2026.html",
   "title": "Chrome 157: actualiza antes de navegar",
   "image_sha256": "94d3942cdf5019370690e092c298d2a6545271af0e89b9ce2364b8fc8c44f34e",
   "caption_sha256": "94768a573d42ce2de991169925ad971e4520b57d61008905b3ebdeed70481275",
   "created_at": "2026-11-10T13:09:07.731099+00:00",
-  "container_id": "18184753369429315"
+  "container_id": "18184753369429315",
+  "instagram_media_id": "17976553536169922",
+  "completed_at": "2026-11-10T13:09:17.835358+00:00"
 }

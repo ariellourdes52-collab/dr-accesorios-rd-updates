@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/google-wallet-llaves-digitales-qr-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "93c487a49608c0f1fe520d0c3c822ad35fe17cb7ec12547b5dc8db4b10c5eda8",
   "caption_sha256": "edea0cee38e4de9775a19a2cb801608f94ea6f28bd8da40f109c24a47299588f",
   "created_at": "2026-11-10T18:10:08.881409+00:00",
-  "container_id": "17997741915110510"
+  "container_id": "17997741915110510",
+  "threads_media_id": "18120995602784164",
+  "completed_at": "2026-11-10T18:10:18.833850+00:00"
 }

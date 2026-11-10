@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/especial-nodopin-mensajeria-privada-android-web-2026.html",
   "caption_sha256": "d8167b39e86ee2fc79826cfecddbef36b955a23d6a7120463fd1622802d3e3a2",
   "image_sha256": "8724123bf87f320705543ba8a8e6c5d9ac9836a72804b6f76c3b37aebe35cf68",
-  "created_at": "2026-11-10T16:10:29.478748+00:00"
+  "created_at": "2026-11-10T16:10:29.478748+00:00",
+  "x_post_id": "2120187390815793342",
+  "published_at": "2026-11-10T16:10:40.173710+00:00"
 }

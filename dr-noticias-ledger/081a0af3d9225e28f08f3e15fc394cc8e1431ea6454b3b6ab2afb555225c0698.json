@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/google-wallet-llaves-digitales-qr-2026.html",
   "title": "Google Wallet suma llaves digitales y QR",
   "image_sha256": "93c487a49608c0f1fe520d0c3c822ad35fe17cb7ec12547b5dc8db4b10c5eda8",
   "caption_sha256": "6be5774cabda4f373540efa90f31858d7f7157636593be9ab74df81410733a55",
-  "created_at": "2026-11-10T18:09:15.390418+00:00"
+  "created_at": "2026-11-10T18:09:15.390418+00:00",
+  "container_id": "18184784872429315"
 }

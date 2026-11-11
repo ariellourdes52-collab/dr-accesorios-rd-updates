@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/gta-vi-xbox-one-nube-2026.html",
   "title": "GTA VI llegará a Xbox One gracias a la nube",
   "jpeg_sha256": "9384fbec4109e5cbed3c2daec3782d878f9e7def5753762ef98e266de10c2069",
   "caption_sha256": "4f743656dfa91ed3ec9d9f5ef42694213ecbd4c0b6aaf94dcf7edaf6ca60d97b",
-  "created_at": "2026-11-11T13:09:33.161308+00:00"
+  "created_at": "2026-11-11T13:09:33.161308+00:00",
+  "facebook_media_id": "875159429020764_122144711763183523",
+  "completed_at": "2026-11-11T13:09:38.031172+00:00"
 }

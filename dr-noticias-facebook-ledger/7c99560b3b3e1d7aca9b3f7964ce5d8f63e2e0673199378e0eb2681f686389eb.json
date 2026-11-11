@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/google-pixel-tag-lanzamiento-11nov2026.html",
   "title": "Google Pixel Tag: precio y funciones clave",
   "jpeg_sha256": "bc680fee770ad4f6e16ccb6cacc3025167344b89002bd0b1e4d851912dfccb70",
   "caption_sha256": "32566fb2c3e7b97b3cc1ad91cb9313558aed3cdd1f3ab952d40d191a737cedf7",
-  "created_at": "2026-11-11T16:09:34.604984+00:00"
+  "created_at": "2026-11-11T16:09:34.604984+00:00",
+  "facebook_media_id": "875159429020764_122144724183183523",
+  "completed_at": "2026-11-11T16:09:38.977115+00:00"
 }

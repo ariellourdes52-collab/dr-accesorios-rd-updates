@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/gta-vi-xbox-one-nube-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "9384fbec4109e5cbed3c2daec3782d878f9e7def5753762ef98e266de10c2069",
   "caption_sha256": "b1e35bcb741066fca2e921dcd5acb3f645a6a5f6e35358c6eb878436bb14392c",
   "created_at": "2026-11-11T13:09:59.642197+00:00",
-  "container_id": "17997936204110510"
+  "container_id": "17997936204110510",
+  "threads_media_id": "18160408738509836",
+  "completed_at": "2026-11-11T13:10:11.694132+00:00"
 }

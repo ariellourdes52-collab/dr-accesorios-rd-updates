@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/samsung-gallery-google-sincronizacion-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "fa03f983ac3ae7d3013d04f4b5c22e37b070ccf3bfd831ce165084ba27d1a1d7",
   "caption_sha256": "9c5c20bce6dcbfae1e48ffa677c13dbe8bd3a9c8720facd8c73c1dec700b4798",
   "created_at": "2026-11-11T18:09:56.352771+00:00",
-  "container_id": "17997988794110510"
+  "container_id": "17997988794110510",
+  "threads_media_id": "17898630477418111",
+  "completed_at": "2026-11-11T18:10:06.546331+00:00"
 }

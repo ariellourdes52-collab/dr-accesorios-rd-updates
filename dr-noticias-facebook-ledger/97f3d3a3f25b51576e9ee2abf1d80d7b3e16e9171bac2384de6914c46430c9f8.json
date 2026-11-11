@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/samsung-gallery-google-sincronizacion-2026.html",
   "title": "Samsung Gallery se sincroniza con Google",
   "jpeg_sha256": "fa03f983ac3ae7d3013d04f4b5c22e37b070ccf3bfd831ce165084ba27d1a1d7",
   "caption_sha256": "498695bd93b7e768986d6521fa1a26add1c73fbb47fa9ac2880df9cfdbe3c8ba",
-  "created_at": "2026-11-11T18:09:36.040515+00:00"
+  "created_at": "2026-11-11T18:09:36.040515+00:00",
+  "facebook_media_id": "875159429020764_122144729883183523",
+  "completed_at": "2026-11-11T18:09:40.673760+00:00"
 }

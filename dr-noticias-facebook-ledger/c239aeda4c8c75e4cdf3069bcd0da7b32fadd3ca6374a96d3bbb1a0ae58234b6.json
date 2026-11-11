@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/google-deepmind-alphaproof-signal-2026.html",
   "title": "IA de Google verifica código de Signal",
   "jpeg_sha256": "66f5f1f881fc68fe4aab4af11a34a14c1958abca5f8a943a330e3f52344d427d",
   "caption_sha256": "c032db708db9b70cd23493dcde0a50dd1ed2e4537368372e39fb63df879064f7",
-  "created_at": "2026-11-11T23:09:37.697837+00:00"
+  "created_at": "2026-11-11T23:09:37.697837+00:00",
+  "facebook_media_id": "875159429020764_122144747421183523",
+  "completed_at": "2026-11-11T23:09:42.411779+00:00"
 }

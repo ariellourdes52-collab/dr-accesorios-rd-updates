@@ -306,7 +306,7 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
-        run: python scripts/send_update_notifications.py --version-code 23 --version-name 2.7 --legacy-max-version-code 14
+        run: python scripts/send_update_notifications.py --version-code 23 --version-name 2.7 --legacy-max-version-code 14 --tolerate-not-registered
 
       - name: Legacy 1.6/1.7 delivery reminder
         if: steps.gate.outputs.proceed == 'true'

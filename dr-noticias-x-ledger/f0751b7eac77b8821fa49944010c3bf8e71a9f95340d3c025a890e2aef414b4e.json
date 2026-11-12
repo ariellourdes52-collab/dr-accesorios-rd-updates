@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/screenconnect-ataques-activos-proveedores-ti.html",
   "caption_sha256": "0fb4d2dbd3cfc8cf54e35505db7aa265ad615b1bc89d0b47b5dfa7fd0b2ada0b",
   "image_sha256": "84509746523c0b7b80a8cf6b4512e4300ac749b2a1f346d8163d78bc8c7135a6",
-  "created_at": "2026-11-12T23:10:37.636338+00:00"
+  "created_at": "2026-11-12T23:10:37.636338+00:00",
+  "x_post_id": "2121017876928668101",
+  "published_at": "2026-11-12T23:10:43.364867+00:00"
 }

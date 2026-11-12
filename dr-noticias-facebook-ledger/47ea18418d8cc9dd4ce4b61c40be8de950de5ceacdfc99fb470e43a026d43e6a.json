@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/iphone-duo-primera-semana-criticas-uso-real.html",
   "title": "iPhone Duo: primeras críticas tras una semana",
   "jpeg_sha256": "24d03bc5d98aaabd92e74eb5ca83b8e196fe79e48fbe80b917d3410dda9fbe54",
   "caption_sha256": "06e883d18180860599bf036b50a9a4e4df627525fcf95dd41f804cc395cbf2e4",
-  "created_at": "2026-11-12T19:09:30.468476+00:00"
+  "created_at": "2026-11-12T19:09:30.468476+00:00",
+  "facebook_media_id": "875159429020764_122144819853183523",
+  "completed_at": "2026-11-12T19:09:35.213770+00:00"
 }

@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nvidia-jensen-huang-acciones-caen-postmercado-11nov2026.html",
   "title": "NVIDIA se desploma tras informes sobre Huang",
   "jpeg_sha256": "93f7d69729a24d0a1ae9ec09ea0a2d186071a9af0f4c4a5a0153a925b2e95a9d",
   "caption_sha256": "d981a5ae9b26b82a031df34b0b1e768c420e15f79ebcd50acf62b75b13cc9dd7",
-  "created_at": "2026-11-12T15:09:33.608105+00:00"
+  "created_at": "2026-11-12T15:09:33.608105+00:00",
+  "facebook_media_id": "875159429020764_122144806623183523",
+  "completed_at": "2026-11-12T15:09:40.087212+00:00"
 }

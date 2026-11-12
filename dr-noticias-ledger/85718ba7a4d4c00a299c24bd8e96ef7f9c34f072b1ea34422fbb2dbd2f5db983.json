@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/screenconnect-ataques-activos-proveedores-ti.html",
   "title": "ScreenConnect: ataques activos a proveedores TI",
   "image_sha256": "84509746523c0b7b80a8cf6b4512e4300ac749b2a1f346d8163d78bc8c7135a6",
   "caption_sha256": "368d01221a3baf145ddab2062df28ddbd4172da478ee68f97454756bed16b95e",
   "created_at": "2026-11-12T23:09:06.746690+00:00",
-  "container_id": "18185010331429315"
+  "container_id": "18185010331429315",
+  "instagram_media_id": "18049120826827426",
+  "completed_at": "2026-11-12T23:09:19.690929+00:00"
 }

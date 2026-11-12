@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/xbox-cloud-gaming-gratis-anuncios-noviembre-2026.html",
   "title": "Xbox Cloud Gaming abre juego gratis con anuncios",
   "image_sha256": "860703dc5a00854d492b4411f45d31567c7d378bf5e89e0349d308f3d1571af7",
   "caption_sha256": "9702be79efc22e10b8110e8dce45f8902091c4d5f2da14858d86fadd0605fb27",
   "created_at": "2026-11-12T13:09:05.738899+00:00",
-  "container_id": "18184968268429315"
+  "container_id": "18184968268429315",
+  "instagram_media_id": "17936430882145284",
+  "completed_at": "2026-11-12T13:09:15.207406+00:00"
 }

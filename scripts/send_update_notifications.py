@@ -259,6 +259,11 @@ def main() -> None:
     parser.add_argument("--ttl-seconds", type=int, default=DEFAULT_TTL_SECONDS)
     parser.add_argument("--preflight", action="store_true")
     parser.add_argument(
+        "--tolerate-not-registered",
+        action="store_true",
+        help="Warn instead of failing for FCM-confirmed NotRegistered; do not delete device documents.",
+    )
+    parser.add_argument(
         "--prune-not-registered",
         action="store_true",
         help=(
@@ -342,6 +347,7 @@ def main() -> None:
         return result, mode, detail, device
 
     pruned_not_registered = 0
+    confirmed_not_registered_count = 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [executor.submit(task, device) for device in eligible]
@@ -353,6 +359,9 @@ def main() -> None:
                 result == "invalid_registration"
                 and "NotRegistered" in detail
             )
+
+            if confirmed_not_registered:
+                confirmed_not_registered_count += 1
 
             if args.prune_not_registered and confirmed_not_registered:
                 delete_device_document(credentials, device)
@@ -386,7 +395,18 @@ def main() -> None:
             f"FCM send incomplete: fatal={fatal}, transient_failed={transient_failed}"
         )
 
-    if (
+    if args.tolerate_not_registered:
+        other_invalid = invalid - confirmed_not_registered_count
+        if confirmed_not_registered_count:
+            print(
+                f"::warning::FCM NotRegistered: {confirmed_not_registered_count} stale "
+                "registrations skipped. Firestore device documents preserved."
+            )
+        if other_invalid:
+            raise SystemExit(
+                f"FCM rejected {other_invalid} registrations for reasons other than NotRegistered."
+            )
+    elif (
         invalid >= 5
         and invalid * 2 >= len(eligible)
         and not args.prune_not_registered

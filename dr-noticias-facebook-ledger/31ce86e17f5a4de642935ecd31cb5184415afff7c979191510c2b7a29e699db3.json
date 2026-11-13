@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/google-pixel-10-11-fallo-camara-actualizacion.html",
   "title": "Pixel 10 y 11: fallos de cámara tras actualización",
   "jpeg_sha256": "21df541e9b33882ef0b3a7f8d572cbe11c8a8726835474a63d6ca7e9ccdb5461",
   "caption_sha256": "5eb7f41a11c39c65b68450726a159268122cf0ba8ad2ab67d6b3fc21e2bf0727",
-  "created_at": "2026-11-13T15:09:37.982329+00:00"
+  "created_at": "2026-11-13T15:09:37.982329+00:00",
+  "facebook_media_id": "875159429020764_122144904081183523",
+  "completed_at": "2026-11-13T15:09:42.511408+00:00"
 }

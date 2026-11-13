@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/git-hub-actions-wfx-robo-credenciales-repositorios.html",
   "caption_sha256": "3ea5d5eb8ef1793b92382c0f0eda077572c55b981a9f50b63ac51c3424b166f0",
   "image_sha256": "ebccb6c881bdb2c5bf1768816f99194f26baf9814a6a1745753287137b0deccb",
-  "created_at": "2026-11-13T19:10:13.446824+00:00"
+  "created_at": "2026-11-13T19:10:13.446824+00:00",
+  "x_post_id": "2121319768812912921",
+  "published_at": "2026-11-13T19:10:19.960405+00:00"
 }

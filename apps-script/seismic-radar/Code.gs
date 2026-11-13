@@ -1008,8 +1008,21 @@ function mergeSeismicRadar_(current, relevant, emscEvents) {
       preliminary.createdAt || ''));
     const officialTime = Date.parse(String(official.firstDetectedAt ||
       official.createdAt || ''));
-    const emscFirst = !isFinite(officialTime) ||
-      (isFinite(prelimTime) && prelimTime <= officialTime);
+    const prior = Array.isArray(current.alerts) ? current.alerts : [];
+    const usgsWasPublished = prior.some(function(row) {
+      return row && row.earthquake && row.earthquake.source === 'USGS' &&
+        row.earthquake.sourceEventId === officialKey;
+    });
+    const emscWasPublished = prior.some(function(row) {
+      return row && row.earthquake &&
+        row.earthquake.emscEventId === event.sourceEventId ||
+        (row && row.earthquake && row.earthquake.source === 'EMSC-RTS' &&
+          row.earthquake.sourceEventId === event.sourceEventId);
+    });
+    const emscFirst = emscWasPublished && !usgsWasPublished ? true :
+      usgsWasPublished && !emscWasPublished ? false :
+      (!isFinite(officialTime) ||
+        (isFinite(prelimTime) && prelimTime < officialTime));
     official.id = emscFirst ? preliminary.id : official.id;
     official.firstDetectedAt = emscFirst ?
       (preliminary.firstDetectedAt || preliminary.createdAt) :

@@ -20,6 +20,7 @@ const CONFIG = Object.freeze({
     'https://dr-accesorios-rd.web.app/radar-seismic-v231.json',
   USGS_URL:
     'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson',
+  EMSC_URL: 'https://www.seismicportal.eu/fdsnws/event/1/query',
 
   SEISMIC_TOPIC: 'radar_seismic_v231',
 
@@ -118,7 +119,7 @@ function setupSeismicRadar() {
       existingSeismic || emptySeismicRadar_();
 
     const seismicMerge =
-      mergeSeismicRadar_(currentSeismic, relevant);
+      mergeSeismicRadar_(currentSeismic, relevant, fetchEmscRelevantSafe_());
 
     if (
       seismicMerge.changed ||
@@ -180,6 +181,8 @@ function seismicMinuteTick() {
 
     const feed = fetchUsgs_();
     const relevant = getRelevantEvents_(feed);
+    // Las dos fuentes alimentan el mismo historial; EMSC nunca bloquea USGS.
+    const emscRelevant = fetchEmscRelevantSafe_();
 
     const oldState = loadState_();
     const nowMs = Date.now();
@@ -205,23 +208,27 @@ function seismicMinuteTick() {
     const shouldHousekeep =
       new Date().getUTCMinutes() % 30 === 0;
 
-    if (
-      newEvents.length === 0 &&
-      revisedEvents.length === 0 &&
-      !shouldHousekeep
-    ) {
-      recordHealth_('ok_no_change', {
-        feedEvents: Array.isArray(feed.features) ? feed.features.length : 0,
-        relevantEvents: relevant.length,
-      });
-      return;
-    }
-
+    // Leer el feed cada minuto permite publicar EMSC aunque USGS no cambie.
+    // Sin cambio de contenido NO hay nueva versión de Firebase Hosting.
     const currentRadar =
       fetchSeismicRadar_(true) || emptySeismicRadar_();
 
     const merge =
-      mergeSeismicRadar_(currentRadar, relevant);
+      mergeSeismicRadar_(currentRadar, relevant, emscRelevant);
+
+    if (
+      newEvents.length === 0 &&
+      revisedEvents.length === 0 &&
+      !shouldHousekeep &&
+      !merge.changed
+    ) {
+      recordHealth_('ok_no_change', {
+        feedEvents: Array.isArray(feed.features) ? feed.features.length : 0,
+        relevantEvents: relevant.length,
+        emscEvents: emscRelevant.length,
+      });
+      return;
+    }
 
     if (merge.changed) {
       deploySeismicRadarJson_(merge.radar);
@@ -625,6 +632,141 @@ function signatureForFeature_(feature) {
 
 
 /* =========================================================
+ * EMSC: lectura opcional, misma validación que Railway y sin escrituras
+ * ========================================================= */
+
+function fetchEmscRelevantSafe_() {
+  try {
+    return fetchEmscRelevant_();
+  } catch (error) {
+    // Un fallo temporal EMSC no cancela el feed USGS ni borra el historial.
+    console.log('EMSC no disponible: ' + String(error));
+    return [];
+  }
+}
+
+function fetchEmscRelevant_() {
+  const now = Date.now();
+  const start = new Date(now - 40 * 60 * 1000).toISOString().slice(0, 19);
+  const query = [
+    'format=json', 'nodata=204', 'catalog=EMSC-RTS',
+    'starttime=' + encodeURIComponent(start),
+    'minmagnitude=4.0', 'minlatitude=17', 'maxlatitude=21',
+    'minlongitude=-74', 'maxlongitude=-66', 'limit=80',
+  ].join('&');
+  const response = UrlFetchApp.fetch(CONFIG.EMSC_URL + '?' + query, {
+    method: 'get',
+    headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
+    muteHttpExceptions: true,
+  });
+  if (response.getResponseCode() === 204) return [];
+  requireHttpOk_(response, 'EMSC');
+  const raw = response.getContentText();
+  if (raw.length > 512000) throw new Error('EMSC: respuesta demasiado grande');
+  const payload = JSON.parse(raw);
+  if (!payload || payload.type !== 'FeatureCollection' ||
+      !Array.isArray(payload.features) || payload.features.length > 80) {
+    throw new Error('EMSC: catálogo inválido');
+  }
+  const result = [];
+  const ids = {};
+  payload.features.forEach(function(feature) {
+    if (!feature || feature.type !== 'Feature') return;
+    const p = feature.properties || {};
+    if (p.source_catalog !== 'EMSC-RTS' ||
+        ['ke', 'earthquake'].indexOf(String(p.evtype || '').toLowerCase()) < 0) return;
+    const id = String(p.unid || feature.id || '').trim();
+    if (!/^[A-Za-z0-9_.:-]{1,80}$/.test(id)) return;
+    const place = String(p.flynn_region || '').trim();
+    if (!isDominicanRepublicPlace_(place)) return;
+    const c = feature.geometry && feature.geometry.coordinates;
+    if (!Array.isArray(c) || c.length < 2) return;
+    const lon = Number(c[0]), lat = Number(c[1]), mag = Number(p.mag);
+    const eventTime = Date.parse(String(p.time || ''));
+    if (![lon, lat, mag, eventTime].every(isFinite) ||
+        Math.abs(lat) > 90 || Math.abs(lon) > 180 ||
+        mag <= 0 || mag >= 10 ||
+        now - eventTime < -300000 || now - eventTime > 40 * 60000) return;
+    const distanceKm = haversineKm_(
+      CONFIG.DR_CENTER_LAT, CONFIG.DR_CENTER_LON, lat, lon);
+    let minMag = null;
+    CONFIG.FILTERS.some(function(rule) {
+      if (distanceKm <= rule.maxKm) {
+        minMag = rule.minMag;
+        return true;
+      }
+      return false;
+    });
+    if (minMag === null || mag < minMag) return;
+    if (ids[id]) throw new Error('EMSC: ID duplicado');
+    ids[id] = true;
+    result.push({
+      id: id, eventTime: eventTime, magnitude: mag,
+      latitude: lat, longitude: lon, place: place,
+      depthKm: c.length > 2 && isFinite(Number(c[2])) ? Number(c[2]) : null,
+    });
+  });
+  return result;
+}
+
+function buildEmscEarthquakeAlert_(event, now) {
+  const magnitude = Number(event.magnitude).toFixed(1);
+  const eventDate = new Date(event.eventTime);
+  const expires = new Date(event.eventTime +
+    CONFIG.ALERT_ACTIVE_HOURS * 60 * 60 * 1000);
+  return {
+    id: 'earthquake-emsc-' + event.id,
+    active: true,
+    createdAt: isoUtc_(eventDate),
+    firstDetectedAt: isoUtc_(now),
+    expiresAt: isoUtc_(expires),
+    category: 'earthquake',
+    severity: 'critical',
+    title: 'Actividad sísmica preliminar · EMSC · M' + magnitude,
+    description: 'EMSC reportó un sismo de magnitud ' + magnitude +
+      ' en ' + event.place +
+      '. Pendiente de información de otras fuentes. No es una predicción ni una alerta temprana.',
+    url: CONFIG.EMSC_URL + '?format=json&eventid=' + encodeURIComponent(event.id),
+    target: { allDevices: true, manufacturers: [], models: [] },
+    type: 'earthquake',
+    earthquake: {
+      magnitude: event.magnitude,
+      place: event.place,
+      depthKm: event.depthKm,
+      eventTime: event.eventTime,
+      latitude: event.latitude,
+      longitude: event.longitude,
+      source: 'EMSC-RTS',
+      sourceEventId: event.id,
+      firstSource: 'EMSC-RTS',
+      verificationStatus: 'single_source',
+    },
+  };
+}
+
+function seismicEmscReport_(eq) {
+  return {
+    magnitude: eq.magnitude, place: eq.place, eventTime: eq.eventTime,
+    latitude: eq.latitude, longitude: eq.longitude,
+  };
+}
+
+function isSameSeismicEvent_(a, b) {
+  if (!a || !b) return false;
+  const numbers = [
+    Number(a.eventTime), Number(b.eventTime),
+    Number(a.magnitude), Number(b.magnitude),
+    Number(a.latitude), Number(a.longitude),
+    Number(b.latitude), Number(b.longitude),
+  ];
+  if (!numbers.every(isFinite)) return false;
+  return Math.abs(numbers[0] - numbers[1]) <= 90000 &&
+    Math.abs(numbers[2] - numbers[3]) <= 1.2 &&
+    haversineKm_(numbers[4], numbers[5], numbers[6], numbers[7]) <= 80;
+}
+
+
+/* =========================================================
  * RADAR JSON
  * ========================================================= */
 
@@ -729,7 +871,7 @@ function removeEarthquakesFromMainRadar_(current) {
 }
 
 
-function mergeSeismicRadar_(current, relevant) {
+function mergeSeismicRadar_(current, relevant, emscEvents) {
   const now = new Date();
   const retentionCutoff =
     now.getTime() -
@@ -806,11 +948,81 @@ function mergeSeismicRadar_(current, relevant) {
 
     if (!id) return;
 
-    earthquakesBySourceId[id] =
-      buildEarthquakeAlert_(
-        feature,
-        item.distanceKm
-      );
+    const previous = earthquakesBySourceId[id];
+    const next = buildEarthquakeAlert_(feature, item.distanceKm);
+    if (previous && previous.earthquake) {
+      // Un evento ya publicado conserva su identidad y su primer origen.
+      next.id = previous.id;
+      next.firstDetectedAt = previous.firstDetectedAt;
+      const oldEq = previous.earthquake;
+      if (oldEq.emscEventId) {
+        next.earthquake.emscEventId = oldEq.emscEventId;
+        next.earthquake.emscReport = oldEq.emscReport;
+        next.earthquake.usgsEventId = id;
+        next.earthquake.firstSource = oldEq.firstSource || 'EMSC-RTS';
+        next.earthquake.verificationStatus = 'dual_source';
+        next.title = 'Actividad sísmica · EMSC + USGS · M' +
+          Number(next.earthquake.magnitude).toFixed(1);
+        next.description += ' Evento también reportado por EMSC.';
+      }
+    } else {
+      next.firstDetectedAt = isoUtc_(now);
+    }
+    earthquakesBySourceId[id] = next;
+  });
+
+  // EMSC usa su propio ID hasta poder asociarlo sin ambigüedad a USGS.
+  (Array.isArray(emscEvents) ? emscEvents : []).forEach(function(event) {
+    const key = 'emsc:' + event.id;
+    const previous = earthquakesBySourceId[key];
+    const next = buildEmscEarthquakeAlert_(event, now);
+    if (previous) {
+      next.id = previous.id;
+      next.firstDetectedAt = previous.firstDetectedAt;
+    }
+    earthquakesBySourceId[key] = next;
+  });
+
+  // Correlación bidireccional, aun si el evento EMSC salió de la
+  // ventana de consulta antes de que apareciera la ficha de USGS.
+  Object.keys(earthquakesBySourceId).filter(function(key) {
+    return key.startsWith('emsc:');
+  }).forEach(function(emscKey) {
+    const preliminary = earthquakesBySourceId[emscKey];
+    if (!preliminary) return;
+    const event = preliminary.earthquake;
+    const officialKeys = Object.keys(earthquakesBySourceId).filter(function(key) {
+      const row = earthquakesBySourceId[key];
+      if (!row || !row.earthquake || row.earthquake.source !== 'USGS') return false;
+      if (row.earthquake.emscEventId &&
+          row.earthquake.emscEventId !== event.sourceEventId) return false;
+      return isSameSeismicEvent_(event, row.earthquake);
+    });
+
+    // Ante varios candidatos cercanos, NO fusionar posibles réplicas.
+    if (officialKeys.length !== 1) return;
+
+    const officialKey = officialKeys[0];
+    const official = earthquakesBySourceId[officialKey];
+    const prelimTime = Date.parse(String(preliminary.firstDetectedAt ||
+      preliminary.createdAt || ''));
+    const officialTime = Date.parse(String(official.firstDetectedAt ||
+      official.createdAt || ''));
+    const emscFirst = !isFinite(officialTime) ||
+      (isFinite(prelimTime) && prelimTime <= officialTime);
+    official.id = emscFirst ? preliminary.id : official.id;
+    official.firstDetectedAt = emscFirst ?
+      (preliminary.firstDetectedAt || preliminary.createdAt) :
+      (official.firstDetectedAt || official.createdAt);
+    official.earthquake.emscEventId = event.sourceEventId;
+    official.earthquake.emscReport = seismicEmscReport_(event);
+    official.earthquake.usgsEventId = officialKey;
+    official.earthquake.firstSource = emscFirst ? 'EMSC-RTS' : 'USGS';
+    official.earthquake.verificationStatus = 'dual_source';
+    official.title = 'Actividad sísmica · EMSC + USGS · M' +
+      Number(official.earthquake.magnitude).toFixed(1);
+    official.description += ' Evento también reportado por EMSC.';
+    delete earthquakesBySourceId[emscKey];
   });
 
   const earthquakes =
@@ -942,7 +1154,7 @@ function earthquakeSourceId_(alert) {
   const eq = alert.earthquake || {};
   const direct = String(eq.sourceEventId || '').trim();
 
-  if (direct) return direct;
+  if (direct) return eq.source === 'EMSC-RTS' ? 'emsc:' + direct : direct;
 
   const id = String(alert.id || '');
   const prefix = 'earthquake-usgs-';

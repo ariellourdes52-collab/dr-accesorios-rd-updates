@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/git-hub-actions-wfx-robo-credenciales-repositorios.html",
   "title": "Ataque a GitHub roba secretos de automatización",
   "image_sha256": "ebccb6c881bdb2c5bf1768816f99194f26baf9814a6a1745753287137b0deccb",
   "caption_sha256": "c6deace4a7e27642e80094176998b41908561931e83d56fd28a2fbb4360aa3aa",
   "created_at": "2026-11-13T19:09:05.910889+00:00",
-  "container_id": "18185097736429315"
+  "container_id": "18185097736429315",
+  "instagram_media_id": "18432743467151840",
+  "completed_at": "2026-11-13T19:09:14.968451+00:00"
 }

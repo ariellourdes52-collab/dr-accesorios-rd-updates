@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/jensen-huang-renuncia-nvidia-kress-acciones-cierre-12-noviembre.html",
   "caption_sha256": "afbf9ac7fff632d435ef6f505a9a432624c7f80eeba5cc9cc71cd5f208356c5f",
   "image_sha256": "6c490c735e4a2429c073656941d6e98f238c495511c1465e0244cf43b8d6a4b9",
-  "created_at": "2026-11-13T13:10:15.248607+00:00"
+  "created_at": "2026-11-13T13:10:15.248607+00:00",
+  "x_post_id": "2121229176753504406",
+  "published_at": "2026-11-13T13:10:21.151726+00:00"
 }

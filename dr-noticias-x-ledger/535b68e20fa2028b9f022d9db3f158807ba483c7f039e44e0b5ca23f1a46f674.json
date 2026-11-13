@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/google-pixel-10-11-fallo-camara-actualizacion.html",
   "caption_sha256": "e43f135fa4cb31f8525b82b8a8150088d92c5634d14506df006222b60c3753b3",
   "image_sha256": "21df541e9b33882ef0b3a7f8d572cbe11c8a8726835474a63d6ca7e9ccdb5461",
-  "created_at": "2026-11-13T15:10:21.929370+00:00"
+  "created_at": "2026-11-13T15:10:21.929370+00:00",
+  "x_post_id": "2121259404884390322",
+  "published_at": "2026-11-13T15:10:28.119813+00:00"
 }

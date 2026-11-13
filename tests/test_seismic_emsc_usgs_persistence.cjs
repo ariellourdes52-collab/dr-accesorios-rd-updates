@@ -3,8 +3,15 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const code = fs.readFileSync('apps-script/seismic-radar/Code.gs', 'utf8');
-const sandbox = vm.createContext({ console });
+// The repository's historical Code.gs ends mid deployHostingJson_; only compile the
+// complete seismic portion. The installed Apps Script must be verified separately.
+const code = fs.readFileSync('apps-script/seismic-radar/Code.gs', 'utf8')
+  .split('function deployHostingJson_(')[0];
+const sandbox = vm.createContext({ console,
+  isoUtc_: d => new Date(d).toISOString(),
+  deepClone_: x => JSON.parse(JSON.stringify(x)),
+  stableStringify_: x => JSON.stringify(x),
+});
 vm.runInContext(code, sandbox, {filename: 'Code.gs', timeout: 1000});
 const invoke = (name, ...args) => sandbox[name](...args);
 

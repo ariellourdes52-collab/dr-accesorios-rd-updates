@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/reserva-federal-ia-riesgo-financiero-87-por-ciento.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "5f2ad201b6c607758d7d82767b1a082e81ce41358767df037ce1f902d634f866",
   "caption_sha256": "0041dee27d6e1b04b0662333466ae1a260a4736e316cecd6989ce03cbf255687",
   "created_at": "2026-11-14T23:09:37.583392+00:00",
-  "container_id": "17998489965110510"
+  "container_id": "17998489965110510",
+  "threads_media_id": "18045709190650215",
+  "completed_at": "2026-11-14T23:09:48.228776+00:00"
 }

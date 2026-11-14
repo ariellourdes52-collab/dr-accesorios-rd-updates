@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/samsung-galaxy-s25-one-ui-95-pruebas-beta-rumor.html",
   "title": "Galaxy S25 aparece en pruebas de One UI 9.5: qué confirma la filtración",
   "image_sha256": "f32098d0361707e311e5bb1d7bb98e4a5c992a214b40a14271987f2a3a549cf7",
   "caption_sha256": "8336f577f14736cc6573757f2ab8974b54af7d734682c1efb696efa5c283c246",
   "created_at": "2026-11-14T15:09:09.852594+00:00",
-  "container_id": "18185185102429315"
+  "container_id": "18185185102429315",
+  "instagram_media_id": "18101327345417819",
+  "completed_at": "2026-11-14T15:09:19.967539+00:00"
 }

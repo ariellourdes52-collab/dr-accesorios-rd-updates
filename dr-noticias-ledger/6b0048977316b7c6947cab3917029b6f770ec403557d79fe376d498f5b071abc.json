@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/trezor-safe-5-implantes-cryptobilis-seguridad.html",
   "title": "Trezor confirma tres dispositivos manipulados: cómo funcionaba el implante",
   "image_sha256": "26cc6953f5dd07349fe41939285fc43d1a932bf88a8e863cbb7b824d7a4d9f77",
   "caption_sha256": "eb6da5d76d07a851658f117b50bee41a9a17ec3053f45669fa479e6cb3c03817",
-  "created_at": "2026-11-14T19:09:05.545615+00:00"
+  "created_at": "2026-11-14T19:09:05.545615+00:00",
+  "container_id": "18185208643429315"
 }

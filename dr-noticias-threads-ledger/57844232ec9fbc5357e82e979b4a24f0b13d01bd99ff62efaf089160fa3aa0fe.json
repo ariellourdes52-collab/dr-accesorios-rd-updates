@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/metaphor-switch-2-sega-fallo-visual-parche.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "e09500f0eb7a36075d5067d01e27666b16974631789441f719a673d9440f7f6b",
   "caption_sha256": "4b0bdee66fc26deae15c8d77b1ebba93f27d8ae38bdd798ebd538a786d5c547a",
   "created_at": "2026-11-14T13:09:51.642022+00:00",
-  "container_id": "17998421688110510"
+  "container_id": "17998421688110510",
+  "threads_media_id": "18121234294772642",
+  "completed_at": "2026-11-14T13:10:03.100436+00:00"
 }

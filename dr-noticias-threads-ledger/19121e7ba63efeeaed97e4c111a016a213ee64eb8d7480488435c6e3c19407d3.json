@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/trezor-safe-5-implantes-cryptobilis-seguridad.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "26cc6953f5dd07349fe41939285fc43d1a932bf88a8e863cbb7b824d7a4d9f77",
   "caption_sha256": "52d86fc5206e9c1ddd975b3fcc2bf8b06719d0b4c3b56dfd750ac12d3fd28aea",
   "created_at": "2026-11-14T19:09:51.103128+00:00",
-  "container_id": "17998468944110510"
+  "container_id": "17998468944110510",
+  "threads_media_id": "18124740727937296",
+  "completed_at": "2026-11-14T19:10:02.666838+00:00"
 }

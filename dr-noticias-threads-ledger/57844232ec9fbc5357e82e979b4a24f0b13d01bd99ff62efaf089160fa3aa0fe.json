@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/metaphor-switch-2-sega-fallo-visual-parche.html",
   "title": "Metaphor en Switch 2: SEGA reconoce un fallo visual y prepara su solución",
   "jpeg_sha256": "e09500f0eb7a36075d5067d01e27666b16974631789441f719a673d9440f7f6b",
   "caption_sha256": "4b0bdee66fc26deae15c8d77b1ebba93f27d8ae38bdd798ebd538a786d5c547a",
-  "created_at": "2026-11-14T13:09:51.642022+00:00"
+  "created_at": "2026-11-14T13:09:51.642022+00:00",
+  "container_id": "17998421688110510"
 }

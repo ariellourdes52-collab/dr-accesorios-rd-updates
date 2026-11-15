@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/averia-tecnologica-faa-paraliza-vuelos-eeuu.html",
   "caption_sha256": "02ff030f71d7855a749e88685151e5587dce80c5153d5277e8b3088bc7e7d6bd",
   "image_sha256": "4c31dfd11376fce7bdc597a2b5ef4f5a7a208f1b2f459096cb59b07e128b0c0d",
-  "created_at": "2026-11-15T23:10:12.817242+00:00"
+  "created_at": "2026-11-15T23:10:12.817242+00:00",
+  "x_post_id": "2122104943804829978",
+  "published_at": "2026-11-15T23:10:20.287537+00:00"
 }

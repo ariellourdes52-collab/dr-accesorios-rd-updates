@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/iphone-20-pro-cristal-curvo-filtracion.html",
   "title": "iPhone 20 Pro: filtran un cristal curvo",
   "image_sha256": "b4f64eccc46bea35ff7f0f83c22faf40a7ae5df3f45b13d127df2071b94dd3ce",
   "caption_sha256": "2f6548d3bb1066a6945c626501662b580f488d3e8322c49ee2bc991ec55b4f32",
-  "created_at": "2026-11-15T15:09:04.574102+00:00"
+  "created_at": "2026-11-15T15:09:04.574102+00:00",
+  "container_id": "18185303668429315"
 }

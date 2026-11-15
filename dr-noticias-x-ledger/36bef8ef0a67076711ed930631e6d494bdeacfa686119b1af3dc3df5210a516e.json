@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/dominicano-reporta-falla-critica-nasa-hacking-etico.html",
   "caption_sha256": "372c09d724357a2730e0b2f6612f7b9db96457e08ed89c8b555cf6f1a89177d0",
   "image_sha256": "80ab24df3c49e39054567c6060c0b33c02ea5545a591c262841dd85bf9ed2ca0",
-  "created_at": "2026-11-15T19:10:14.779988+00:00"
+  "created_at": "2026-11-15T19:10:14.779988+00:00",
+  "x_post_id": "2122044544711827809",
+  "published_at": "2026-11-15T19:10:20.001270+00:00"
 }

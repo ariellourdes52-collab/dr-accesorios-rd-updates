@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/dominicano-reporta-falla-critica-nasa-hacking-etico.html",
   "title": "Dominicano reporta falla crítica a la NASA",
   "jpeg_sha256": "80ab24df3c49e39054567c6060c0b33c02ea5545a591c262841dd85bf9ed2ca0",
   "caption_sha256": "63e069cd4ba20ddaef7cb061fde60d837f636956c0fe4b94fcb7575a74988453",
-  "created_at": "2026-11-15T19:09:54.440011+00:00"
+  "created_at": "2026-11-15T19:09:54.440011+00:00",
+  "container_id": "17998622199110510"
 }

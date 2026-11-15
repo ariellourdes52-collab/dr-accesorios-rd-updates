@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/iphone-20-pro-cristal-curvo-filtracion.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "b4f64eccc46bea35ff7f0f83c22faf40a7ae5df3f45b13d127df2071b94dd3ce",
   "caption_sha256": "93e0759e2e24a3a5f5d9b01fbc02908faf70180c90698d3dce1ae357d946ef96",
   "created_at": "2026-11-15T15:09:48.928265+00:00",
-  "container_id": "17998595889110510"
+  "container_id": "17998595889110510",
+  "threads_media_id": "18503218303097112",
+  "completed_at": "2026-11-15T15:09:59.867757+00:00"
 }

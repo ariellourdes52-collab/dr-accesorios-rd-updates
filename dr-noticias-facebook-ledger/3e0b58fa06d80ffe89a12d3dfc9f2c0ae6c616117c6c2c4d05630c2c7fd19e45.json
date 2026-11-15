@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/dominicano-reporta-falla-critica-nasa-hacking-etico.html",
   "title": "Dominicano reporta falla crítica a la NASA",
   "jpeg_sha256": "80ab24df3c49e39054567c6060c0b33c02ea5545a591c262841dd85bf9ed2ca0",
   "caption_sha256": "59e0c3ac88c27bb0ba70425ae4f86557270b475475ad5498779e00e319f47eb2",
-  "created_at": "2026-11-15T19:09:36.153852+00:00"
+  "created_at": "2026-11-15T19:09:36.153852+00:00",
+  "facebook_media_id": "875159429020764_122145124287183523",
+  "completed_at": "2026-11-15T19:09:42.485022+00:00"
 }

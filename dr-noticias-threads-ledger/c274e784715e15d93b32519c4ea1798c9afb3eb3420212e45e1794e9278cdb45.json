@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/averia-tecnologica-faa-paraliza-vuelos-eeuu.html",
   "title": "Una avería aérea paraliza miles de vuelos en EE. UU.",
   "jpeg_sha256": "4c31dfd11376fce7bdc597a2b5ef4f5a7a208f1b2f459096cb59b07e128b0c0d",
   "caption_sha256": "6bf80f3f954f3e031b1be904a9c301f19b3d76b30c6a3113245095cb0b1fad79",
-  "created_at": "2026-11-15T23:09:52.317260+00:00"
+  "created_at": "2026-11-15T23:09:52.317260+00:00",
+  "container_id": "17998644759110510"
 }

@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/apple-estudio-ia-salud-app-iphone-openevidence-16-noviembre-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "76097d04e5c93f16369291c2fa49d22c6c5ed225fd146b4a7760e9b70efdadae",
   "caption_sha256": "6e0980977e26a236bff0dc12a1acf56d218498f4a3b77868fb52d3d797e3c4d6",
   "created_at": "2026-11-16T15:10:02.013935+00:00",
-  "container_id": "17998756632110510"
+  "container_id": "17998756632110510",
+  "threads_media_id": "18032167004864279",
+  "completed_at": "2026-11-16T15:10:12.028723+00:00"
 }

@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/apple-estudio-ia-salud-app-iphone-openevidence-16-noviembre-2026.html",
   "title": "Apple lanza un estudio de IA para salud con una app para iPhone",
   "image_sha256": "76097d04e5c93f16369291c2fa49d22c6c5ed225fd146b4a7760e9b70efdadae",
   "caption_sha256": "886b2b0fb4639b2a30fdaa245c1222dfe8e760189a1de299fafcd5a0df4e2b60",
   "created_at": "2026-11-16T15:09:06.352628+00:00",
-  "container_id": "18185415871429315"
+  "container_id": "18185415871429315",
+  "instagram_media_id": "18036066785886331",
+  "completed_at": "2026-11-16T15:09:20.642041+00:00"
 }

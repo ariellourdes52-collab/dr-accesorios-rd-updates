@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/barracuda-intrusion-cloud-clave-tercero-artex-noviembre-2026.html",
   "title": "Barracuda revela cómo una llave olvidada abrió diez entornos en la nube",
   "jpeg_sha256": "8d5013ec007e94d1ff431db5fcbc702014b42cf9e1f92e7cc453ef7bf47ca8a7",
   "caption_sha256": "e089d328dcce72eecd20fc565cce670c52548192331113117eda628059b44003",
-  "created_at": "2026-11-16T19:09:33.254923+00:00"
+  "created_at": "2026-11-16T19:09:33.254923+00:00",
+  "facebook_media_id": "875159429020764_122145215289183523",
+  "completed_at": "2026-11-16T19:09:39.861065+00:00"
 }

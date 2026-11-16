@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/alibaba-qwen4-max-nuevo-modelo-ia-16-noviembre-2026.html",
   "title": "Alibaba lanza Qwen4-Max y eleva la competencia global por la IA",
   "jpeg_sha256": "0bfdcc0076cb0b9db0ffda4b0b388f219320711c50eb95b963c256c5a52a8e40",
   "caption_sha256": "51927d4a80cff4566a23034105cb3b0a4868db667c5efb9ed0b489bb5b98bc84",
-  "created_at": "2026-11-16T23:00:32.776477+00:00"
+  "created_at": "2026-11-16T23:00:32.776477+00:00",
+  "facebook_media_id": "875159429020764_122145240447183523",
+  "completed_at": "2026-11-16T23:00:38.548528+00:00"
 }

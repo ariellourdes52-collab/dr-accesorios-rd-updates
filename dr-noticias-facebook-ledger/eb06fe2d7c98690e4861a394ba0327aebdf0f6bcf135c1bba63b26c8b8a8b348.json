@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/god-of-war-sons-of-sparta-ps4-modos-hermes-erebus-16-noviembre-2026.html",
   "title": "God of War: Sons of Sparta llega hoy a PS4 con dos modos nuevos",
   "jpeg_sha256": "4087b1830bcf30e2f88518d342f401c9c78c88b4b5cbafe82ea2085a416b0a73",
   "caption_sha256": "6d6ff35ddca4613be4211e2141e6ccd95301a5cabdd0113a3a58d1d6c5c0809e",
-  "created_at": "2026-11-16T13:09:30.592129+00:00"
+  "created_at": "2026-11-16T13:09:30.592129+00:00",
+  "facebook_media_id": "875159429020764_122145195039183523",
+  "completed_at": "2026-11-16T13:09:37.803779+00:00"
 }

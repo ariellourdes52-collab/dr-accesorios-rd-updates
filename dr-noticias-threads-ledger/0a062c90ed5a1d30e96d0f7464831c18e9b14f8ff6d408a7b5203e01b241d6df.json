@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/barracuda-intrusion-cloud-clave-tercero-artex-noviembre-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "8d5013ec007e94d1ff431db5fcbc702014b42cf9e1f92e7cc453ef7bf47ca8a7",
   "caption_sha256": "b44ef9c5d337d54e05d8246a2d554fff683c252976a8416a0d366df502b9eba8",
   "created_at": "2026-11-16T19:10:00.884291+00:00",
-  "container_id": "17998789080110510"
+  "container_id": "17998789080110510",
+  "threads_media_id": "17991954093077616",
+  "completed_at": "2026-11-16T19:10:08.235799+00:00"
 }

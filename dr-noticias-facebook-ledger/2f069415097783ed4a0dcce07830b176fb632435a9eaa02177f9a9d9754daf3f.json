@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/splatoon-raiders-demo-nintendo-switch-2_0364983897.html",
   "title": "Splatoon Raiders estrena demo en Switch 2",
   "jpeg_sha256": "841e6e0e67b4e092019842918f7213409d1a056d029e7812fbc1395d936739cf",
   "caption_sha256": "a40b560d7f59b218b63c95bf6e6e2f05d07385b129cb87666ec9a6b3265bfde3",
-  "created_at": "2026-11-17T13:09:35.501751+00:00"
+  "created_at": "2026-11-17T13:09:35.501751+00:00",
+  "facebook_media_id": "875159429020764_122145299907183523",
+  "completed_at": "2026-11-17T13:09:41.077106+00:00"
 }

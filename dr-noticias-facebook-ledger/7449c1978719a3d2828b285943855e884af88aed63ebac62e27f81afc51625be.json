@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/optimizely-ataque-javascript-178-sitios.html",
   "title": "Optimizely: malware en 178 grandes sitios",
   "jpeg_sha256": "6f007a35b5bd1c941fc990e2fee8e3000906eb6ac5afce3f2eee3e7d42946b8a",
   "caption_sha256": "10c9ffa4c33cebdc06467a339e7af47461c4a2d04a897130888e65d47f43a18e",
-  "created_at": "2026-11-17T19:09:31.343694+00:00"
+  "created_at": "2026-11-17T19:09:31.343694+00:00",
+  "facebook_media_id": "875159429020764_122145324651183523",
+  "completed_at": "2026-11-17T19:09:38.642864+00:00"
 }

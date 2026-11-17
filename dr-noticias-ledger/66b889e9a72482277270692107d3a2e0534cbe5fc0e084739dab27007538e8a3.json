@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/falla-sistema-united-airlines-retrasa-vuelos.html",
   "title": "Una falla informática retrasa vuelos de United",
   "image_sha256": "416f087525213770000d6007dbcd17c4ab9ff713a8d85707bd8108c3ebd5658c",
   "caption_sha256": "db3e6283bfdfd905266e114a9977a140d90bc898a92b53af5cc5be326deb9e70",
   "created_at": "2026-11-17T23:09:08.808434+00:00",
-  "container_id": "18185554759429315"
+  "container_id": "18185554759429315",
+  "instagram_media_id": "17923986159464289",
+  "completed_at": "2026-11-17T23:09:18.930435+00:00"
 }

@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/splatoon-raiders-demo-nintendo-switch-2_0364983897.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "841e6e0e67b4e092019842918f7213409d1a056d029e7812fbc1395d936739cf",
   "caption_sha256": "523a5d062d7e4f2d31f5197a4b239c0bde3cebdc6289bdc480fc59b5d6ecfbce",
   "created_at": "2026-11-17T13:09:55.973747+00:00",
-  "container_id": "17998897485110510"
+  "container_id": "17998897485110510",
+  "threads_media_id": "17996779314051977",
+  "completed_at": "2026-11-17T13:10:09.209318+00:00"
 }

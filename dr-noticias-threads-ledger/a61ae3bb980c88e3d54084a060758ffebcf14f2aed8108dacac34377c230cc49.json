@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/zelda-compite-por-el-juego-del-ano.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "280857efcab442a8282a947514480d8430b04c6f266923be9dc1d71bbfa5422f",
   "caption_sha256": "af8966d15dfaa2427fedf609f8b32f21b76b830bb038c07f54dd59ed7dd687fd",
   "created_at": "2026-11-18T19:09:52.606055+00:00",
-  "container_id": "17999065128110510"
+  "container_id": "17999065128110510",
+  "threads_media_id": "17989598772087575",
+  "completed_at": "2026-11-18T19:10:08.730869+00:00"
 }

@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/ciencia-y-tecnologia2026-11-17apple-interrupcion-servicios-acceso-icloud.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "e46fd63ba5b2dbe20691cba82af10f597cb1d4b36d1a53fe9c927922dd31c29d",
   "caption_sha256": "bda5abd14a20fa0a67f8f867de9ae37b1100bdbc997e74cbd62a7ae739453af4",
   "created_at": "2026-11-18T13:09:50.976657+00:00",
-  "container_id": "17999026302110510"
+  "container_id": "17999026302110510",
+  "threads_media_id": "17984011916912852",
+  "completed_at": "2026-11-18T13:09:59.695258+00:00"
 }

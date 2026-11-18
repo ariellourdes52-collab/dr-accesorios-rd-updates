@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/xiaomi-18-pro-llega-con-camaras-leica-de-200-mp.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "5514f4ff102ab22308701b12509ebd0c0363fd2c0efd2c46b3bc7d6a2da3ed27",
   "caption_sha256": "82421142381fcdd5ec1f4609c2d0fed4599948bd5367ac22a4dc91bcc83e433e",
   "created_at": "2026-11-18T23:10:03.567105+00:00",
-  "container_id": "17999081715110510"
+  "container_id": "17999081715110510",
+  "threads_media_id": "18129957922857333",
+  "completed_at": "2026-11-18T23:10:15.549505+00:00"
 }

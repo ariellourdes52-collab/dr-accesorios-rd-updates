@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/xiaomi-18-pro-llega-con-camaras-leica-de-200-mp.html",
   "title": "Xiaomi 18 Pro llega con cámaras Leica de 200 MP",
   "image_sha256": "5514f4ff102ab22308701b12509ebd0c0363fd2c0efd2c46b3bc7d6a2da3ed27",
   "caption_sha256": "29e07801985e433f1a14288da71bb870143707252a985f2f2a2cd42a5522c18f",
   "created_at": "2026-11-18T23:09:15.064782+00:00",
-  "container_id": "18185638147429315"
+  "container_id": "18185638147429315",
+  "instagram_media_id": "17903453352387376",
+  "completed_at": "2026-11-18T23:09:26.270120+00:00"
 }

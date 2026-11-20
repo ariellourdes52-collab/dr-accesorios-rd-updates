@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/visa-mastercard-jpmorgan-ataque-proveedores.html",
   "title": "Visa, Mastercard y JPMorgan: ataque a terceros",
   "jpeg_sha256": "f9c0cb346fdd60065027e1ed9dafa677954e3fb664e2d40aac0f945c77603cc6",
   "caption_sha256": "30cbe67f33fd7fc369bf6a1503e93c6cdb63896c5a6a289e71bfb7816043deca",
-  "created_at": "2026-11-20T19:09:57.353361+00:00"
+  "created_at": "2026-11-20T19:09:57.353361+00:00",
+  "container_id": "17999348493110510"
 }

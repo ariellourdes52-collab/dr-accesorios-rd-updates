@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/gta-vi-edicion-japonesa-cambios.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "c9d353a8c8e96d407765c8f4720e20803538d3da3ac822a2ea09544ef61c15c5",
   "caption_sha256": "c581ea5681b102e0d2be7da4e8c0bc3ebfc42f2af32778f9a70e6933f4c87c2a",
   "created_at": "2026-11-20T13:09:52.757082+00:00",
-  "container_id": "17999296074110510"
+  "container_id": "17999296074110510",
+  "threads_media_id": "17961723351014261",
+  "completed_at": "2026-11-20T13:10:03.097607+00:00"
 }

@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/anthropic-claude-debut-nasdaq-17-por-ciento.html",
   "title": "Anthropic debuta en bolsa y sube un 17 %",
   "image_sha256": "1b6b356c9c2f89f38b5c0fd12d97fdff94826777aa7bf3ccf0077d2d13cd631c",
   "caption_sha256": "38b854fc59e7cd13f80830ee2568eecc286caf63b3a0c46f51a410356369958c",
   "created_at": "2026-11-20T23:09:11.841829+00:00",
-  "container_id": "18185808340429315"
+  "container_id": "18185808340429315",
+  "instagram_media_id": "17848909398697345",
+  "completed_at": "2026-11-20T23:09:24.301196+00:00"
 }

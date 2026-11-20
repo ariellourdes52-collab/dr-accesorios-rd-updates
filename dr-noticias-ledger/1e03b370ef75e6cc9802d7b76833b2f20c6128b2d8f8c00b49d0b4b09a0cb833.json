@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/samsung-won-joon-choi-liderazgo-moviles.html",
   "title": "Samsung cambia el jefe de sus móviles",
   "image_sha256": "b4c3328b820c082281d4e952c5c725b4f2ec657ad0bd9f1cb256ed7183342b86",
   "caption_sha256": "83e1c22ed5f7e3c556354a89bd9fca0a286eb6f8f3c5d67644f7fa320a13ba9f",
   "created_at": "2026-11-20T15:09:06.556660+00:00",
-  "container_id": "18185778955429315"
+  "container_id": "18185778955429315",
+  "instagram_media_id": "18119536076517645",
+  "completed_at": "2026-11-20T15:09:17.749626+00:00"
 }

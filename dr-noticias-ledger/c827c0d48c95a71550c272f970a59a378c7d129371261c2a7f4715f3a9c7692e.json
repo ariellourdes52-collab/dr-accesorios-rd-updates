@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/wall-street-caida-acciones-inteligencia-artificial.html",
   "title": "Wall Street cae por temores sobre la IA",
   "image_sha256": "5941fb05de7c009e0c18707090cc7ca5713422484f2499ed73b88e3017dcc252",
   "caption_sha256": "c91671e6abf7db37721ef222e321bb563183cf6a500c29e3ec03b460873a4de6",
-  "created_at": "2026-11-21T23:09:05.140471+00:00"
+  "created_at": "2026-11-21T23:09:05.140471+00:00",
+  "container_id": "18185894689429315"
 }

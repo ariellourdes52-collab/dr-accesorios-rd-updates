@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nothing-anuncia-nuevo-dispositivo-ia.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "308ced10a87cb53c4f0307f67a7235c9e1814a28f132f50f502f7789cb5f8236",
   "caption_sha256": "d3b5714f4e4101fb13878d36ac626d88924000e9d10fbae9f7b849aba9256cbb",
   "created_at": "2026-11-21T15:09:54.041087+00:00",
-  "container_id": "17999458164110510"
+  "container_id": "17999458164110510",
+  "threads_media_id": "18124159321746209",
+  "completed_at": "2026-11-21T15:10:05.418458+00:00"
 }

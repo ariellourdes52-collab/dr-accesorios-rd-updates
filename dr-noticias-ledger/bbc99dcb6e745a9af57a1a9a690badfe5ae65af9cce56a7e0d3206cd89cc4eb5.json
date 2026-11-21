@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nintendo-dos-ocarinas-oficiales-zelda.html",
   "title": "Nintendo prepara dos ocarinas oficiales de Zelda",
   "image_sha256": "079c265464fd16e04545ac14debfafd6ef61ae9025d8feb6e9356416524ceb9c",
   "caption_sha256": "b5a748f754ef4056c74048d82baef85783fdbeba4ab3ecf1819db7d8b7068f04",
-  "created_at": "2026-11-21T13:09:13.006415+00:00"
+  "created_at": "2026-11-21T13:09:13.006415+00:00",
+  "container_id": "18185857891429315"
 }

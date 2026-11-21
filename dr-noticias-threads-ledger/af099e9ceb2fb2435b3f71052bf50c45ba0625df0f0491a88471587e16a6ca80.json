@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/ciberataque-usda-pagos-agricolas.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "cc854bb79203f7cfe074d5f0f786624763730d4728b8901d9b7624fcedfe5e4c",
   "caption_sha256": "45efe17c6586ac3d107e025aadc4cb54ae45812245c51022c954b4f6821c09c8",
   "created_at": "2026-11-21T19:09:55.968173+00:00",
-  "container_id": "17999487876110510"
+  "container_id": "17999487876110510",
+  "threads_media_id": "18151333747664971",
+  "completed_at": "2026-11-21T19:10:06.167944+00:00"
 }

@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/ciberataque-usda-pagos-agricolas.html",
   "title": "Ciberataque al USDA afecta pagos agrícolas",
   "image_sha256": "cc854bb79203f7cfe074d5f0f786624763730d4728b8901d9b7624fcedfe5e4c",
   "caption_sha256": "23902dc926f43db03fda1adc6ec6c522375598339c806dbe9fb19f9524f8974a",
-  "created_at": "2026-11-21T19:09:08.174377+00:00"
+  "created_at": "2026-11-21T19:09:08.174377+00:00",
+  "container_id": "18185883568429315"
 }

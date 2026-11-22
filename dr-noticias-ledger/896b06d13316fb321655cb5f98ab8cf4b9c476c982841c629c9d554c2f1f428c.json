@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/donkey-kong-build-a-bear-peluche-nintendo.html",
   "title": "Donkey Kong llega a Build-A-Bear",
   "image_sha256": "5deb8ea4b3d30bc20fbe62c0161ee0df27e66f53c51cc90816ab3a0f061ff982",
   "caption_sha256": "c20669a1fa85ebcc7f93159a6279e2d1a74b7c1bec97e2855b1fcaca9180c879",
   "created_at": "2026-11-22T13:09:03.038604+00:00",
-  "container_id": "18185941714429315"
+  "container_id": "18185941714429315",
+  "instagram_media_id": "18138458602707047",
+  "completed_at": "2026-11-22T13:09:14.131523+00:00"
 }

@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/claude-riemann-verificacion-prueba-matematica.html",
   "title": "Claude y una prueba de Riemann bajo verificación",
   "image_sha256": "df508ae96c849d796d428c6b9682b5fb56dd43570c3e0e452a2fbfe03fe8210c",
   "caption_sha256": "8513b4e964c8ae845d8bd5ea5365b2a393fdd2d89880c6ed1e5b5116d6f5b883",
   "created_at": "2026-11-22T23:09:05.366458+00:00",
-  "container_id": "18185978104429315"
+  "container_id": "18185978104429315",
+  "instagram_media_id": "18028640618875954",
+  "completed_at": "2026-11-22T23:09:13.930212+00:00"
 }

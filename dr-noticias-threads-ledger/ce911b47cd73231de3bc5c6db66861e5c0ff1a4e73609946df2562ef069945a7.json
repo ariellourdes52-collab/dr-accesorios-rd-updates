@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/rackspace-spot-brecha-secretos-kubernetes.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "7248cd2e9c57fb039dcc1b6d40907fa266422bfe8de2aec6973c6ddfad5010da",
   "caption_sha256": "64695818da91a6db1d0ece3814892fa748829da3ee047e4f876f3a467b5b9820",
   "created_at": "2026-11-22T19:09:52.916512+00:00",
-  "container_id": "17999625429110510"
+  "container_id": "17999625429110510",
+  "threads_media_id": "18118469147594545",
+  "completed_at": "2026-11-22T19:10:04.354251+00:00"
 }

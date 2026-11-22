@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/honor-huawei-motorola-vivo-proximos-lanzamientos.html",
   "title": "Honor, Huawei, Motorola y vivo preparan móviles",
   "jpeg_sha256": "9c6e5ade144d7dc8efd7a4cb8b62f1cce2886f9a595d14737d9c8713a87d578d",
   "caption_sha256": "bc4b1dde54b8efb60e2309883d0bf626767febaa9b285b9c1e791d9c1c6432b4",
-  "created_at": "2026-11-22T15:09:40.090515+00:00"
+  "created_at": "2026-11-22T15:09:40.090515+00:00",
+  "facebook_media_id": "875159429020764_122145892713183523",
+  "completed_at": "2026-11-22T15:09:44.538441+00:00"
 }

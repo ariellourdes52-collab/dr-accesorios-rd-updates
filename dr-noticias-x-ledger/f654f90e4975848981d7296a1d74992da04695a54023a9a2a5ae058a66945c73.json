@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/honor-huawei-motorola-vivo-proximos-lanzamientos.html",
   "caption_sha256": "0d07950dd04fe5d80b6bb15f15f04c458fe94ffa57a989ce8b074b0b6ba3868b",
   "image_sha256": "9c6e5ade144d7dc8efd7a4cb8b62f1cce2886f9a595d14737d9c8713a87d578d",
-  "created_at": "2026-11-22T15:10:20.264232+00:00"
+  "created_at": "2026-11-22T15:10:20.264232+00:00",
+  "x_post_id": "2124520893317787812",
+  "published_at": "2026-11-22T15:10:27.532308+00:00"
 }

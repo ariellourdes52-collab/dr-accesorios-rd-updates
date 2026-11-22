@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/claude-riemann-verificacion-prueba-matematica.html",
   "caption_sha256": "b885a15f3d7e3b14f7f73a58264f13bf6b9ffa4409c380b5e2b6d8ed34391c9e",
   "image_sha256": "df508ae96c849d796d428c6b9682b5fb56dd43570c3e0e452a2fbfe03fe8210c",
-  "created_at": "2026-11-22T23:10:09.903416+00:00"
+  "created_at": "2026-11-22T23:10:09.903416+00:00",
+  "x_post_id": "2124641642091303238",
+  "published_at": "2026-11-22T23:10:16.286720+00:00"
 }

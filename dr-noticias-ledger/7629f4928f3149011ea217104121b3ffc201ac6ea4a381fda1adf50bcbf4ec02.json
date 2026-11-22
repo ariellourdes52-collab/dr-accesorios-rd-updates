@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/rackspace-spot-brecha-secretos-kubernetes.html",
   "title": "Hackers acceden a secretos de Rackspace Spot",
   "image_sha256": "7248cd2e9c57fb039dcc1b6d40907fa266422bfe8de2aec6973c6ddfad5010da",
   "caption_sha256": "e87e1ceb92ce171577405efcbf8d267b60ed24985b101cd2d2ff16ea616f4661",
   "created_at": "2026-11-22T19:09:07.397492+00:00",
-  "container_id": "18185966053429315"
+  "container_id": "18185966053429315",
+  "instagram_media_id": "18105319919049854",
+  "completed_at": "2026-11-22T19:09:18.216797+00:00"
 }

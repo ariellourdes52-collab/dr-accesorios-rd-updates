@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nintendo-rebaja-switch-2-con-mario-kart.html",
   "title": "Nintendo rebaja Switch 2 con Mario Kart World",
   "jpeg_sha256": "81fb883dc0f7516ce5f741995fefe90a91dd7693ffa1a1efb5fb85967edcddf7",
   "caption_sha256": "b80ff2bc73c7ccf0af7ce3f6b0938ba2ca61836ed7fc48844892836763657e3c",
-  "created_at": "2026-11-23T13:09:36.851424+00:00"
+  "created_at": "2026-11-23T13:09:36.851424+00:00",
+  "facebook_media_id": "875159429020764_122145977973183523",
+  "completed_at": "2026-11-23T13:09:42.071905+00:00"
 }

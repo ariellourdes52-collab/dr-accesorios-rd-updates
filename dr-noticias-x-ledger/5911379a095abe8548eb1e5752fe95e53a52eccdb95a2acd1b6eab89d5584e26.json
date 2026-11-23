@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nintendo-rebaja-switch-2-con-mario-kart.html",
   "caption_sha256": "d7452c9c42c131fa4635b12c1c246d2bf23988b6dcbfb890128d3abd92c5cf41",
   "image_sha256": "473c45c38fddb8796465213f4a604cb1435b8a093d288788c349df9757be1ee4",
-  "created_at": "2026-11-23T13:10:17.760505+00:00"
+  "created_at": "2026-11-23T13:10:17.760505+00:00",
+  "x_post_id": "2124853065916236230",
+  "published_at": "2026-11-23T13:10:23.672407+00:00"
 }

@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nintendo-rebaja-switch-2-con-mario-kart.html",
   "title": "Nintendo rebaja Switch 2 con Mario Kart World",
   "jpeg_sha256": "81fb883dc0f7516ce5f741995fefe90a91dd7693ffa1a1efb5fb85967edcddf7",
   "caption_sha256": "7df79a39a054b51300b80e001b920122089f2a7c5c9f017e3e987f48c0ff71a8",
-  "created_at": "2026-11-23T13:09:56.465629+00:00"
+  "created_at": "2026-11-23T13:09:56.465629+00:00",
+  "container_id": "17999720622110510"
 }

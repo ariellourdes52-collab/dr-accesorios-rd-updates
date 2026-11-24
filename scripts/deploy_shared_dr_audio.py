@@ -8,7 +8,9 @@ import gzip
 import hashlib
 import json
 import os
+import random
 import time
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import requests
@@ -54,6 +56,81 @@ def catalog_for_change_detection(value: dict) -> dict:
     return stable
 
 
+def hosting_quota_diagnostic(response) -> tuple[dict, float]:
+    """Read only quota-related response fields; never log auth/request data."""
+    diagnostic = {"httpStatus": 429}
+    delay = 1800.0 + random.uniform(0, 60)
+    retry_after = response.headers.get("Retry-After", "")
+    if retry_after:
+        try:
+            seconds = float(int(retry_after))
+        except ValueError:
+            try:
+                seconds = parsedate_to_datetime(retry_after).timestamp() - time.time()
+            except (ValueError, TypeError, OverflowError):
+                seconds = 0
+        if seconds > 0:
+            delay = max(delay, seconds)
+            diagnostic["retryAfterSeconds"] = round(seconds)
+    try:
+        error = response.json().get("error", {})
+        if not isinstance(error, dict):
+            return diagnostic, delay
+    except (ValueError, AttributeError):
+        return diagnostic, delay
+    for key in ("status", "message"):
+        if isinstance(error.get(key), str):
+            diagnostic[key] = error[key][:1000]
+    details = error.get("details", [])
+    if not isinstance(details, list):
+        return diagnostic, delay
+    selected = []
+    for detail in details:
+        if not isinstance(detail, dict):
+            continue
+        kind = detail.get("@type", "")
+        if kind == "type.googleapis.com/google.rpc.RetryInfo":
+            value = detail.get("retryDelay", "")
+            if isinstance(value, str) and value.endswith("s"):
+                try:
+                    seconds = float(value[:-1])
+                    if 0 < seconds < float("inf"):
+                        delay = max(delay, seconds)
+                        diagnostic["retryInfoSeconds"] = seconds
+                except ValueError:
+                    pass
+        elif kind == "type.googleapis.com/google.rpc.ErrorInfo":
+            metadata = detail.get("metadata", {})
+            if not isinstance(metadata, dict):
+                metadata = {}
+            selected.append({
+                "type": "ErrorInfo",
+                "reason": str(detail.get("reason", ""))[:200],
+                "domain": str(detail.get("domain", ""))[:200],
+                "metadata": {
+                    k: str(metadata[k])[:300]
+                    for k in ("service", "quota_metric", "quota_limit", "quota_location",
+                              "quota_limit_value", "quota_unit", "consumer")
+                    if k in metadata
+                },
+            })
+        elif kind == "type.googleapis.com/google.rpc.QuotaFailure":
+            violations = detail.get("violations", [])
+            if isinstance(violations, list):
+                selected.append({
+                    "type": "QuotaFailure",
+                    "violations": [
+                        {k: str(v[k])[:500] for k in
+                         ("subject", "description", "apiService", "quotaMetric",
+                          "quotaId", "quotaValue", "futureQuotaValue") if k in v}
+                        for v in violations[:10] if isinstance(v, dict)
+                    ],
+                })
+    if selected:
+        diagnostic["details"] = selected
+    return diagnostic, delay
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("build_dir", nargs="?", default="dr_audio_build")
@@ -87,6 +164,11 @@ def main() -> None:
                 timeout=90,
                 **kwargs,
             )
+
+            # A rejected create-version must not consume five more attempts
+            # against a persistent quota. The caller preserves the audio cache.
+            if method == "POST" and path == SITE + "/versions" and response.status_code == 429:
+                response.raise_for_status()
 
             if response.status_code in retry_codes:
                 if attempt < max_attempts - 1:
@@ -315,17 +397,39 @@ def main() -> None:
 
     require_seismic_preserved(old_files, expected)
 
+    # This marker lives in the existing unpublished-audio cache, not in Hosting.
+    # Keep failure semantics so the existing workflow still saves pending M4As.
+    cooldown_path = audio_dir / ".hosting-create-version-retry.json"
+    try:
+        retry_at = float(json.loads(cooldown_path.read_text(encoding="utf-8"))["retryAt"])
+        if time.time() < retry_at < float("inf"):
+            raise RuntimeError(
+                "Firebase Hosting create-version cooldown active; "
+                f"retry in {int(retry_at - time.time()) + 1}s. "
+                "Unpublished audio remains cached."
+            )
+    except (OSError, ValueError, TypeError, KeyError, OverflowError):
+        pass
+
     try:
         created = api("POST", SITE + "/versions", json={"config": config})
     except requests.HTTPError as error:
         response = getattr(error, "response", None)
         if response is not None and response.status_code == 429:
+            diagnostic, delay = hosting_quota_diagnostic(response)
+            print("Firebase Hosting quota diagnostic: " +
+                  json.dumps(diagnostic, ensure_ascii=True), flush=True)
+            cooldown_path.write_text(
+                json.dumps({"retryAt": time.time() + delay}) + "\n",
+                encoding="utf-8",
+            )
             raise RuntimeError(
-                "Firebase Hosting create-version rate limit is still active. "
-                "The workflow will fail intentionally so unpublished .m4a files "
-                "are preserved and reused on the next run instead of regenerating them."
+                "Firebase Hosting create-version quota rejection (429). "
+                f"Next publish attempt deferred for at least {int(delay)}s. "
+                "Unpublished audio remains cached."
             ) from error
         raise
+    cooldown_path.unlink(missing_ok=True)
 
     new_version = SITE + "/versions/" + created["name"].rsplit("/", 1)[1]
 

@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/honor-700-debuta-camara-200mp.html",
   "title": "HONOR 700 debuta con cámara de 200 MP",
   "image_sha256": "9e085ee30b1e7443f1e0183ab3be1cd0a3881e8656222e5788e8d3fe22779bb7",
   "caption_sha256": "c3075097deac956014fc0738e758d44d7571cb184599c17cf3e5fdee4029b536",
   "created_at": "2026-11-24T15:09:05.511533+00:00",
-  "container_id": "18186130747429315"
+  "container_id": "18186130747429315",
+  "instagram_media_id": "18098761868406705",
+  "completed_at": "2026-11-24T15:09:21.987283+00:00"
 }

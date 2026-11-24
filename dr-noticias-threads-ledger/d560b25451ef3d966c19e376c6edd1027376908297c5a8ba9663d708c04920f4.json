@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/cleverbridge-robo-datos-tarjetas.html",
   "title": "Cleverbridge: robo de datos de tarjetas",
   "jpeg_sha256": "864e705b3b239e94032a2a3c3e710802577fb521b9693a86587ed83186a7cf58",
   "caption_sha256": "2e8c269c7c0ba7eac028661b3d822b9af4e164cda6e834fa159d6cdfffd28463",
-  "created_at": "2026-11-24T19:10:00.802347+00:00"
+  "created_at": "2026-11-24T19:10:00.802347+00:00",
+  "container_id": "17999968101110510"
 }

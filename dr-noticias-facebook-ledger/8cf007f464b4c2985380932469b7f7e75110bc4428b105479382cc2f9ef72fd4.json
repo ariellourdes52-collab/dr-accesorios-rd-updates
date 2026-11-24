@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/gta-vi-dispara-ventas-ps5-xbox.html",
   "title": "GTA VI dispara las ventas de PS5 y Xbox",
   "jpeg_sha256": "c707a567946e325c7356e339d8a79843db4a2c9e7a6881706da218eea3827310",
   "caption_sha256": "781f9a185527fa0fa1a5f79f571c16d2ae2d68ded8aebd84ad649b23ebb36f12",
-  "created_at": "2026-11-24T11:34:48.663388+00:00"
+  "created_at": "2026-11-24T11:34:48.663388+00:00",
+  "facebook_media_id": "875159429020764_122146071321183523",
+  "completed_at": "2026-11-24T11:34:53.801815+00:00"
 }

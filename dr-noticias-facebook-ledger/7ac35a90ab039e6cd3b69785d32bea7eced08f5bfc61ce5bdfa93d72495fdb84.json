@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/cleverbridge-robo-datos-tarjetas.html",
   "title": "Cleverbridge: robo de datos de tarjetas",
   "jpeg_sha256": "864e705b3b239e94032a2a3c3e710802577fb521b9693a86587ed83186a7cf58",
   "caption_sha256": "fefd2cf986797798eaf69bfdc5ac5157baf7d3e12121f63007570ece9a23330b",
-  "created_at": "2026-11-24T19:09:38.384481+00:00"
+  "created_at": "2026-11-24T19:09:38.384481+00:00",
+  "facebook_media_id": "875159429020764_122146101357183523",
+  "completed_at": "2026-11-24T19:09:43.647849+00:00"
 }

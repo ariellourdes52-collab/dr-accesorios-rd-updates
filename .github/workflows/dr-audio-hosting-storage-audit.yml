@@ -1,9 +1,8 @@
-name: DR Audio Hosting storage audit (read-only)
+name: DR Audio Hosting guarded cleanup
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/dr-audio-hosting-storage-audit.yml']
-  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -15,7 +14,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install --quiet google-auth requests
-      - name: Inventory Hosting sites, channels and versions without writes
+      - name: Remove redundant historical versions only
         env:
           FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
         shell: bash
@@ -26,7 +25,7 @@ jobs:
           from google.auth.transport.requests import AuthorizedSession
           info=json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
           project=info["project_id"]
-          creds=service_account.Credentials.from_service_account_info(info,scopes=["https://www.googleapis.com/auth/firebase.hosting.readonly"])
+          creds=service_account.Credentials.from_service_account_info(info,scopes=["https://www.googleapis.com/auth/firebase.hosting"])
           s=AuthorizedSession(creds)
           base="https://firebasehosting.googleapis.com/v1beta1/"
           def get(path,params=None):
@@ -66,5 +65,39 @@ jobs:
                   for rel in releases[:8]:
                       v=rel.get("version",{})
                       print("RECENT_RELEASE",json.dumps({"release":rel.get("name"),"version":v.get("name"),"status":v.get("status"),"bytes":v.get("versionBytes"),"time":rel.get("releaseTime")}))
-          print("AUDIT COMPLETE - no writes; logical version bytes are not unique billed bytes")
+          # Explicitly scoped to the historical versions observed in the audit.
+          root="sites/dr-accesorios-rd"
+          candidates=["038e17a28b15d822","ac83d2d8bb4e48e8","6d098970cd77a07e","a16e6629490873f1","56d139fb896a1a81"]
+          keep={"b6bb96430f29ecb4","4b9b8690902b3244","e16d1bce259e7c10"}
+          def inventory(version):
+              return {x["path"]:x["hash"] for x in pages(root+"/versions/"+version+"/files","files")}
+          def live():
+              channels=list(pages(root+"/channels","channels"))
+              assert len(channels)==1 and channels[0]["name"].endswith("/live"), "Unexpected channel inventory"
+              return channels[0]["release"]["version"]["name"].rsplit("/",1)[-1]
+          initial=live()
+          assert initial=="b6bb96430f29ecb4", "Live version changed; stop"
+          current=inventory(initial)
+          assert current, "Empty live inventory"
+          for version in candidates:
+              assert version not in keep and live()==initial
+              meta=get(root+"/versions/"+version)
+              if meta.get("status")!="FINALIZED":
+                  print("SKIP status",version,meta.get("status")); continue
+              old=inventory(version)
+              assert old, "Empty old inventory"
+              # Only delete versions whose entire file content remains in live
+              # or one of the two preserved rollback versions.
+              preserved=set(current.values())
+              for k in keep-{initial}: preserved.update(inventory(k).values())
+              missing=set(old.values())-preserved
+              if missing:
+                  print("SKIP unique historical content",version,len(missing)); continue
+              assert live()==initial
+              r=s.delete(base+root+"/versions/"+version,timeout=30)
+              print("DELETE",version,r.status_code,flush=True)
+              r.raise_for_status()
+          assert live()==initial
+          print("GUARDED CLEANUP COMPLETE; live unchanged")
+
           PY

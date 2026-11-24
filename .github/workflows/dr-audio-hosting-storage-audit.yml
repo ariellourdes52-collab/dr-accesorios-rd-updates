@@ -1,0 +1,70 @@
+name: DR Audio Hosting storage audit (read-only)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/dr-audio-hosting-storage-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet google-auth requests
+      - name: Inventory Hosting sites, channels and versions without writes
+        env:
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os,json,collections
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+          info=json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
+          project=info["project_id"]
+          creds=service_account.Credentials.from_service_account_info(info,scopes=["https://www.googleapis.com/auth/firebase.hosting.readonly"])
+          s=AuthorizedSession(creds)
+          base="https://firebasehosting.googleapis.com/v1beta1/"
+          def get(path,params=None):
+              r=s.get(base+path,params=params,timeout=30)
+              if not r.ok:
+                  print("READ FAILED",path,r.status_code,flush=True)
+                  r.raise_for_status()
+              return r.json()
+          def pages(path,key):
+              token=None
+              while True:
+                  params={"pageSize":100}
+                  if token: params["pageToken"]=token
+                  page=get(path,params)
+                  yield from page.get(key,[])
+                  token=page.get("nextPageToken")
+                  if not token: return
+          sites=list(pages("projects/"+project+"/sites","sites"))
+          for site in sites:
+              site_id=site["name"].rsplit("/",1)[-1]
+              root="sites/"+site_id
+              channels=list(pages(root+"/channels","channels"))
+              active=set()
+              for ch in channels:
+                  version=ch.get("release",{}).get("version",{}).get("name","")
+                  if version: active.add(version.rsplit("/",1)[-1])
+                  print("CHANNEL",json.dumps({"site":site_id,"channel":ch["name"].rsplit("/",1)[-1],"retention":ch.get("retainedReleaseCount"),"activeVersion":version}))
+              versions=list(pages(root+"/versions","versions"))
+              counts=collections.Counter(v.get("status","UNKNOWN") for v in versions)
+              sizes=collections.Counter()
+              for v in versions:
+                  sizes[v.get("status","UNKNOWN")]+=int(v.get("versionBytes",0))
+              print("SITE",json.dumps({"site":site_id,"versions":dict(counts),"logicalBytesByStatus":dict(sizes),"activeVersions":len(active),"activeLogicalBytes":sum(int(v.get("versionBytes",0)) for v in versions if v["name"].rsplit("/",1)[-1] in active)}))
+              if site_id=="dr-accesorios-rd":
+                  releases=list(pages(root+"/channels/live/releases","releases"))
+                  print("LIVE_RELEASE_COUNT",len(releases))
+                  for rel in releases[:8]:
+                      v=rel.get("version",{})
+                      print("RECENT_RELEASE",json.dumps({"release":rel.get("name"),"version":v.get("name"),"status":v.get("status"),"bytes":v.get("versionBytes"),"time":rel.get("releaseTime")}))
+          print("AUDIT COMPLETE - no writes; logical version bytes are not unique billed bytes")
+          PY

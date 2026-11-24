@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/jensen-huang-regresa-ceo-nvidia-acciones-suben.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "452c3bf647d06603ec4a340ad64df67696611e577a4516d1525e18b28e341bd1",
   "caption_sha256": "90875e547478424f3b134ce540979ec170cdf4399bc4a5b9f58233d3c9401715",
   "created_at": "2026-11-24T01:09:52.482382+00:00",
-  "container_id": "17999797113110510"
+  "container_id": "17999797113110510",
+  "threads_media_id": "18070078715686124",
+  "completed_at": "2026-11-24T01:10:02.246678+00:00"
 }

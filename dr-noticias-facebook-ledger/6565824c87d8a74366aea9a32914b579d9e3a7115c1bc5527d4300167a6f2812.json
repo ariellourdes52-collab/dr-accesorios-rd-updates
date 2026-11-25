@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/cia-odni-brecha-datos-no-clasificados.html",
   "title": "Reportan una brecha informática en la CIA",
   "jpeg_sha256": "6d9bc87c6732844d7008da59d528403f6a8f8451410fa4e33e8e69a437ce8dbe",
   "caption_sha256": "57fae20390dfea95ee25eb962db224841f408db78501de44a964296420f86a9d",
-  "created_at": "2026-11-25T19:09:29.977201+00:00"
+  "created_at": "2026-11-25T19:09:29.977201+00:00",
+  "facebook_media_id": "875159429020764_122146208709183523",
+  "completed_at": "2026-11-25T19:09:34.423249+00:00"
 }

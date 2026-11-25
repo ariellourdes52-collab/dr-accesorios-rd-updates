@@ -5,6 +5,9 @@ on:
     paths: ['.github/workflows/dr-audio-hosting-storage-audit.yml']
 permissions:
   contents: read
+concurrency:
+  group: dr-accesorios-rd-production-release
+  cancel-in-progress: false
 jobs:
   audit:
     runs-on: ubuntu-latest
@@ -79,6 +82,18 @@ jobs:
           assert initial=="b6bb96430f29ecb4", "Live version changed; stop"
           current=inventory(initial)
           assert current, "Empty live inventory"
+          preserved=set(current.items())
+          retained_configs=[get(root+"/versions/"+initial).get("config",{})]
+          for k in sorted(keep-{initial}):
+              retained=get(root+"/versions/"+k)
+              assert retained.get("status")=="FINALIZED", "Rollback unavailable"
+              rollback=inventory(k)
+              assert rollback, "Empty rollback inventory"
+              preserved.update(rollback.items())
+              retained_configs.append(retained.get("config",{}))
+          # Permit obsolete catalog snapshots only; never remove unique media,
+          # site files, or serving configurations. Keep both rollback versions.
+          deleted=0
           for version in candidates:
               assert version not in keep and live()==initial
               meta=get(root+"/versions/"+version)
@@ -86,18 +101,19 @@ jobs:
                   print("SKIP status",version,meta.get("status")); continue
               old=inventory(version)
               assert old, "Empty old inventory"
-              # Only delete versions whose entire file content remains in live
-              # or one of the two preserved rollback versions.
-              preserved=set(current.values())
-              for k in keep-{initial}: preserved.update(inventory(k).values())
-              missing=set(old.values())-preserved
-              if missing:
-                  print("SKIP unique historical content",version,len(missing)); continue
+              missing=sorted((p,h) for p,h in old.items() if (p,h) not in preserved)
+              print("HISTORICAL_DIFFERENCES",version,json.dumps([p for p,h in missing]))
+              if any(p!="/dr-audio/index.json" for p,h in missing):
+                  print("SKIP unique non-catalog content",version); continue
+              if meta.get("config",{}) not in retained_configs:
+                  print("SKIP unique serving config",version); continue
               assert live()==initial
               r=s.delete(base+root+"/versions/"+version,timeout=30)
               print("DELETE",version,r.status_code,flush=True)
               r.raise_for_status()
+              deleted+=1
           assert live()==initial
-          print("GUARDED CLEANUP COMPLETE; live unchanged")
+          assert inventory(initial)==current, "Live inventory changed"
+          print("GUARDED CLEANUP COMPLETE; deleted versions:",deleted,"; live unchanged")
 
           PY

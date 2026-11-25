@@ -159,7 +159,8 @@ def preliminary_payload(event: dict[str, Any]) -> dict[str, str]:
 def poll_preliminary(session: Any, now_ms: int, official_alerts: list[dict[str, Any]],
                      get_meta: Callable[[str], str | None],
                      set_meta: Callable[[str, str], None],
-                     sender: Callable[[dict[str, str]], tuple[int, int]]) -> dict[str, int | bool]:
+                     sender: Callable[[dict[str, str]], tuple[int, int]],
+                     skip_event: Callable[[dict[str, Any]], bool] | None = None) -> dict[str, int | bool]:
     """Send only new EMSC records, with an initial non-notifying baseline."""
     events = fetch_emsc(session, now_ms)
     raw = get_meta(STATE_KEY)
@@ -172,7 +173,7 @@ def poll_preliminary(session: Any, now_ms: int, official_alerts: list[dict[str, 
     for event in events:
         if event["id"] in seen:
             continue
-        if any(matches_usgs(event, x) for x in official_alerts):
+        if (skip_event is not None and skip_event(event)) or any(matches_usgs(event, x) for x in official_alerts):
             entries.append({**event, "sent": False})
         else:
             delivered, removed = sender(preliminary_payload(event))

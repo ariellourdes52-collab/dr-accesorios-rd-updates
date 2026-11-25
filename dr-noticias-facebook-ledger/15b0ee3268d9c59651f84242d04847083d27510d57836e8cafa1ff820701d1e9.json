@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/lords-of-the-fallen-ii-retraso-abril-2027.html",
   "title": "Lords of the Fallen II se retrasa a abril",
   "jpeg_sha256": "edcad23986a580ff78f153b3d822f4b2a4ce227db34ac93ede3727e8a61ce37e",
   "caption_sha256": "7981fe14bb6a5a19f170889754826ad431cd90fe7fa24b02bf7faa8a3a3391db",
-  "created_at": "2026-11-25T13:09:32.579786+00:00"
+  "created_at": "2026-11-25T13:09:32.579786+00:00",
+  "facebook_media_id": "875159429020764_122146185153183523",
+  "completed_at": "2026-11-25T13:09:38.672254+00:00"
 }

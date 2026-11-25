@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/cia-odni-brecha-datos-no-clasificados.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "6d9bc87c6732844d7008da59d528403f6a8f8451410fa4e33e8e69a437ce8dbe",
   "caption_sha256": "31e239e7c6e5cf047907ea17cd435fe11f41db994721f90f4743bbfd2fe8a377",
   "created_at": "2026-11-25T19:09:48.891601+00:00",
-  "container_id": "18000169374110510"
+  "container_id": "18000169374110510",
+  "threads_media_id": "18029197502941577",
+  "completed_at": "2026-11-25T19:09:59.652374+00:00"
 }

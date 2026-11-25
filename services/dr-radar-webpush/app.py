@@ -473,7 +473,10 @@ def monitor_loop() -> None:
                     )
             current_keys = [alert_key(a) for a in alerts if alert_key(a)]
             raw_seen = get_meta("seen_alert_keys")
+            from web_seismic_dedup import dispatch_feed
             if raw_seen is None:
+                dispatch_feed(alerts, set(), alert_key, send_alert, get_meta, set_meta,
+                              int(time.time() * 1000), baseline=True)
                 set_meta("seen_alert_keys", json.dumps(current_keys))
                 print(f"[webpush] radar baseline initialized with {len(current_keys)} active alerts", flush=True)
             else:
@@ -481,13 +484,8 @@ def monitor_loop() -> None:
                     seen = set(json.loads(raw_seen))
                 except Exception:
                     seen = set()
-                fresh = [a for a in alerts if alert_key(a) not in seen]
-                for alert in fresh:
-                    sent, removed = send_alert(alert)
-                    print(
-                        f"[webpush] new alert key={alert_key(alert)!r} sent={sent} removed={removed}",
-                        flush=True,
-                    )
+                dispatch_feed(alerts, seen, alert_key, send_alert, get_meta, set_meta,
+                              int(time.time() * 1000))
                 merged = list(dict.fromkeys(current_keys + list(seen)))[:500]
                 set_meta("seen_alert_keys", json.dumps(merged))
             radar_ok = True
@@ -504,8 +502,11 @@ def monitor_loop() -> None:
                 # source. Compare with the official entries if available.
                 # The EMSC-RTS earthquake catalogue itself remains required.
                 official = [a for a in alerts if a.get("_origin") == "seismic"] if radar_ok else []
-                poll_preliminary(_session, int(time.time() * 1000), official,
-                                 get_meta, set_meta, send_payload)
+                from web_seismic_dedup import skip_direct
+                now_ms = int(time.time() * 1000)
+                poll_preliminary(_session, now_ms, official,
+                                 get_meta, set_meta, send_payload,
+                                 skip_event=lambda event: skip_direct(event, get_meta, now_ms))
             except Exception as preliminary_error:
                 print("[webpush] EMSC preliminary poll error: " +
                       type(preliminary_error).__name__, flush=True)

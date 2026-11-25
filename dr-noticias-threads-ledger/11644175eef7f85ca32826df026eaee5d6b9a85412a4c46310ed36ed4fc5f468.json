@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/lords-of-the-fallen-ii-retraso-abril-2027.html",
   "title": "Lords of the Fallen II se retrasa a abril",
   "jpeg_sha256": "edcad23986a580ff78f153b3d822f4b2a4ce227db34ac93ede3727e8a61ce37e",
   "caption_sha256": "a12bbe35fcf804a3fa12062c72824d26b949dc9cb1894dcf2df2509be868ee56",
-  "created_at": "2026-11-25T13:09:52.594072+00:00"
+  "created_at": "2026-11-25T13:09:52.594072+00:00",
+  "container_id": "18000118122110510"
 }

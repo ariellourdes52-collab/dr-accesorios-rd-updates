@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/microsoft-codigo-rojo-caida-microsoft-365.html",
   "title": "Microsoft activa código rojo tras su gran caída",
   "jpeg_sha256": "6b69e6b4cef190f68765ae392bf200e7c46654f4d79af41f68244d8ee7b8843b",
   "caption_sha256": "4508196eeef41ee45840f11cceb8bb08147e6abba81bc08d13117e18c48f8281",
-  "created_at": "2026-11-25T23:09:54.313679+00:00"
+  "created_at": "2026-11-25T23:09:54.313679+00:00",
+  "container_id": "18000194307110510"
 }

@@ -1,10 +1,12 @@
 {
-  "status": "container_created",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/fincen-ciberincidente-sistemas-desconectados-2026.html",
   "title": "FinCEN desconecta sistemas tras ciberincidente",
   "image_sha256": "8685e26b9da0982c777793e8a3569630c36d6065dff45609ce32f077a17ece99",
   "caption_sha256": "0bb36c5500d2981c3efc1dede080e5d66500a0b765fb20c3b019626666b5e6db",
   "created_at": "2026-11-26T19:09:11.813475+00:00",
-  "container_id": "18186312487429315"
+  "container_id": "18186312487429315",
+  "instagram_media_id": "17933050794201263",
+  "completed_at": "2026-11-26T19:09:21.664140+00:00"
 }

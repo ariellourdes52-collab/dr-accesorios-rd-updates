@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/playstation-plus-juegos-diciembre-2026.html",
   "title": "PlayStation Plus anuncia sus juegos de diciembre",
   "image_sha256": "33f28aa39c71fbc3e0bace29767d78d6d8f2f130b3a661bb5eeee8a54d909c86",
   "caption_sha256": "985ab1db37fa211f9cb0403db92e6cc589f6547717985ac5ff3ca4278177328f",
-  "created_at": "2026-11-26T13:09:04.505008+00:00"
+  "created_at": "2026-11-26T13:09:04.505008+00:00",
+  "container_id": "18186287773429315"
 }

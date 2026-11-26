@@ -1,9 +1,11 @@
 {
   "platform": "x",
-  "status": "reserved",
+  "status": "published",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/playstation-plus-juegos-diciembre-2026.html",
   "caption_sha256": "5ab50b79462da6aacd33bcf5a2d480833cbbafde8acfc8f56a035fb99c990898",
   "image_sha256": "33f28aa39c71fbc3e0bace29767d78d6d8f2f130b3a661bb5eeee8a54d909c86",
-  "created_at": "2026-11-26T13:10:22.162365+00:00"
+  "created_at": "2026-11-26T13:10:22.162365+00:00",
+  "x_post_id": "2125940244528738793",
+  "published_at": "2026-11-26T13:10:27.275674+00:00"
 }

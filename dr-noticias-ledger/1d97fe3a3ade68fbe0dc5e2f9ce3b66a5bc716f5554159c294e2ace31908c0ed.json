@@ -1,9 +1,10 @@
 {
-  "status": "reserved",
+  "status": "container_created",
   "account": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/dell-resultados-ingresos-servidores-ia-2026.html",
   "title": "Dell duplica ingresos impulsada por la IA",
   "image_sha256": "6552f3f929d37c767d844cfa2ed1103ad2fc756711db3ffc9d277a245520be87",
   "caption_sha256": "52769581d99113e9832c2a86b575e72f4621803b121336eb0a5fbee83932546f",
-  "created_at": "2026-11-26T23:09:06.871290+00:00"
+  "created_at": "2026-11-26T23:09:06.871290+00:00",
+  "container_id": "18186327190429315"
 }

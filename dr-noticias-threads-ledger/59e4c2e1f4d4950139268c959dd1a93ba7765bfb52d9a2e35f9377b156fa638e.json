@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/whatsapp-programar-mensajes-chats-grupos-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "a2a8260a427353dbb6b78f13e6930f25699e9224efda093d9e9e5cf2a169068c",
   "caption_sha256": "dd9c16191df2983b9c7f0e14a3d5521bc07f80cfc9230b8ddc5e7fdc0b8059f8",
   "created_at": "2026-11-26T15:09:46.291775+00:00",
-  "container_id": "18000336105110510"
+  "container_id": "18000336105110510",
+  "threads_media_id": "18111056006370934",
+  "completed_at": "2026-11-26T15:09:55.036120+00:00"
 }

@@ -1,11 +1,12 @@
 {
   "platform": "threads",
-  "status": "reserved",
+  "status": "container_created",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/drupal-vulnerabilidad-critica-cve-2026-136716.html",
   "title": "Drupal alerta de una vulnerabilidad crítica",
   "jpeg_sha256": "fa8201ae2884ceca4c2ff80712cb573307ecaa4389779ed1c1f5857ab13bcd5c",
   "caption_sha256": "51310dac11a765771f0d0d9e21d3b2fc38786d12435505ee6cb5e148e42a48ec",
-  "created_at": "2026-11-27T19:10:04.611250+00:00"
+  "created_at": "2026-11-27T19:10:04.611250+00:00",
+  "container_id": "18000527286110510"
 }

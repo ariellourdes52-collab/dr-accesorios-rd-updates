@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nintendo-eshop-switch-2-lanzamientos-diciembre-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "c5b7f26ca8452958de49316defe066c387c001f1e0eb628da65860d74f5aefdc",
   "caption_sha256": "c2229be2af006d2a2431ed7ae7c06fd6b5d808a8cb0ec0f335dcf6dc2ab1bc24",
   "created_at": "2026-11-27T13:09:58.050027+00:00",
-  "container_id": "18000460860110510"
+  "container_id": "18000460860110510",
+  "threads_media_id": "18032424686864397",
+  "completed_at": "2026-11-27T13:10:06.840882+00:00"
 }

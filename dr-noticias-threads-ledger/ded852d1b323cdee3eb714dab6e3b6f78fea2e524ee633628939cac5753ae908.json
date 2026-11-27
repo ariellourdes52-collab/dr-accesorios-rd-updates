@@ -1,6 +1,6 @@
 {
   "platform": "threads",
-  "status": "container_created",
+  "status": "published",
   "account_id": "28329657306656174",
   "username": "drnoticiastech",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nvidia-asia-controles-chips-centros-datos-2026.html",
@@ -8,5 +8,7 @@
   "jpeg_sha256": "7b192333abb02427176469e47f31215e2691ce4fe778d6d5e843df7e7153bc91",
   "caption_sha256": "d9833a977e2907f6f34c0c77e5dfad5e5b9a7e4d6d5fdc024650b25466c42280",
   "created_at": "2026-11-27T23:09:50.001157+00:00",
-  "container_id": "18000557613110510"
+  "container_id": "18000557613110510",
+  "threads_media_id": "18352593373269543",
+  "completed_at": "2026-11-27T23:10:00.290859+00:00"
 }

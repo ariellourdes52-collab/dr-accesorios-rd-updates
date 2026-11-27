@@ -1,0 +1,204 @@
+name: QA bilingual Web App and Agenda (no deploy)
+on:
+  push:
+    branches: [feature/dr-webapp-agenda-ui-i18n-qa-20261015]
+  pull_request:
+    paths:
+      - 'landing/radar-alertas/index.html'
+      - 'landing/radar-alertas/agenda.html'
+      - 'agenda_site/agenda/index.html'
+      - 'tests/qa_bilingual_sites.cjs'
+permissions:
+  contents: read
+jobs:
+  static-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify addon-only diff and JavaScript syntax
+        run: node tests/qa_bilingual_sites.cjs
+
+  browser-qa:
+    name: Offline Chromium and WebKit (no deploy)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015'
+    needs: static-qa
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install test-only Playwright outside repository
+        run: |
+          mkdir -p "$RUNNER_TEMP/dr-browser-qa"
+          npm install --prefix "$RUNNER_TEMP/dr-browser-qa" --no-save --no-package-lock playwright@1.56.1
+          "$RUNNER_TEMP/dr-browser-qa/node_modules/.bin/playwright" install --with-deps chromium webkit
+      - name: Exercise isolated HTML and mock events without requests to production
+        env:
+          NODE_PATH: ${{ runner.temp }}/dr-browser-qa/node_modules
+        run: node tests/qa_bilingual_browser.cjs
+
+  preview-hosting-audit:
+    name: Validate Hosting identities (GET only)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install read-only Google auth client
+        run: python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Audit both Hosting destinations without mutations
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+          DR_PREVIEW_SITE_MODE: AUDIT_ONLY
+        run: python tests/audit_bilingual_preview_hosting.py
+
+  preview-channel-publish:
+    name: Preview channels PR41 only - never live
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: [static-qa, browser-qa, preview-hosting-audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    permissions:
+      contents: read
+    concurrency:
+      group: dr-pr41-bilingual-firebase-preview-only
+      cancel-in-progress: false
+    env:
+      DR_PREVIEW_MODE: QA41_PREVIEW_ONLY
+      DR_QA_BRANCH: ${{ github.head_ref }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated preview dependencies and syntax gate
+        run: |
+          python -m py_compile scripts/qa_bilingual_preview_channels.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+          mkdir -p "$RUNNER_TEMP/dr-preview-cli"
+          npm install --prefix "$RUNNER_TEMP/dr-preview-cli" --no-save --no-package-lock firebase-tools@14.21.0
+      - name: Create ONLY non-live expiring preview channels and guarded static bundles
+        run: python scripts/qa_bilingual_preview_channels.py prepare
+      - name: Publish Agenda ONLY to preview channel
+        run: |
+          "$RUNNER_TEMP/dr-preview-cli/node_modules/.bin/firebase" hosting:channel:deploy qa-bilingual-pr41 --project dr-accesorios-rd --config "$RUNNER_TEMP/dr-pr41-agenda.firebase.json" --non-interactive --expires 7d
+      - name: Publish Web App ONLY to preview channel
+        run: |
+          "$RUNNER_TEMP/dr-preview-cli/node_modules/.bin/firebase" hosting:channel:deploy qa-bilingual-pr41 --project dr-accesorios-rd --config "$RUNNER_TEMP/dr-pr41-web.firebase.json" --non-interactive --expires 7d
+      - name: Verify preview URLs and both unchanged LIVE releases
+        run: python scripts/qa_bilingual_preview_channels.py verify
+
+  production-inventory-preflight:
+    name: Audit LIVE inventory (read only, never deploy)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    env:
+      DR_PROD_CHECK: READ_ONLY
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only preflight requirements
+        run: |
+          python -m py_compile tests/preflight_bilingual_production.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Check exact LIVE inventories, source parity and existing event languages
+        run: python tests/preflight_bilingual_production.py
+
+  full-live-overlay-audit:
+    name: Audit exact LIVE bytes with overlay (GET only)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    env:
+      DR_PROD_CANDIDATE: READ_ONLY
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install read-only hosting library
+        run: |
+          python -m py_compile tests/audit_full_bilingual_candidate.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Check exact LIVE hashes and unchanged configuration; no writes
+        run: python tests/audit_full_bilingual_candidate.py
+
+  full-manifest-preview-qa:
+    name: Full LIVE-preserving bilingual preview (never LIVE)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015'
+    needs: [static-qa, browser-qa, full-live-overlay-audit, production-inventory-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    permissions:
+      contents: read
+    concurrency:
+      group: dr-pr41-full-manifest-preview-only
+      cancel-in-progress: false
+    env:
+      DR_FULL_QA_PREVIEW: PREVIEW_ONLY
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile guarded candidate scripts and install API-only dependencies
+        run: |
+          python -m py_compile scripts/pr41_full_live_preserving_preview.py tests/audit_full_bilingual_candidate.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Create full-file preview channels only, with original LIVE config and hashes
+        run: python scripts/pr41_full_live_preserving_preview.py
+
+  approved-candidate-production-dry-run:
+    name: Check approved LIVE promotion (GET only, no writes)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 41 && github.event.pull_request.head.ref == 'feature/dr-webapp-agenda-ui-i18n-qa-20261015' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: [full-live-overlay-audit, production-inventory-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      contents: read
+    env:
+      DR_PR41_RELEASE_MODE: DRY_RUN
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate release script and read-only dependencies
+        run: |
+          python -m py_compile scripts/pr41_promote_approved_candidate.py
+          python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Confirm both exact approved versions, LIVE configs and preserved service hashes
+        run: python scripts/pr41_promote_approved_candidate.py
+
+  one-time-approved-live-release:
+    name: One-time approved PR41 LIVE promotion with verification and rollback
+    if: >-
+      github.event_name == 'push' && github.event.head_commit.message == 'release(pr41): approved one-time bilingual production promotion' && github.ref == 'refs/heads/feature/dr-webapp-agenda-ui-i18n-qa-20261015' && github.repository == 'ariellourdes52-collab/dr-accesorios-rd-updates'
+    needs: [static-qa]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    concurrency:
+      group: dr-pr41-one-time-live-promotion
+      cancel-in-progress: false
+    env:
+      DR_APPROVAL_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DR_ACCESORIOS_RD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate exact approved source script
+        run: python -m py_compile scripts/pr41_promote_approved_candidate.py
+      - name: Install Firebase auth API client
+        run: python -m pip install --disable-pip-version-check --quiet 'google-auth>=2.29,<3' 'requests>=2.31,<3'
+      - name: Immediately recheck LIVE backups, approved candidate, config and all service file hashes (GET only)
+        env:
+          DR_PR41_RELEASE_MODE: DRY_RUN
+        run: python scripts/pr41_promote_approved_candidate.py
+      - name: Release exact approved versions to LIVE; Agenda first, Web App second; guarded rollback
+        env:
+          DR_PR41_RELEASE_MODE: APPROVED_LIVE_PROMOTION
+        run: python scripts/pr41_promote_approved_candidate.py

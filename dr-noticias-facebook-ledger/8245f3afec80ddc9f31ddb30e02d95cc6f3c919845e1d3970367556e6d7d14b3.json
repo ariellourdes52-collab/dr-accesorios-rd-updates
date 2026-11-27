@@ -1,10 +1,12 @@
 {
-  "status": "reserved",
+  "status": "published",
   "platform": "facebook",
   "page_id": "875159429020764",
   "article_url": "https://draccesoriosrd.blogspot.com/2026/11/nvidia-asia-controles-chips-centros-datos-2026.html",
   "title": "Nvidia y Asia afrontan nuevos controles de chips",
   "jpeg_sha256": "7b192333abb02427176469e47f31215e2691ce4fe778d6d5e843df7e7153bc91",
   "caption_sha256": "7162b36411cc673320241abb4da4c980dc288d45625d315e2ed2229c6d83e157",
-  "created_at": "2026-11-27T23:09:31.010528+00:00"
+  "created_at": "2026-11-27T23:09:31.010528+00:00",
+  "facebook_media_id": "875159429020764_122146423533183523",
+  "completed_at": "2026-11-27T23:09:35.863171+00:00"
 }
